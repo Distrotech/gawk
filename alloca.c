@@ -54,7 +54,7 @@ typedef char	*pointer;		/* generic pointer type */
 #define	NULL	0			/* null pointer constant */
 
 extern void	free();
-extern pointer	xmalloc();
+extern pointer	malloc();
 
 /*
 	Define STACK_DIRECTION if you know the direction of stack
@@ -175,7 +175,7 @@ alloca (size)			/* returns pointer to storage */
   /* Allocate combined header + user data storage. */
 
   {
-    register pointer	new = xmalloc (sizeof (header) + size);
+    register pointer	new = malloc (sizeof (header) + size);
     /* address of header */
 
     ((header *)new)->h.next = last_alloca_header;

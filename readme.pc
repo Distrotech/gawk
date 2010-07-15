@@ -1,0 +1,15 @@
+Despite valiant efforts to have a completely integrated DOS/Non-DOS release
+of Gnu Awk, there are the following differences between the releases this
+time (v2.10):
+	1.  The DOS distro has been split into two files: gawk210.zoo and
+	gawkdoc.zoo.  gawk210 has the source, licensing/readme files, the
+	nroff output of gawk.1, and a large model DOS executable.
+	gawkdoc has all the document "source" code.  gawk.dvi (the TeX output
+	of gawk.texinfo) is gone.
+
+	2.  For the sake of simplicity, gnu.getopt.c is getopt.c and att.getopt.c
+	is getopt.att.  This also avoids naming problems.
+
+
+Scott Garfinkle
+smsdpg!seg@uunet.uu.net

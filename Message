@@ -1,0 +1,22 @@
+From: seg@smsdpg.uu.net (Scott Garfinkle)
+Newsgroups: comp.binaries.ibm.pc.d
+Subject: Patch #1 to Gnu Awk 2.10
+Message-ID: <255@smsdpg.uu.net>
+Date: 26 Apr 89 21:36:47 GMT
+References: <KPETERSEN.12486014569.BABYL@WSMR-SIMTEL20.ARMY.MIL>
+Organization: SMS Data Products Group, Reston VA
+Lines: 433
+
+>From article <KPETERSEN.12486014569.BABYL@WSMR-SIMTEL20.ARMY.MIL>, by w8sdz@WSMR-SIMTEL20.ARMY.MIL (Keith Petersen):
+> The GNU project has just released their official MS-DOS version of
+> GAWK 2.10.  It is now available from Simtel20.
+
+Apropos to this, I am posting a PC_specific patch to gawk 2.10.
+This patch, courtesy of Kent Williams (williams@umaxc.weeg.uiowa.edu),
+implements the pipe ('|') operator on the PC.  It is an official patch and
+brings gawk to v2.10.1.
+
+	Scott E. Garfinkle
+	SMS Data Products Group, Inc.
+	uunet!smsdpg!seg (seg@smsdpg.uu.net)
+----- cut here -------

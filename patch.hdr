@@ -1,0 +1,29 @@
+>From williams@umaxc.weeg.uiowa.edu Thu Apr 13 08:39:33 1989
+Received: from umaxc.weeg.uiowa.edu (5040ff80) by iris (1.2/3.14)
+    id AA03661; Thu, 13 Apr 89 08:39:16 pdt
+Received: by umaxc.weeg.uiowa.edu (5.59/890106)
+      on Thu, 13 Apr 89 10:23:27 CDT id AA02800
+Date: Thu, 13 Apr 89 10:23:27 CDT
+From: Kent Williams <williams@umaxc.weeg.uiowa.edu>
+Message-Id: <8904131523.AA02800@umaxc.weeg.uiowa.edu>
+To: kwok@iris.ucdavis.edu
+Status: RO
+
+Hey Guys,
+
+I pulled the latest awk down off of prep.ai.mit.edu.  Here are my changes.
+The problems I found are
+
+1. the tmpnam function for MSC 5.1 can't handle the template you gave it.
+   It seems to object to the '.tmp' extension.
+
+2. I added pipes.  The implementation is simple minded, but it works.
+
+3. In the pathopen code, the code that loops through the path falls off the
+   end.  It also requires that '.' be in the gawk path, which is something
+   I'm not sure should be required.
+
+4. There are some clashes in awk.h between the standard include files
+   and the local definitions of malloc and realloc.  I may not be entirely
+   together on this, as I've hacked up my bison.simple to not use alloca.
+

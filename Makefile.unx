@@ -42,7 +42,7 @@ PROFILE=#-pg
 SYSV=-DUSG
 #BSD=-DBSD#-DHASDOPRNT
 MEMCMP=#-DNOMEMCMP
-VPRINTF=#-DNOVPRINTF
+VPRINTF=-DNOVPRINTF
 CC=cc
   
 FLAGS= $(OPTIMIZE) $(SYSV) $(DEBUG) $(BSD) $(MEMCMP) $(VPRINTF)
@@ -59,7 +59,7 @@ AWKOBJS = awk1.o awk2.o awk3.o awk4.o awk5.o awk6.o awk7.o awk8.o awk9.o \
 ALLOBJS = $(AWKOBJS) awk.tab.o
 
 # Parser to use on grammar -- if you don't have bison use the first one
-#PARSER = yacc
+PARSER = yacc
 #PARSER = bison
 
 # S5OBJS
@@ -104,6 +104,7 @@ $(AWKOBJS): awk.h
 awk.tab.o: awk.h awk.tab.c
 
 awk.tab.c: awk.y
+	$(PARSER) -v awk.y
 	-mv -f y.tab.c awk.tab.c
 
 # Alloca: uncomment this if your system (notably System V boxen)
@@ -117,7 +118,7 @@ awk.tab.c: awk.y
 # If your machine is not supported by the assembly version of alloca.s,
 # use the C version instead.  This uses the default rules to make alloca.o.
 #
-alloca.o: alloca.c
+#alloca.o: alloca.c
 
 lint: $(SRC)
 	lint -hcbax $(FLAGS) $(SRC) awk.tab.c

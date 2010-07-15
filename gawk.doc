@@ -1,0 +1,1056 @@
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+NAME
+     gawk - pattern scanning and processing language
+
+SYNOPSIS
+     gawk [ -Ffs ] -f program-file [ -f program-file ... ] [ -- ]
+     file ...
+     gawk [ -Ffs ] [ -- ] program-text file ...
+
+DESCRIPTION
+     Gawk is the GNU Project's implementation of the AWK program-
+     ming  language.   It conforms to the definition and descrip-
+     tion of the language in The  AWK  Programming  Language,  by
+     Aho, Kernighan, and Weinberger, with the additional features
+     defined in the System V Release 4 version of UNIX awk.
+
+     The command line consists of options to gawk itself, the AWK
+     program text (if not supplied via the -f option), and values
+     to be made available in the ARGC and  ARGV  pre-defined  AWK
+     variables.
+
+     The options that gawk accepts are:
+
+     -Ffs Use fs for the input field separator (the value of  the
+          FS predefined variable).
+
+     -f program-file
+          Read the AWK program source from the file program-file,
+          instead of from the first command line argument.
+
+     --   Signal the end of options.  This  is  useful  to  allow
+          further  arguments  to  the AWK program itself to start
+          with a ``-''.  This is mainly for consistency with  the
+          argument parsing convention used by most other System V
+          programs.
+
+     Any other options are flagged as illegal, but are  otherwise
+     ignored.  (However, see the GNU EXTENSIONS section, below.)
+
+     An AWK program consists  of  a  sequence  of  pattern-action
+     statements and optional function definitions.
+
+          pattern   { action statements }
+          function name(parameter list) { statements }
+
+     Gawk first reads the program source from the program-file(s)
+     if  specified,  or from the first non-option argument on the
+     command line.  The -f option may be used multiple  times  on
+     the command line.  Gawk will read the program text as if all
+     the program-files had been concatenated together.   This  is
+     useful for building libraries of AWK functions, without hav-
+     ing to include them in each new AWK program that uses  them.
+     To  use a library function in a file from a program typed in
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             1
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     on  the  command  line,  specify  /dev/tty  as  one  of  the
+     program-files,  type  your  program,  and  end  it with a ^D
+     (control-d).
+
+     The environment variable AWKPATH specifies a search path  to
+     use  when finding source files named with the -f option.  If
+     this  variable  does  not  exist,  the   default   path   is
+     ".:/usr/lib/awk:/usr/local/lib/awk".   If  a file name given
+     to the -f option contains a ``/'' character, no path  search
+     is performed.
+
+     Gawk compiles the program into an internal  form,  and  then
+     proceeds  to  read  each  file  named in the ARGV array.  If
+     there are no files named on the command line, gawk reads the
+     standard input.
+
+     If a ``file'' named on the command line has the form var=val
+     it  is  treated  as  a variable assignment. The variable var
+     will be assigned the value val.  This  is  most  useful  for
+     dynamically  assigning  values  to the variables AWK uses to
+     control how input is broken into fields and records.  It  is
+     also  useful  for  controlling  state if multiple passes are
+     needed over a single data file.
+
+     For each line in the input, gawk tests to see if it  matches
+     any  pattern  in the AWK program.  For each pattern that the
+     line matches, the associated action is executed.
+
+VARIABLES AND FIELDS
+     AWK variables are dynamic; they  come  into  existence  when
+     they  are first used. Their values are either floating-point
+     numbers or strings, depending upon how they  are  used.  AWK
+     also  has  single  dimension  arrays;  multiply  dimensioned
+     arrays may be  simulated.   There  are  several  pre-defined
+     variables  that  AWK  sets  as a program runs; these will be
+     described as needed and summarized below.
+
+     As each input line  is  read,  gawk  splits  the  line  into
+     fields,  using  the  value  of  the FS variable as the field
+     separator.   If  FS  is  a  single  character,  fields   are
+     separated  by  that character.  Otherwise, FS is expected to
+     be a full regular expression.  In the special case  that  FS
+     is  a  single  blank, fields are separated by runs of blanks
+     and/or tabs.  Note that the value of IGNORECASE (see  below)
+     will  also  affect how fields are split when FS is a regular
+     expression.
+
+     Each field in the input line may be referenced by its  posi-
+     tion, $1, $2, and so on.  $0 is the whole line. The value of
+     a field may be assigned to as  well.   Fields  need  not  be
+     referenced by constants:
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             2
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+          n = 5
+          print $n
+
+     prints the fifth field in the input line.  The  variable  NF
+     is set to the total number of fields in the input line.
+
+     References to non-existent fields (i.e. fields  after  $NF),
+     produce  the  null-string.  However,  assigning  to  a  non-
+     existent field (e.g., $(NF+2) = 5) will increase  the  value
+     of NF, create any intervening fields with the null string as
+     their value, and cause the value of  $0  to  be  recomputed,
+     with the fields being separated by the value of OFS.
+
+  Built-in Variables
+     AWK's built-in variables are:
+
+          ARGC the number of command  line  arguments  (does  not
+               include options to gawk, or the program source).
+
+          ARGV array of command  line  arguments.  The  array  is
+               indexed  from 0 to ARGC - 1.  Dynamically changing
+               the contents of ARGV can control  the  files  used
+               for data.
+
+          ENVIRON
+               An array containing  the  values  of  the  current
+               environment.  The array is indexed by the environ-
+               ment variables, each element being  the  value  of
+               that  variable  (e.g.,  ENVIRON["HOME"]  might  be
+               /u/arnold).  Changing this array does  not  affect
+               the environment seen by programs which gawk spawns
+               via redirection or the system function.
+
+          FILENAME
+               the name of the current input file.  If  no  files
+               are  specified  on  the command line, the value of
+               FILENAME is ``-''.
+
+          FNR  the input record number in the current input file.
+
+          FS   the input field separator, a blank by default.
+
+          IGNORECASE
+               Controls  the  case-sensitivity  of  all   regular
+               expression  operations.  If  IGNORECASE has a non-
+               zero value, then pattern matching in rules,  field
+               splitting  with  FS,  regular  expression matching
+               with ~ and !~, and the gsub(),  match(),  split(),
+               and  sub()  pre-defined  functions will all ignore
+               case when  doing  regular  expression  operations.
+               Thus,  if  IGNORECASE  is  not equal to zero, /aB/
+               matches all of the strings "ab", "aB",  "Ab",  and
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             3
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+               "AB".   As  with  all  AWK  variables, the initial
+               value  of  IGNORECASE  is  zero,  so  all  regular
+               expression operations are normally case-sensitive.
+
+          NF   the number of fields in the current input record.
+
+          NR   the total number of input records seen so far.
+
+          OFMT the output format for numbers, %.6g by default.
+
+          OFS  the output field separator, a blank by default.
+
+          ORS  the output record separator, by default a newline.
+
+          RS   the input record separator, by default a  newline.
+               RS is exceptional in that only the first character
+               of  its  string  value  is  used  for   separating
+               records.  If  RS  is  set to the null string, then
+               records are separated by blank lines.  When RS  is
+               set to the null string, then the newline character
+               always acts as a field separator, in  addition  to
+               whatever value FS may have.
+
+          RSTART
+               the  index  of  the  first  character  matched  by
+               match(); 0 if no match.
+
+          RLENGTH
+               the length of the string matched by match(); -1 if
+               no match.
+
+          SUBSEP
+               the character used to separate multiple subscripts
+               in array elements, by default "\034".
+
+  Arrays
+     Arrays are subscripted with  an  expression  between  square
+     brackets ([ and ]).  If the expression is an expression list
+     (expr, expr ...) then the array subscript is a  string  con-
+     sisting  of  the concatenation of the (string) value of each
+     expression, separated by the value of the  SUBSEP  variable.
+     This  facility  is  used  to  simulate  multiply dimensioned
+     arrays. For example:
+
+          i = "A" ; j = "B" ; k = "C"
+          x[i,j,k] = "hello, world\n"
+
+     assigns the string "hello, world\n" to the  element  of  the
+     array  x  which  is indexed by the string "A\034B\034C". All
+     arrays in  AWK  are  associative,  i.e.  indexed  by  string
+     values.
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             4
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     The special operator in may be used in an if or while state-
+     ment to see if an array has an index consisting of a partic-
+     ular value.
+
+          if (val in array)
+               print array[val]
+
+     If the array has multiple subscripts, use (i, j) in array.
+
+     The in construct may also be used in a for loop  to  iterate
+     over all the elements of an array.
+
+     An element may be deleted from an  array  using  the  delete
+     statement.
+
+  Variable Typing
+     Variables and fields may be  (floating  point)  numbers,  or
+     strings, or both. How the value of a variable is interpreted
+     depends upon its context. If used in a  numeric  expression,
+     it  will be treated as a number, if used as a string it will
+     be treated as a string.
+
+     To force a variable to be treated as a number, add 0 to  it;
+     to  force  it to be treated as a string, concatenate it with
+     the null string.
+
+     The AWK language defines comparisons as being  done  numeri-
+     cally  if  possible, otherwise one or both operands are con-
+     verted to strings and a string comparison is performed.
+
+     Uninitialized variables have the numeric  value  0  and  the
+     string value "" (the null, or empty, string).
+
+PATTERNS AND ACTIONS
+     AWK is a line oriented language. The  pattern  comes  first,
+     and then the action. Action statements are enclosed in { and
+     }.  Either the pattern may be missing, or the action may  be
+     missing,  but,  of course, not both. If the pattern is miss-
+     ing, the action will be executed for every  single  line  of
+     input.  A missing action is equivalent to
+
+          { print }
+
+     which prints the entire line.
+
+     Comments begin with the ``#'' character, and continue  until
+     the  end  of  the line.  Blank lines may be used to separate
+     statements.  Normally, a statement ends with a newline, how-
+     ever,  this  is  not  the  case for lines ending in a ``,'',
+     ``{'', ``?'', ``:'', ``&&'', or ``||''.  Lines ending in  do
+     or  else  also have their statements automatically continued
+     on the following line.   In  other  cases,  a  line  can  be
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             5
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     continued  by ending it with a ``\'', in which case the new-
+     line will be ignored.
+
+     Multiple statements may be put on  one  line  by  separating
+     them  with  a  ``;''.   This  applies to both the statements
+     within the action part of a pattern-action pair  (the  usual
+     case), and to the pattern-action statements themselves.
+
+  Patterns
+     AWK patterns may be one of the following:
+
+          BEGIN
+          END
+          /regular expression/
+          relational expression
+          pattern && pattern
+          pattern || pattern
+          pattern ? pattern : pattern
+          (pattern)
+          ! pattern
+          pattern1, pattern2
+
+     BEGIN and END are two special kinds of  patterns  which  are
+     not tested against the input.  The action parts of all BEGIN
+     patterns are merged as if all the statements had been  writ-
+     ten in a single BEGIN block. They are executed before any of
+     the input is read. Similarly, all the END blocks are merged,
+     and  executed  when  all  the input is exhausted (or when an
+     exit statement is executed).  BEGIN and END patterns  cannot
+     be  combined  with  other  patterns  in pattern expressions.
+     BEGIN and END patterns cannot have missing action parts.
+
+     For /regular expression/ patterns, the associated  statement
+     is  executed  for  each  input line that matches the regular
+     expression.  Regular expressions are the same  as  those  in
+     egrep(1), and are summarized below.
+
+     A relational expression may use any of the operators defined
+     below  in  the  section  on  actions.   These generally test
+     whether certain fields match certain regular expressions.
+
+     The &&, ||, and ! operators are logical AND, logical OR, and
+     logical  NOT,  respectively, as in C.  They do short-circuit
+     evaluation, also as in C, and are used  for  combining  more
+     primitive   pattern   expressions.  As  in  most  languages,
+     parentheses may be used to change the order of evaluation.
+
+     The ?: operator is like the same operator in C. If the first
+     pattern  is  true  then  the pattern used for testing is the
+     second pattern, otherwise it is the third. Only one  of  the
+     second and third patterns is evaluated.
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             6
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     The pattern1, pattern2 form of an  expression  is  called  a
+     range  pattern.   It matches all input lines starting with a
+     line that matches pattern1, and continuing until a line that
+     matches  pattern2,  inclusive.  It does not combine with any
+     other sort of pattern expression.
+
+  Regular Expressions
+     Regular expressions are the extended kind  found  in  egrep.
+     They are composed of characters as follows:
+
+          c    matches the non-metacharacter c.
+
+          \c   matches the literal character c.
+
+          .    matches any character except newline.
+
+          ^    matches the beginning of a line or a string.
+
+          $    matches the end of a line or a string.
+
+          [abc...]
+               character class, matches  any  of  the  characters
+               abc....
+
+          [^abc...]
+               negated character  class,  matches  any  character
+               except abc... and newline.
+
+          r1|r2
+               alternation: matches either r1 or r2.
+
+          r1r2 concatenation: matches r1, and then r2.
+
+          r+   matches one or more r's.
+
+          r*   matches zero or more r's.
+
+          r?   matches zero or one r's.
+
+          (r)  grouping: matches r.
+
+  Actions
+     Action statements are enclosed in braces, { and  }.   Action
+     statements consist of the usual assignment, conditional, and
+     looping statements found in most languages.  The  operators,
+     control  statements,  and  input/output statements available
+     are patterned after those in C.
+
+     The operators in AWK, in order of increasing precedence, are
+
+          = += -= *= /= %= ^=
+               Assignment. Both absolute assignment (var = value)
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             7
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+               and operator-assignment (the other forms) are sup-
+               ported.
+
+          ?:   The C conditional expression. This  has  the  form
+               expr1 ? expr2 : expr3. If expr1 is true, the value
+               of the expression is expr2, otherwise it is expr3.
+               Only one of expr2 and expr3 is evaluated.
+
+          ||   logical OR.
+
+          &&   logical AND.
+
+          ~ !~ regular expression match, negated match.
+
+          < <= > >= != ==
+               the regular relational operators.
+
+          blank
+               string concatenation.
+
+          + -  addition and subtraction.
+
+          * / %
+               multiplication, division, and modulus.
+
+          + - !
+               unary plus, unary minus, and logical negation.
+
+          ^    exponentiation (** may also be used, and  **=  for
+               the assignment operator).
+
+          ++ --
+               increment and decrement, both prefix and postfix.
+
+          $    field reference.
+
+     The control statements are as follows:
+
+          if (condition) statement [ else statement ]
+          while (condition) statement
+          do statement while (condition)
+          for (expr1; expr2; expr3) statement
+          for (var in array) statement
+          break
+          continue
+          delete array[index]
+          exit [ expression ]
+          { statements }
+
+     The input/output statements are as follows:
+
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             8
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+          close(filename)
+               close file (or pipe, see below).
+
+          getline
+               set $0 from next input record; set NF, NR, FNR.
+
+          getline <file
+               set $0 from next record of file; set NF.
+
+          getline var
+               set var from next input record; set NF, FNR.
+
+          getline var <file
+               set var from next record of file.
+
+          next Stop processing the current input record. The next
+               input  record  is  read and processing starts over
+               with the first pattern in the AWK program. If  the
+               end   of  the  input  data  is  reached,  the  END
+               block(s), if any, are executed.
+
+          print
+               prints the current record.
+
+          print expr-list
+               prints expressions.
+
+          print expr-list >file
+               prints expressions on file.
+
+          printf fmt, expr-list
+               format and print.
+
+          printf fmt, expr-list >file
+               format and print on file.
+
+          system(cmd-line)
+               execute the command cmd-line, and return the  exit
+               status.   (This  may  not  be available on systems
+               besides UNIX and GNU.)
+
+     Other input/output redirections are also allowed. For  print
+     and  printf, >>file appends output to the file, while | com-
+     mand writes on a pipe.  In a similar fashion, command | get-
+     line  pipes  into  getline.  Getline will return 0 on end of
+     file, and -1 on an error.
+
+     The AWK versions of the printf and sprintf (see below) func-
+     tions accept the following conversion specification formats:
+
+          %c   An ASCII character.  If the argument used  for  %c
+               is  numeric,  it  is  treated  as  a character and
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation             9
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+               printed.  Otherwise, the argument is assumed to be
+               a  string,  and  the  only first character of that
+               string is printed.
+
+          %d   A decimal number (the integer part).
+
+          %e   A   floating   point   number    of    the    form
+               [-]d.ddddddE[+-]dd.
+
+          %f   A floating point number of the form [-]ddd.dddddd.
+
+          %g   Use e or f conversion, whichever is shorter,  with
+               nonsignificant zeros suppressed.
+
+          %o   An unsigned octal number (again, an integer).
+
+          %s   A character string.
+
+          %x   An unsigned hexadecimal number (an integer).
+
+          %%   A single % character; no argument is converted.
+
+     There are  optional,  additional  parameters  that  may  lie
+     between the % and the control letter:
+
+          -    The expression should be left-justified within its
+               field.
+
+          width
+               The field should be padded to this width.  If  the
+               number  has a leading zero, then the field will be
+               padded with zeros.  Otherwise it  is  padded  with
+               blanks.
+
+          .prec
+               A number indicating the maximum width  of  strings
+               or digits to the right of the decimal point.
+
+     The dynamic width and prec capabilities  of  the  C  library
+     printf  routines  are  not  supported.  However, they may be
+     simulated by using the AWK concatenation operation to  build
+     up a format specification dynamically.
+
+     When doing I/O redirection from either print or printf  into
+     a  file, or via getline from a file, gawk recognizes certain
+     special filenames internally.  These filenames allow  access
+     to  open  file descriptors inherited from gawk's parent pro-
+     cess (usually the shell).  The filenames are:
+
+          /dev/stdin
+               The standard input.
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            10
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+          /dev/stdout
+               The standard output.
+
+          /dev/stderr
+               The standard error output.
+
+          /dev/fd/n
+               The file denoted by the open file descriptor n.
+
+     These are particularly useful for error messages. For  exam-
+     ple:
+
+          print "You blew it!" > "/dev/stderr"
+
+     whereas you would otherwise have to use
+
+          print "You blew it!" | "cat 1>&2"
+
+     These file names may also be used on  the  command  line  to
+     name data files.
+
+     AWK has the following pre-defined arithmetic functions:
+
+          atan2(y, x)
+               returns the arctangent of y/x in radians.
+
+          cos(expr)
+               returns the cosine in radians.
+
+          exp(expr)
+               the exponential function.
+
+          int(expr)
+               truncates to integer.
+
+          log(expr)
+               the natural logarithm function.
+
+          rand()
+               returns a random number between 0 and 1.
+
+          sin(expr)
+               returns the sine in radians.
+
+          sqrt(expr)
+               the square root function.
+
+          srand(expr)
+               use expr as a new seed for the random number  gen-
+               erator.  If  no  expr is provided, the time of day
+               will be used.  The return value  is  the  previous
+               seed for the random number generator.
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            11
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     AWK has the following pre-defined string functions:
+
+          gsub(r, s, t)
+               for each substring matching the regular expression
+               r  in  the  string t, substitute the string s, and
+               return the number of substitutions.  If t  is  not
+               supplied, use $0.
+
+          index(s, t)
+               returns the index of the string t in the string s,
+               or 0 if t is not present.
+
+          length(s)
+               returns the length of the string s.
+
+          match(s, r)
+               returns  the  position  in  s  where  the  regular
+               expression r occurs, or 0 if r is not present, and
+               sets the values of RSTART and RLENGTH.
+
+          split(s, a, r)
+               splits the string s into the array a on the  regu-
+               lar  expression  r,  and  returns  the  number  of
+               fields. If r is omitted, FS is used instead.
+
+          sprintf(fmt, expr-list)
+               prints expr-list according to fmt, and returns the
+               resulting string.
+
+          sub(r, s, t)
+               this is just like gsub, but only the first  match-
+               ing substring is replaced.
+
+          substr(s, i, n)
+               returns the n-character substring of s starting at
+               i.  If n is omitted, the rest of s is used.
+
+          tolower(str)
+               returns a copy of the string  str,  with  all  the
+               upper-case  characters  in str translated to their
+               corresponding   lower-case   counterparts.    Non-
+               alphabetic characters are left unchanged.
+
+          toupper(str)
+               returns a copy of the string  str,  with  all  the
+               lower-case  characters  in str translated to their
+               corresponding   upper-case   counterparts.    Non-
+               alphabetic characters are left unchanged.
+
+     String constants in AWK are sequences of characters enclosed
+     between  double  quotes  ("). Within strings, certain escape
+     sequences are recognized, as in C. These are:
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            12
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+          \\   A literal backslash.
+
+          \a   The ``alert'' character;  usually  the  ASCII  BEL
+               character.
+
+          \b   backspace.
+
+          \f   form-feed.
+
+          \n   new line.
+
+          \r   carriage return.
+
+          \t   horizontal tab.
+
+          \v   vertical tab.
+
+          \xhex digits
+               The character represented by the string of hexade-
+               cimal  digits following the \x.  As in ANSI C, all
+               following hexadecimal digits are  considered  part
+               of the escape sequence.  (This feature should tell
+               us something about language design by  committee.)
+               E.g., "\x1B" is the ASCII ESC (escape) character.
+
+          \ddd The character represented by the  1-,  2-,  or  3-
+               digit sequence of octal digits. E.g. "\033" is the
+               ASCII ESC (escape) character.
+
+          \c   The literal character c.
+
+     The escape sequences may also be used inside constant  regu-
+     lar  expressions  (e.g.,  /[ \t\f\n\r\v]/ matches whitespace
+     characters).
+
+FUNCTIONS
+     Functions in AWK are defined as follows:
+
+          function name(parameter list) { statements }
+
+     Functions are executed when called from  within  the  action
+     parts  of  regular pattern-action statements. Actual parame-
+     ters supplied in the function call are used  to  instantiate
+     the  formal parameters declared in the function.  Arrays are
+     passed by reference, other variables are passed by value.
+
+     Since  functions  were  not  originally  part  of  the   AWK
+     language,  the  provision  for  local  variables  is  rather
+     clumsy: they are declared as extra parameters in the parame-
+     ter list. The convention is to separate local variables from
+     real parameters by extra spaces in the parameter  list.  For
+     example:
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            13
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+          function  f(p, q,     a, b) { # a & b are local
+                         ..... }
+
+          /abc/     { ... ; f(1, 2) ; ... }
+
+     The left parenthesis in  a  function  call  is  required  to
+     immediately  follow the function name, without any interven-
+     ing white space.  This is to  avoid  a  syntactic  ambiguity
+     with  the concatenation operator.  This restriction does not
+     apply to the built-in functions listed above.
+
+     Functions may call each other and may be  recursive.   Func-
+     tion  parameters  used as local variables are initialized to
+     the null string and the number zero  upon  function  invoca-
+     tion.
+
+     The word func may be used in place of function.
+
+EXAMPLES
+     Print and sort the login names of all users:
+
+          BEGIN     { FS = ":" }
+               { print $1 | "sort" }
+
+     Count lines in a file:
+
+               { nlines++ }
+          END  { print nlines }
+
+     Precede each line by its number in the file:
+
+          { print FNR, $0 }
+
+     Concatenate and line number (a variation on a theme):
+
+          { print NR, $0 }
+
+SEE ALSO
+     The AWK Programming Language, Alfred V. Aho, Brian  W.  Ker-
+     nighan,  Peter  J. Weinberger, Addison-Wesley, 1988. ISBN 0-
+     201-07981-X.
+
+SYSTEM V RELEASE 4 COMPATIBILITY
+     A primary goal for gawk is  compatibility  with  the  latest
+     version  of  UNIX  awk.   To this end, gawk incorporates the
+     following user visible features which are not  described  in
+     the AWK book, but are part of awk in System V Release 4.
+
+     When processing arguments,  gawk  uses  the  special  option
+     ``--''  to signal the end of arguments, and warns about, but
+     otherwise ignores, undefined options.
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            14
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     The AWK book does not define the return  value  of  srand().
+     The System V Release 4 version of UNIX awk has it return the
+     seed it was using, to allow keeping track of  random  number
+     sequences.  Therefore  srand()  in  gawk  also  returns  its
+     current seed.
+
+     The use of multiple -f options is a new feature, as  is  the
+     ENVIRON array.
+
+GNU EXTENSIONS
+     Gawk  has  some  extensions  to  System  V  awk.   They  are
+     described  in  this  section.   All the extensions described
+     here can be disabled by compiling gawk with -DSTRICT, or  by
+     invoking  gawk with the name awk.  If the underlying operat-
+     ing system supports the /dev/fd directory and  corresponding
+     files, then gawk can be compiled with -DNO_DEV_FD to disable
+     the special filename processing.
+
+     The following features of gawk are not available in System V
+     awk.
+
+          o    The \a, \v, or \x escape sequences are not  recog-
+               nized.
+
+          o    The special file names available for I/O  redirec-
+               tion are not recognized.
+
+          o    The tolower and toupper built-in string  functions
+               are not available.
+
+          o    The IGNORECASE variable and its  side-effects  are
+               not available.
+
+          o    No path search is performed for  files  named  via
+               the  -f option.  Therefore the AWKPATH environment
+               variable is not special.
+
+     The AWK book does not define the return value of  the  close
+     function.  Gawk's close returns the value from fclose(3), or
+     pclose(3), when closing a file or pipe, respectively.
+
+     When gawk is invoked as awk, if the fs argument  to  the  -F
+     option  is  ``t'', then FS will be set to the tab character.
+     Since this is a rather ugly special  case,  it  is  not  the
+     default behavior.
+
+     The rest of the  features  described  in  this  section  may
+     change  at some time in the future, or may go away entirely.
+     You should not write programs that depend upon them.
+
+     Gawk accepts the following additional options:
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            15
+
+
+
+
+
+
+GAWK(1)                  USER COMMANDS                    GAWK(1)
+
+
+
+     -v   Print version information for this particular  copy  of
+          gawk  on  the  error output.  This is useful mainly for
+          knowing if the current copy of gawk on your  system  is
+          up  to  date with respect to whatever the Free Software
+          Foundation is distributing.
+
+     -V   Print the GNU  copyright  information  message  on  the
+          error output.
+
+BUGS
+     The -F option is not necessary given the command line  vari-
+     able  assignment feature; it remains only for backwards com-
+     patibility.
+
+AUTHORS
+     The original version of UNIX awk  was  designed  and  imple-
+     mented  by Alfred Aho, Peter Weinberger, and Brian Kernighan
+     of AT&T Bell Labs. Brian Kernighan continues to maintain and
+     enhance it.
+
+     Paul Rubin and Jay Fenlason, of the  Free  Software  Founda-
+     tion, wrote gawk, to be compatible with the original version
+     of awk distributed in Seventh Edition UNIX.  John Woods con-
+     tributed  a number of bug fixes.  David Trueman of Dalhousie
+     University, with contributions from Arnold Robbins at  Emory
+     University,  made  gawk  compatible  with the new version of
+     UNIX awk.
+
+ACKNOWLEDGEMENTS
+     Brian Kernighan of Bell Labs  provided  valuable  assistance
+     during testing and debugging.  We thank him.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Sun Release 4.0 Last change: Free Software Foundation            16
+
+
+

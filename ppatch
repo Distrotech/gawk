@@ -1,0 +1,273 @@
+*** Makefile	Thu Apr 13 18:14:56 1989
+--- old/Makefile	Wed Apr  5 11:58:00 1989
+***************
+*** 39,45 ****
+  #LINKFLAGS= /CO /NOE /NOI /st:0x1800
+  OPTIMIZE= -AL -Ox
+  DEBUG=#-DDEBUG #-DFUNC_TRACE -DMEMDEBUG
+! DEBUGGER=# -Zi -Od
+  PROFILE=#-pg
+  SYSV=
+  BSD=#-DHASDOPRNT
+--- 39,45 ----
+  #LINKFLAGS= /CO /NOE /NOI /st:0x1800
+  OPTIMIZE= -AL -Ox
+  DEBUG=#-DDEBUG #-DFUNC_TRACE -DMEMDEBUG
+! DEBUGGER= #-Zi
+  PROFILE=#-pg
+  SYSV=
+  BSD=#-DHASDOPRNT
+***************
+*** 50,63 ****
+  CFLAGS= $(FLAGS) $(DEBUGGER) $(PROFILE) 
+  LDFLAGS= #-Bstatic
+  
+! SRC =	awk1.c awk2.c awk3.c awk4.c awk5.c popen.c\
+  	awk6.c awk7.c awk8.c awk9.c regex.c version.c do_free.c awka.c
+  
+  PCSTUFF= makefile.pc names.lnk random.c
+  
+  AWKOBJS = awk1.obj awk2.obj awk3.obj awk4.obj awk5.obj awk6.obj awk7.obj \
+! 	  awk8.obj awk9.obj popen.obj \
+! 	  version.obj awka.obj # do_free.obj # used for MEMDEBUG
+  ALLOBJS = $(AWKOBJS) awk_tab.obj
+  
+  # Parser to use on grammar -- if you don't have bison use the first one
+--- 50,62 ----
+  CFLAGS= $(FLAGS) $(DEBUGGER) $(PROFILE) 
+  LDFLAGS= #-Bstatic
+  
+! SRC =	awk1.c awk2.c awk3.c awk4.c awk5.c \
+  	awk6.c awk7.c awk8.c awk9.c regex.c version.c do_free.c awka.c
+  
+  PCSTUFF= makefile.pc names.lnk random.c
+  
+  AWKOBJS = awk1.obj awk2.obj awk3.obj awk4.obj awk5.obj awk6.obj awk7.obj \
+! 	  awk8.obj awk9.obj version.obj awka.obj # do_free.obj # used for MEMDEBUG
+  ALLOBJS = $(AWKOBJS) awk_tab.obj
+  
+  # Parser to use on grammar -- if you don't have bison use the first one
+***************
+*** 107,113 ****
+  # this kludge necessary because MSC 5.1 compiler bombs with -Oa or -Ol (where
+  # -Ox == "-Oailt -Gs")
+  regex.obj: regex.c
+! 	$(CC) -c -Oit -AL $(DEBUGGER) regex.c
+  
+  $(AWKOBJS): awk.h
+  
+--- 106,112 ----
+  # this kludge necessary because MSC 5.1 compiler bombs with -Oa or -Ol (where
+  # -Ox == "-Oailt -Gs")
+  regex.obj: regex.c
+! 	$(CC) -c -Oit -AL regex.c
+  
+  $(AWKOBJS): awk.h
+  
+*** names.lnk	Thu Apr 13 18:15:39 1989
+--- old/names.lnk	Thu Apr 13 18:15:21 1989
+***************
+*** 11,17 ****
+  version.obj+
+  awk_tab.obj+
+  regex.obj+
+- popen.obj+
+  random.obj+
+  setargv.obj+
+  getopt.obj
+--- 11,16 ----
+*** awk.h	Thu Apr 13 16:59:14 1989
+--- old/awk.h	Wed Apr  5 11:57:58 1989
+***************
+*** 211,217 ****
+  #endif
+  
+  #ifdef __STDC__
+! extern void *malloc(unsigned), *realloc(void *, unsigned);
+  extern void free(char *);
+  extern char *getenv(char *);
+  
+--- 211,217 ----
+  #endif
+  
+  #ifdef __STDC__
+! extern char *malloc(unsigned), *realloc(char *, unsigned);
+  extern void free(char *);
+  extern char *getenv(char *);
+  
+*** awk.y	Thu Apr 13 16:59:15 1989
+--- old/awk.y	Wed Apr  5 11:57:54 1989
+***************
+*** 1076,1082 ****
+   * passed as a command line argument and writes it to a temp file. Otherwise
+   * the file name is made available in an external variable.
+   */
+! #line 1080 "awk.y"
+  static int
+  yylex()
+  {
+--- 1076,1082 ----
+   * passed as a command line argument and writes it to a temp file. Otherwise
+   * the file name is made available in an external variable.
+   */
+! 
+  static int
+  yylex()
+  {
+***************
+*** 1588,1606 ****
+  			return (fp);
+  
+  		/* no luck, keep going */
+! 		if(*awkpath)
+! 			awkpath++;	/* skip colon */
+  	} while (*awkpath);
+- #ifdef MSDOS
+- /*
+- ** under DOS (and probably elsewhere) you might have one of the awk paths
+- ** defined, WITHOUT the current working directory in it.  Therefore you
+- ** should try to open the file in the current directory
+- */
+- 	return fdopen(devopen(file,"r"),"r");
+- #else
+  	return (NULL);
+- #endif
+  }
+  
+  static NODE *
+--- 1588,1596 ----
+  			return (fp);
+  
+  		/* no luck, keep going */
+! 		awkpath++;	/* skip colon */
+  	} while (*awkpath);
+  	return (NULL);
+  }
+  
+  static NODE *
+*** awk1.c	Thu Apr 13 16:59:06 1989
+--- old/awk1.c	Wed Apr  5 11:52:54 1989
+***************
+*** 236,242 ****
+  #endif
+  
+  #ifdef MSDOS
+! #define TEMPLATE	"%s/gaXXXXXX"
+  #else
+  #define TEMPLATE	"/tmp/gawk.XXXXX"
+  #endif
+--- 236,242 ----
+  #endif
+  
+  #ifdef MSDOS
+! #define TEMPLATE	"%s/gaXXXXXX.tmp"
+  #else
+  #define TEMPLATE	"/tmp/gawk.XXXXX"
+  #endif
+*** awk7.c	Thu Apr 13 16:59:11 1989
+--- old/awk7.c	Wed Apr  5 11:57:02 1989
+***************
+*** 25,33 ****
+  
+  #include "awk.h"
+  #include <fcntl.h>
+! #if defined(MSDOS)
+! #include "popen.h"
+! #endif
+  extern NODE *concat_exp();
+  
+  static void do_file();
+--- 25,31 ----
+  
+  #include "awk.h"
+  #include <fcntl.h>
+! 
+  extern NODE *concat_exp();
+  
+  static void do_file();
+***************
+*** 856,861 ****
+--- 854,860 ----
+  	case Node_redirect_output:
+  		tflag |= (RED_FILE|RED_WRITE);
+  		break;
++ #ifndef MSDOS
+  	case Node_redirect_pipe:
+  		tflag = (RED_PIPE|RED_WRITE);
+  		break;
+***************
+*** 862,867 ****
+--- 861,874 ----
+  	case Node_redirect_pipein:
+  		tflag = (RED_PIPE|RED_READ);
+  		break;
++ #else
++ 	case Node_redirect_pipe:
++ 	case Node_redirect_pipein:
++ 		fprintf (stderr, "%s: cannot use pipe in PC version.\n",
++ 			myname);
++ 		exit(1);
++ 		break;
++ #endif
+  	case Node_redirect_input:
+  		tflag = (RED_FILE|RED_READ);
+  		break;
+***************
+*** 900,905 ****
+--- 907,913 ----
+  		case Node_redirect_append:
+  			fp = rp->fp = fdopen(devopen(str, "a"), "a");
+  			break;
++ #ifndef MSDOS
+  		case Node_redirect_pipe:
+  			fp = rp->fp = popen(str, "w");
+  			break;
+***************
+*** 908,913 ****
+--- 916,922 ----
+  			/* this should bypass popen() */
+  			rp->iop = iop_alloc(fileno(popen(str, "r")));
+  			break;
++ #endif
+  		case Node_redirect_input:
+  			direction = "from";
+  			rp->iop = iop_alloc(devopen(str, "r"));
+***************
+*** 995,1003 ****
+--- 1004,1014 ----
+  {
+  	int status;
+  
++ #ifndef MSDOS
+  	if (rp->flag == (RED_PIPE|RED_WRITE))
+  		status = pclose(rp->fp);
+  	else
++ #endif
+  	if (rp->fp)
+  		status = fclose(rp->fp);
+  	else if (rp->iop)
+***************
+*** 1006,1012 ****
+--- 1017,1025 ----
+  	/* SVR4 awk checks and warns about status of close */
+  	if (status)
+  		warning("%s close of \"%s\" failed (%s).",
++ #ifndef MSDOS
+  			(rp->flag & RED_PIPE) ? "pipe" :
++ #endif
+  				"file", rp->value,
+  			sys_errlist[errno]);
+  	if (rp->prev)
+***************
+*** 1037,1043 ****
+--- 1050,1058 ----
+  		if ((rp->flag & RED_WRITE) && rp->fp != NULL)
+  			if (fflush(rp->fp)) {
+  				warning( "%s flush of \"%s\" failed (%s).",
++ #ifndef MSDOS
+  				    (rp->flag  & RED_PIPE) ? "pipe" :
++ #endif
+  				    "file", rp->value, sys_errlist[errno]);
+  				status++;
+  			}
+

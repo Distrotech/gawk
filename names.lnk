@@ -11,6 +11,7 @@ awka.obj+
 version.obj+
 awk_tab.obj+
 regex.obj+
+popen.obj+
 random.obj+
 setargv.obj+
 getopt.obj

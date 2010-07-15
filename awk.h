@@ -211,7 +211,7 @@ extern char *sprintf();
 #endif
 
 #ifdef __STDC__
-extern char *malloc(unsigned), *realloc(char *, unsigned);
+extern void *malloc(unsigned), *realloc(void *, unsigned);
 extern void free(char *);
 extern char *getenv(char *);
 

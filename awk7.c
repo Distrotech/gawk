@@ -25,7 +25,9 @@
 
 #include "awk.h"
 #include <fcntl.h>
-
+#if defined(MSDOS)
+#include "popen.h"
+#endif
 extern NODE *concat_exp();
 
 static void do_file();
@@ -854,21 +856,12 @@ int *errflg;
 	case Node_redirect_output:
 		tflag |= (RED_FILE|RED_WRITE);
 		break;
-#ifndef MSDOS
 	case Node_redirect_pipe:
 		tflag = (RED_PIPE|RED_WRITE);
 		break;
 	case Node_redirect_pipein:
 		tflag = (RED_PIPE|RED_READ);
 		break;
-#else
-	case Node_redirect_pipe:
-	case Node_redirect_pipein:
-		fprintf (stderr, "%s: cannot use pipe in PC version.\n",
-			myname);
-		exit(1);
-		break;
-#endif
 	case Node_redirect_input:
 		tflag = (RED_FILE|RED_READ);
 		break;
@@ -907,7 +900,6 @@ int *errflg;
 		case Node_redirect_append:
 			fp = rp->fp = fdopen(devopen(str, "a"), "a");
 			break;
-#ifndef MSDOS
 		case Node_redirect_pipe:
 			fp = rp->fp = popen(str, "w");
 			break;
@@ -916,7 +908,6 @@ int *errflg;
 			/* this should bypass popen() */
 			rp->iop = iop_alloc(fileno(popen(str, "r")));
 			break;
-#endif
 		case Node_redirect_input:
 			direction = "from";
 			rp->iop = iop_alloc(devopen(str, "r"));
@@ -1004,11 +995,9 @@ register struct redirect *rp;
 {
 	int status;
 
-#ifndef MSDOS
 	if (rp->flag == (RED_PIPE|RED_WRITE))
 		status = pclose(rp->fp);
 	else
-#endif
 	if (rp->fp)
 		status = fclose(rp->fp);
 	else if (rp->iop)
@@ -1017,9 +1006,7 @@ register struct redirect *rp;
 	/* SVR4 awk checks and warns about status of close */
 	if (status)
 		warning("%s close of \"%s\" failed (%s).",
-#ifndef MSDOS
 			(rp->flag & RED_PIPE) ? "pipe" :
-#endif
 				"file", rp->value,
 			sys_errlist[errno]);
 	if (rp->prev)
@@ -1050,9 +1037,7 @@ flush_io ()
 		if ((rp->flag & RED_WRITE) && rp->fp != NULL)
 			if (fflush(rp->fp)) {
 				warning( "%s flush of \"%s\" failed (%s).",
-#ifndef MSDOS
 				    (rp->flag  & RED_PIPE) ? "pipe" :
-#endif
 				    "file", rp->value, sys_errlist[errno]);
 				status++;
 			}

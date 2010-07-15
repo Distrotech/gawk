@@ -236,7 +236,7 @@ char awk_opts[] = "F:f:vV";
 #endif
 
 #ifdef MSDOS
-#define TEMPLATE	"%s/gaXXXXXX.tmp"
+#define TEMPLATE	"%s/gaXXXXXX"
 #else
 #define TEMPLATE	"/tmp/gawk.XXXXX"
 #endif

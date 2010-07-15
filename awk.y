@@ -1076,7 +1076,7 @@ char **string_ptr;
  * passed as a command line argument and writes it to a temp file. Otherwise
  * the file name is made available in an external variable.
  */
-
+#line 1080 "awk.y"
 static int
 yylex()
 {
@@ -1588,9 +1588,19 @@ char *file;
 			return (fp);
 
 		/* no luck, keep going */
-		awkpath++;	/* skip colon */
+		if(*awkpath)
+			awkpath++;	/* skip colon */
 	} while (*awkpath);
+#ifdef MSDOS
+/*
+** under DOS (and probably elsewhere) you might have one of the awk paths
+** defined, WITHOUT the current working directory in it.  Therefore you
+** should try to open the file in the current directory
+*/
+	return fdopen(devopen(file,"r"),"r");
+#else
 	return (NULL);
+#endif
 }
 
 static NODE *
