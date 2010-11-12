@@ -62,7 +62,7 @@ AWKCARD = awkcard.ps
 # make pgawk.1 a link to gawk.1 in the installed man directory.
 
 # We want hard links for install-data-hook, below
-LN= ln
+LN= ln -f
 
 # Link gawk.1 to pgawk.1
 install-data-hook:

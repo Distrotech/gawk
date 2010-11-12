@@ -23,7 +23,7 @@ dnl
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([GNU Awk], 3.1.8, bug-gawk@gnu.org, gawk)
+AC_INIT([GNU Awk], 3.1.8a, bug-gawk@gnu.org, gawk)
 
 # This is a hack. Different versions of install on different systems
 # are just too different. Chuck it and use install-sh.
@@ -40,7 +40,7 @@ then
 fi
 
 AC_PREREQ(2.63)
-AM_INIT_AUTOMAKE([1.11])
+AM_INIT_AUTOMAKE([1.11 dist-bzip2 dist-xz])
 
 AC_CONFIG_MACRO_DIR([m4])
 

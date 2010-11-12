@@ -1,3 +1,126 @@
+Mon Nov  8 22:29:35 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* bootstrap.sh: Remove touch of libsigsegv/* files, since
+	gawk no longer includes libsigsegv.
+
+Wed Nov  3 08:29:15 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* node.c (free_wstr): If argument is null string or null field,
+	return. Thanks to Vojtech Vitek <vvitek@redhat.com>
+
+Fri Sep 17 12:42:42 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* regcomp.c (btowc): Changed to use mbrtowc.
+
+Wed Sep 15 08:26:55 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* dfa.c: Further sync with GNU grep.
+
+Tue Sep 14 09:53:55 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* node.c (str2wstr): Per advice from Ulrich Drepper, when converting,
+	if the current byte is isprint, isgraph, iscntrl or zero, then it
+	can't start a multibyte character. This can save many calls to
+	`mbrtowcs', and speed up the conversion considerably.
+
+Mon Sep 13 11:19:21 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* dfa.h, dfa.c: Sync with GNU grep.
+	* re.c (dfawarn): New routine for use by dfa.
+
+Sun Sep 12 22:17:02 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* profile.c (tree_eval): Fix comment on for ... delete array loop.
+	(pp_string_fp): Get escapes right on regex constant.
+
+Sun Sep  5 20:38:42 2010  John E. Haque <j.eh@mchsi.com>
+
+	* re.c (str2wstr): Decrement src_count when skipping bad bytes.
+
+Fri Aug 27 13:51:13 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* dfa.c: Sync with current GNU grep - minor edits only.
+
+Fri Aug 20 16:26:14 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* profile.c (tree_eval): Always parenthesize Node_cond_exp.
+	May add a few extra parens but guarantees the right semantics.
+	Thanks to Hermann Peifer <peifer@gmx.eu> for the bug report.
+
+Thu Aug 19 21:35:13 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* regex_internal.c (re_string_reconstruct): Move ifdef out to cover
+	variable declarations, to avoid "unused variable" warnings.
+	* regexec.c (check_arrival_add_next_nodes): Bracket declaration of
+	`err' with ifdef for the same reason.
+
+	Thanks to avarab@gmail.com for the suggestions.
+
+Wed Aug 18 22:13:30 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* Makefile.am (AUTOMAKE_OPTIONS): Added. Other minor cleanups.
+
+Tue Aug 17 23:27:43 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* profile.c (pp_string_fp): Use different sets of escape characters
+	if printing a string or a regex, based on delimiter. Thanks to
+	Hermann Peifer <peifer@gmx.eu> for the bug report.
+
+Sun Aug  8 23:05:09 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* re.c (make_regexp): Don't allocate rp->dfareg unless
+	we're using dfa; causes a memory leak otherwise. Thanks to
+	Antonio Columbo for reporting the bug.
+
+Wed Jul 14 23:04:30 2010  Eli Zaretskii      <eliz@gnu.org>
+
+	* dfa.c: Include langinfo.h only if HAVE_LANGINFO_CODESET is
+	defined.
+
+Wed Jul 14 23:00:19 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* awkgram.y (yylex): Allow a backslash before CR-LF to also
+	work for line continuation, for MS-DOS style source files.
+	Thanks to Vincent Belaiche for pointing this out.
+
+Wed Jul 14 22:31:53 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* node.c (str2wstr): Keep going if get a bad multibyte sequence.
+	Allows match to give correct answers for RSTART, RLENGTH.
+	Add a lint warning. Correctly set the length of the string
+	based on pointer subtraction.
+
+Wed Jun 16 21:52:09 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* awk.h (exec_count): Moved into NODE structure as standalone
+	element since count on `/pat/ { ... }' was wrong. Thanks to
+	Hermann Peifer <peifer@gmx.eu> for the bug report.
+
+	Note to self: DO NOT propogate this to the byte-code version.
+
+	Unrelated:
+
+	* awkgram.y (matchop): Made left associative to match behavior
+	of other awks.
+	(print_expression_list): Simplified so that something like
+	`print ("a", "b") in B in A' will work. Again, to match what
+	other awks do.
+
+Fri Jun  4 15:56:59 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* dfa.c: Further merges with GNU grep.
+
+Thu May 20 22:20:32 2010  Stepan Kasal       <skasal@redhat.com>
+
+	* Makefile.am [AUTOMAKE_OPTIONS]: Removed, contents now in ...
+	* configure.ac [AM_INIT_AUTOMAKE]: ... here.
+	Added dist-xz while I'm at it, per Karl Berry.
+
+Tue May 18 14:52:04 2010  Marcin Szewczyk    <Marcin.Szewczyk@wodny.org>
+
+	* builtin.c (format_tree): Simplify code in pr_tail when multibyte
+	and %s or %d.
+
 Thu May  6 20:55:14 2010  Arnold D. Robbins  <arnold@skeeve.com>
 
 	* Release 3.1.8: Release tar file made.

@@ -23,6 +23,11 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+/* For OSF/1 to get struct sockaddr_storage */
+#if defined(__osf__) && !defined(_OSF_SOURCE)
+#define _OSF_SOURCE
+#endif
+
 #include "awk.h"
 
 #ifdef HAVE_SYS_PARAM_H

@@ -453,3 +453,19 @@ _os2_unixroot_path(const char *path)
   return (result) ? (const char*) result : path;
 }
 #endif /* __EMX__ */
+
+#ifdef __MINGW32__
+
+#include <windows.h>
+
+int
+usleep(unsigned int usec)
+{
+  double msecf = usec / 1000.0;
+
+  Sleep ((DWORD)msecf);
+
+  return usec - msecf * 1000 < 0 ? 0 : (int)(usec - msecf * 1000);
+}
+
+#endif

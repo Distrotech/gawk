@@ -1225,18 +1225,8 @@ check_pos:
 			if (fw == 0 && ! have_prec)
 				;
 			else if (gawk_mb_cur_max > 1 && (cs1 == 's' || cs1 == 'c')) {
-				int nchars_needed = 0;
-
 				assert(cp == arg->stptr || cp == cpbuf);
-
-				if (cs1 == 'c')
-					nchars_needed = 1;
-				else if (have_prec)
-					nchars_needed = prec;
-				else
-					nchars_needed = arg->stlen;
-
-				copy_count = mbc_byte_count(arg->stptr, nchars_needed);
+				copy_count = mbc_byte_count(arg->stptr, prec);
 			}
 			bchunk(cp, copy_count);
 			while (fw > prec) {

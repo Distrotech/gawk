@@ -755,8 +755,18 @@ str2wstr(NODE *n, size_t **ptr)
 	char *sp;
 	mbstate_t mbs;
 	wchar_t wc, *wsp;
+	static short warned = FALSE;
 
 	assert((n->flags & (STRING|STRCUR)) != 0);
+
+	/*
+	 * Don't convert global null string or global null field
+	 * variables to a wide string. They are both zero-length anyway.
+	 * This also avoids future double-free errors while releasing
+	 * shallow copies, eg. *tmp = *Null_field; free_wstr(tmp);
+	 */
+	if (n == Nnull_string || n == Null_field)
+		return n;
 
 	if ((n->flags & WSTRCUR) != 0) {
 		if (ptr == NULL)
@@ -799,11 +809,41 @@ str2wstr(NODE *n, size_t **ptr)
 	src_count = n->stlen;
 	memset(& mbs, 0, sizeof(mbs));
 	for (i = 0; src_count > 0; i++) {
-		count = mbrtowc(& wc, sp, src_count, & mbs);
+		/*
+		 * 9/2010: Check the current byte; if it's a valid character,
+		 * then it doesn't start a multibyte sequence. This brings a
+		 * big speed up. Thanks to Ulrich Drepper for the tip.
+		 */
+		if (   isprint(*sp)
+		    || isgraph(*sp)
+		    || iscntrl(*sp)
+		    || *sp == '\0' ) {
+			count = 1;
+			wc = *sp;
+		} else
+			count = mbrtowc(& wc, sp, src_count, & mbs);
 		switch (count) {
 		case (size_t) -2:
 		case (size_t) -1:
-			goto done;
+			/*
+			 * Just skip the bad byte and keep going, so that
+			 * we get a more-or-less full string, instead of
+			 * stopping early. This is particularly important
+			 * for match() where we need to build the indices.
+			 */
+			sp++;
+			src_count--;
+			/*
+			 * mbrtowc(3) says the state of mbs becomes undefined
+			 * after a bad character, so reset it.
+			 */
+			memset(& mbs, 0, sizeof(mbs));
+			/* And warn the user something's wrong */
+			if (do_lint && ! warned) {
+				warned = TRUE;
+				lintwarn(_("Invalid multibyte data detected. There may be a mismatch between your data and your locale."));
+			}
+			break;
 
 		case 0:
 			count = 1;
@@ -820,9 +860,8 @@ str2wstr(NODE *n, size_t **ptr)
 		}
 	}
 
-done:
 	*wsp = L'\0';
-	n->wstlen = i;
+	n->wstlen = wsp - n->wstptr;
 	n->flags |= WSTRCUR;
 #define ARBITRARY_AMOUNT_TO_GIVE_BACK 100
 	if (n->stlen - n->wstlen > ARBITRARY_AMOUNT_TO_GIVE_BACK)

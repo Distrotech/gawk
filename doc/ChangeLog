@@ -1,3 +1,14 @@
+Mon Nov  8 22:24:21 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* gawk.1: Minor fix from Jari Aalto <jari.aalto@cante.net>
+	to help Emacs fontification.
+
+Wed Aug 18 22:14:19 2010  Arnold D. Robbins  <arnold@skeeve.com>
+
+	* gawk.texi: Minor edits.
+	* Makefile.am (LN): Use `ln -f' when installing link for
+	pgawk.1. Thanks to Peter Breitenlohner <peb@mppmu.mpg.de>.
+
 Thu May  6 20:55:14 2010  Arnold D. Robbins  <arnold@skeeve.com>
 
 	* Release 3.1.8: Release tar file made.

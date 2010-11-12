@@ -164,7 +164,7 @@ static char builtin_func[] = "@builtin";
 %nonassoc LEX_IN
 %left FUNC_CALL LEX_BUILTIN LEX_LENGTH
 %nonassoc ','
-%nonassoc MATCHOP
+%left MATCHOP
 %nonassoc RELOP '<' '>' IO_IN IO_OUT
 %left CONCAT_OP
 %left YSTRING YNUMBER
@@ -702,8 +702,8 @@ print
 	 */
 print_expression_list
 	: opt_expression_list
-	| '(' exp comma expression_list r_paren
-		{ $$ = node($2, Node_expression_list, $4); }
+	| '(' expression_list r_paren
+		{ $$ = $2; }
 	;
 
 output_redir
@@ -1903,7 +1903,10 @@ retry:
 			pushback();
 		}
 #endif /* RELAXED_CONTINUATION */
-		if (nextc() == '\n') {
+		c = nextc();
+		if (c == '\r')	/* allow MS-DOS files. bleah */
+			c = nextc();
+		if (c == '\n') {
 			sourceline++;
 			goto retry;
 		} else {

@@ -516,6 +516,7 @@ typedef struct exp_node {
 #define	ahcode	sub.hash.code
 	} sub;
 	NODETYPE type;
+	size_t exec_count;	/* only used for profiling */
 	unsigned short flags;
 #		define	MALLOC	1	/* can be free'd */
 #		define	TEMP	2	/* should be free'd */
@@ -537,7 +538,6 @@ typedef struct exp_node {
 } NODE;
 
 #define vname sub.nodep.name
-#define exec_count sub.nodep.reflags
 
 #define lnode	sub.nodep.l.lptr
 #define nextp	sub.nodep.l.lptr

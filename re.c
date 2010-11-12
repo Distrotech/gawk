@@ -150,7 +150,7 @@ make_regexp(const char *s, size_t len, int ignorecase, int dfa)
 	*dest = '\0' ;	/* Only necessary if we print dest ? */
 	emalloc(rp, Regexp *, sizeof(*rp), "make_regexp");
 	memset((char *) rp, 0, sizeof(*rp));
-	rp->dfareg = dfaalloc();
+	rp->dfareg = NULL;
 	rp->pat.allocated = 0;	/* regex will allocate the buffer */
 	emalloc(rp->pat.fastmap, char *, 256, "make_regexp");
 
@@ -192,8 +192,9 @@ make_regexp(const char *s, size_t len, int ignorecase, int dfa)
 	/* gack. this must be done *after* re_compile_pattern */
 	rp->pat.newline_anchor = FALSE; /* don't get \n in middle of string */
 	if (dfa && ! no_dfa) {
-		dfacomp(temp, len, rp->dfareg, TRUE);
 		rp->dfa = TRUE;
+		rp->dfareg = dfaalloc();
+		dfacomp(temp, len, rp->dfareg, TRUE);
 	} else
 		rp->dfa = FALSE;
 	rp->has_anchor = has_anchor;
@@ -460,4 +461,14 @@ reflags2str(int flagval)
 		return "RE_SYNTAX_EMACS";
 
 	return genflags2str(flagval, values);
+}
+
+/* dfawarn() is called by the dfa routines whenever a regex is compiled
+   must supply a dfawarn.  */
+extern void
+dfawarn(const char *dfa_warning)
+{
+	/* XXX: Make this do nothing in devel version. */
+	if (do_lint)
+		lintwarn("%s", dfa_warning);
 }

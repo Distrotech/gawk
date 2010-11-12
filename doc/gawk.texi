@@ -615,7 +615,6 @@ particular records in a file and perform operations upon them.
 * Atari Installation::             Installing @command{gawk} on the Atari ST.
 * Atari Compiling::                Compiling @command{gawk} on Atari.
 * Atari Using::                    Running @command{gawk} on Atari.
-* BeOS Installation::              Installing @command{gawk} on BeOS.
 * Tandem Installation::            Installing @command{gawk} on a Tandem.
 * Bugs::                           Reporting Problems and Bugs.
 * Other Versions::                 Other freely available @command{awk}
@@ -1461,15 +1460,14 @@ Drepper, provided invaluable help and feedback for the design of the
 internationalization features.
 
 @c @cindex Brown, Martin
-@c @cindex Buening, Andreas
 @c @cindex Hasegawa, Isamu
 @c @cindex Rommel, Kai Uwe
 @c Martin Brown,
-@c Andreas Buening,
 @c Isamu Hasegawa,
 @c Kai Uwe Rommel,
 
 @cindex Beebe, Nelson
+@cindex Buening, Andreas
 @cindex Colombo, Antonio
 @cindex Deifik, Scott
 @cindex DuBois, John
@@ -1484,7 +1482,8 @@ internationalization features.
 @cindex Wallin, Anders
 @cindex Zaretskii, Eli
 Nelson Beebe,
-Antonio Colombo
+Andreas Buening,
+Antonio Colombo,
 Scott Deifik,
 John H. DuBois III,
 Darrel Hankerson,
@@ -11541,7 +11540,7 @@ same @command{awk} program.
 
 @cindex Wall, Larry
 @quotation
-@i{Doing linear scans over an associateive array is like tryinng to club someone
+@i{Doing linear scans over an associative array is like tryinng to club someone
 to death with a loaded Uzi.}@*
 Larry Wall
 @end quotation
@@ -23481,12 +23480,12 @@ The @code{nextfile} statement
 
 @item
 The ability to delete all of an array at once with @samp{delete @var{array}}
-(@pxref{String Functions}).
+(@pxref{Delete}).
 
 @item
 The ability for the @code{length} function to accept an array argument and
 return the number of elements in the array.
-(@pxref{Delete}).
+(@pxref{String Functions}).
 @end itemize
 
 @node POSIX/GNU
@@ -23994,7 +23993,6 @@ provided the initial port to Tandem systems and its documentation.
 Matthew Woehlke
 provided improvements for Tandem's POSIX-compliant
 systems.
-Ralf Wildenhues now maintains this port.
 
 @item
 @cindex Brown, Martin
@@ -24091,6 +24089,8 @@ There are three ways to get GNU software:
 @item
 Copy it from someone else who already has it.
 
+@cindex FSF (Free Software Foundation)
+@cindex Free Software Foundation (FSF)
 @item
 Retrieve @command{gawk}
 from the Internet host
@@ -25459,16 +25459,16 @@ as follows:
 @ignore
 @cindex Grigera, Juan
 @item MS-Windows @tab Juan Grigera, @email{juan@@grigera.com.ar}.
+@end ignore
 
 @cindex Buening, Andreas
 @item OS/2 @tab Andreas Buening, @email{andreas.buening@@nexgo.de}
-@end ignore
 
 @cindex Davies, Stephen
 @item Tandem @tab Stephen Davies, @email{scldad@@sdc.com.au}.
 
-@cindex Wildenhues, Ralf
-@item Tandem (POSIX-compliant) @tab Ralf Wildenhues @email{Ralf.Wildenhues@@gmx.de}
+@cindex Woehlke, Matthew
+@item Tandem (POSIX-compliant) @tab Matthew Woehlke, @email{mw_triad@@users.sourceforge.net}
 
 @cindex Rankin, Pat
 @item VMS @tab Pat Rankin, @email{rankin@@pactechdata.com}.
@@ -26378,7 +26378,7 @@ the_arg = get_array(the_arg);
 assoc_clear(the_arg);
 @end smallexample
 
-As of version 3.1.4, the internals improved again, and became
+In version 3.1.4, the internals improved again, and became
 even simpler:
 
 @smallexample

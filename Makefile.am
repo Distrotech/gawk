@@ -23,10 +23,10 @@
 
 ## process this file with automake to produce Makefile.in
 
-# Automatic de-ANSI-fication if needed, make .bz2 files also.
+# Make .bz2 files also.
 AUTOMAKE_OPTIONS = dist-bzip2
 
-# This undocumented variable insures that aclocal runs
+# This variable insures that aclocal runs
 # correctly after changing configure.ac
 ACLOCAL_AMFLAGS = -I m4
 
@@ -165,9 +165,11 @@ dist-hook:
 	cd $(distdir) ; find . -type d -name CVS | xargs rm -fr
 
 # Special rules for individual files
+# Use of awk instead of $(AWK) is deliberate, in case gawk doesn't build
+# or work correctly.
 awkgram.c: awkgram.y
 	$(YACC) $(AM_YFLAGS) $(YFLAGS) $<
-	sed 's/parse error/syntax error/g' < y.tab.c | $(AWK) -f $(srcdir)/bisonfix.awk > $*.c && rm y.tab.c
+	sed 's/parse error/syntax error/g' < y.tab.c | awk -f $(srcdir)/bisonfix.awk awkgram > $*.c && rm y.tab.c
 	if test -f y.tab.h; then \
 	if cmp -s y.tab.h $*.h; then rm -f y.tab.h; else mv y.tab.h $*.h; fi; \
 	else :; fi
@@ -184,5 +186,5 @@ diffout valgrind-scan:
 
 valgrind:
 	cd test; rm -f log.[0-9]*; \
-	make check AWK="valgrind --log-file=log ../gawk"; \
+	make check AWK="valgrind --leak-check=full --log-file=log.%p ../gawk"; \
 	make valgrind-scan

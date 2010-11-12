@@ -517,8 +517,8 @@ tree_eval(register NODE *tree)
 
 		fprintf(prof_fp, "for (");
 		pp_lhs(tree->rnode->lnode);
-		fprintf(prof_fp, " in %s) { %s %s'\n", aname,
-			_("# treated internally as `delete'"), aname);
+		fprintf(prof_fp, " in %s) { %s `delete %s'\n", aname,
+			_("# treated internally as"), aname);
 		indent_in();
 		indent(SPACEOVER);
 		fprintf(prof_fp, "delete %s[", aname);
@@ -565,11 +565,13 @@ tree_eval(register NODE *tree)
 		return;
 
 	case Node_cond_exp:
+		fprintf(prof_fp, "(");
 		eval_condition(tree->lnode);
 		fprintf(prof_fp, " ? ");
 		tree_eval(tree->rnode->lnode);
 		fprintf(prof_fp, " : ");
 		tree_eval(tree->rnode->rnode);
+		fprintf(prof_fp, ")");
 		return;
 
 	case Node_match:
@@ -1225,13 +1227,27 @@ pp_string(const char *str, size_t len, int delim)
 void
 pp_string_fp(FILE *fp, const char *in_str, size_t len, int delim, int breaklines)
 {
-	static char escapes[] = "\b\f\n\r\t\v\\";
-	static char printables[] = "bfnrtv\\";
+	static char str_escapes[] = "\b\f\n\r\t\v\\";
+	static char str_printables[] = "bfnrtv\\";
+	static char re_escapes[] = "\b\f\n\r\t\v";
+	static char re_printables[] = "bfnrtv";
+	char *escapes;
+	char *printables;
 	char *cp;
 	int i;
 	int count;
 #define BREAKPOINT	70 /* arbitrary */
 	const unsigned char *str = (const unsigned char *) in_str;
+
+	assert(delim == '"' || delim == '/');
+
+	if (delim == '/') {
+		escapes = re_escapes;
+		printables = re_printables;
+	} else {
+		escapes = str_escapes;
+		printables = str_printables;
+	}
 
 	fprintf(fp, "%c", delim);
 	for (count = 0; len > 0; len--, str++) {
@@ -1239,7 +1255,7 @@ pp_string_fp(FILE *fp, const char *in_str, size_t len, int delim, int breaklines
 			fprintf(fp, "%c\n%c", delim, delim);
 			count = 0;
 		}
-		if (*str == delim) {
+		if (*str == delim && delim == '"') {
 			fprintf(fp, "\\%c", delim);
 			count++;
 		} else if (*str == BELL) {
