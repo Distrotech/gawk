@@ -794,7 +794,7 @@ check_pos:
 					msg = _("field width and precision are ignored for `%%%%' specifier");
 
 				if (msg != NULL)
-					lintwarn(msg);
+					lintwarn("%s", msg);
 			}
 			bchunk_one("%");
 			s0 = s1;

@@ -1,3 +1,11 @@
+Mon Dec  3 22:55:23 2012  Arnold D. Robbins     <arnold@skeeve.com>
+
+	Minimal update to the branch.
+
+	* bisonfix.awk: Fixed to work.
+	* builtin.c, ext.c, node.c, regex_internal.c: Fix compiler
+	warnings from current GCC.
+
 Mon Nov  8 22:29:35 2010  Arnold D. Robbins  <arnold@skeeve.com>
 
 	* bootstrap.sh: Remove touch of libsigsegv/* files, since

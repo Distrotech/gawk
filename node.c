@@ -886,6 +886,7 @@ free_wstr(NODE *n)
 	n->flags &= ~WSTRCUR;
 }
 
+#if 0
 static void
 dump_wstr(FILE *fp, const wchar_t *str, size_t len)
 {
@@ -895,6 +896,7 @@ dump_wstr(FILE *fp, const wchar_t *str, size_t len)
 	for (; len--; str++)
 		putwc(*str, fp);
 }
+#endif
 
 /* wstrstr --- walk haystack, looking for needle, wide char version */
 

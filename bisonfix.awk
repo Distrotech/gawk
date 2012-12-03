@@ -19,6 +19,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
+BEGIN { sfile = ARGV[1] ; delete ARGV[1] }
+
 /^#if \(! defined \(yyoverflow\) \\/ {
 	line = $0
 	sub(/\\$/, "", line)
@@ -31,6 +33,6 @@
 	next
 }
 
-/^#line.*y\.tab\.c/	{ sub(/y.tab.c/, "awkgram.c") }
+/^#line.*y\.tab\.c/	{ sub(/y.tab.c/, (sfile ".c")) }
 
 { print }

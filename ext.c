@@ -55,6 +55,7 @@ do_ext(NODE *tree)
 	AWKNUM junk;
 
 	junk = (AWKNUM) dummy;
+	(void) junk;
 #endif
 
 	if (do_lint && ! warned) {
