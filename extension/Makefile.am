@@ -23,79 +23,110 @@
 
 ## Process this file with automake to produce Makefile.in.
 
-AM_CPPFLAGS = -I$(srcdir)/..
+AM_CPPFLAGS = -I$(srcdir) -I$(srcdir)/..
 
 # This variable insures that aclocal runs
 # correctly after changing configure.ac
 ACLOCAL_AMFLAGS = -I m4
 
-# Note: rwarray does not currently compile.
+# Note that various SHOBJ_* and SHLIB_* variables are defined by
+# support/shobj-conf (pulled in by configure.ac and then by automake).
 
-pkgextension_LTLIBRARIES =	\
-	filefuncs.la	\
-	fnmatch.la	\
-	fork.la		\
-	ordchr.la	\
-	readdir.la	\
-	readfile.la	\
-	revoutput.la	\
-	revtwoway.la	\
-	rwarray.la	\
-	testext.la	\
-	time.la
+# N.B. This Makefile.am has several known defects:
+# 1. It does not generate header file dependencies.
+# 2. The install rule is a hideous hack.
+# 3. There is no support for uninstall.
+# 4. On some platforms, e.g. MacOS, SHLIB_LIBSUFF is not correct.  The
+#    shobj-conf script should be enhanced to add SHOBJ_LIBSUFF.
 
-MY_MODULE_FLAGS = -module -avoid-version -no-undefined
+.c.o:
+	$(SHOBJ_CC) $(SHOBJ_CFLAGS) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o $@ $<
+
+PFX = .libs/
+SFX = .$(SHLIB_LIBSUFF)
+
 # on Cygwin, gettext requires that we link with -lintl 
-MY_LIBS = $(LIBINTL)
+MY_LIBS = $(SHOBJ_LIBS) $(LIBINTL)
+SHLINK = $(MKDIR_P) .libs && $(SHOBJ_LD) $(SHOBJ_LDFLAGS) $(SHOBJ_XLDFLAGS)
 
-filefuncs_la_SOURCES  = filefuncs.c stack.h stack.c gawkfts.h gawkfts.c
-filefuncs_la_LDFLAGS  = $(MY_MODULE_FLAGS)
-filefuncs_la_LIBADD   = $(MY_LIBS)
+ALL = $(PFX)filefuncs$(SFX) $(PFX)fnmatch$(SFX) $(PFX)fork$(SFX) \
+	$(PFX)ordchr$(SFX) $(PFX)readdir$(SFX) $(PFX)readfile$(SFX) \
+	$(PFX)revoutput$(SFX) $(PFX)revtwoway$(SFX) $(PFX)rwarray$(SFX) \
+	$(PFX)testext$(SFX) $(PFX)time$(SFX) 
 
-fnmatch_la_SOURCES    = fnmatch.c
-fnmatch_la_LDFLAGS    = $(MY_MODULE_FLAGS)
-fnmatch_la_LIBADD     = $(MY_LIBS)
+all:	$(SHOBJ_STATUS)
 
-fork_la_SOURCES       = fork.c
-fork_la_LDFLAGS       = $(MY_MODULE_FLAGS)
-fork_la_LIBADD        = $(MY_LIBS)
+supported:	$(ALL)
 
-ordchr_la_SOURCES     = ordchr.c
-ordchr_la_LDFLAGS     = $(MY_MODULE_FLAGS)
-ordchr_la_LIBADD      = $(MY_LIBS)
+unsupported:
+	@echo "Your system (${host_os}) is not supported by the"
+	@echo "${topdir}/support/shobj-conf script."
+	@echo "If your operating system provides facilities for dynamic"
+	@echo "loading of shared objects using the dlopen(3) interface,"
+	@echo "please update the script and re-run configure.
+	@echo "Please send the changes you made to bash-maintainers@gnu.org"
+	@echo "for inclusion in future bash releases."
 
-readdir_la_SOURCES    = readdir.c
-readdir_la_LDFLAGS    = $(MY_MODULE_FLAGS)
-readdir_la_LIBADD     = $(MY_LIBS)
+$(PFX)filefuncs$(SFX): filefuncs.o stack.o gawkfts.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
-readfile_la_SOURCES   = readfile.c
-readfile_la_LDFLAGS   = $(MY_MODULE_FLAGS)
-readfile_la_LIBADD    = $(MY_LIBS)
+$(PFX)fnmatch$(SFX): fnmatch.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
-revoutput_la_SOURCES  = revoutput.c
-revoutput_la_LDFLAGS  = $(MY_MODULE_FLAGS)
-revoutput_la_LIBADD   = $(MY_LIBS)
+$(PFX)fork$(SFX): fork.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
-revtwoway_la_SOURCES  = revtwoway.c
-revtwoway_la_LDFLAGS  = $(MY_MODULE_FLAGS)
-revtwoway_la_LIBADD   = $(MY_LIBS)
+$(PFX)ordchr$(SFX): ordchr.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
-rwarray_la_SOURCES    = rwarray.c
-rwarray_la_LDFLAGS    = $(MY_MODULE_FLAGS)
-rwarray_la_LIBADD     = $(MY_LIBS)
+$(PFX)readdir$(SFX): readdir.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
-time_la_SOURCES       = time.c
-time_la_LDFLAGS       = $(MY_MODULE_FLAGS)
-time_la_LIBADD        = $(MY_LIBS)
+$(PFX)readfile$(SFX): readfile.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
-testext_la_SOURCES    = testext.c
-testext_la_LDFLAGS    = $(MY_MODULE_FLAGS)
-testext_la_LIBADD     = $(MY_LIBS)
+$(PFX)revoutput$(SFX): revoutput.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
+
+$(PFX)revtwoway$(SFX): revtwoway.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
+
+$(PFX)rwarray$(SFX): rwarray.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
+
+$(PFX)testext$(SFX): testext.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
+
+$(PFX)time$(SFX): time.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
 EXTRA_DIST = build-aux/config.rpath  \
 	ChangeLog \
 	ChangeLog.0 \
-	fts.3
+	fts.3 \
+	filefuncs.c \
+	fnmatch.c \
+	fork.c \
+	gawkfts.c \
+	gawkfts.h \
+	ordchr.c \
+	readdir.c \
+	readfile.c \
+	revoutput.c \
+	revtwoway.c \
+	rwarray.c \
+	rwarray0.c \
+	stack.c \
+	stack.h \
+	testext.c \
+	time.c \
+	support
+
+install-exec-hook:
+	$(MKDIR_P) "$(DESTDIR)$(pkgextensiondir)" || exit 1; \
+	for i in $(ALL) ; do \
+	$(INSTALL) $(INSTALL_STRIP_FLAG) $$i "$(DESTDIR)$(pkgextensiondir)/$$i" ; \
+	done
 
 dist_man_MANS = \
 	filefuncs.3am fnmatch.3am fork.3am ordchr.3am \

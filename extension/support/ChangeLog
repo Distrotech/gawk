@@ -1,0 +1,4 @@
+2012-12-05         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* shobj-conf: New file taken from bash to provide configuration
+	variables for building shared modules.
