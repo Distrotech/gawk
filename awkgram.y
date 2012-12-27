@@ -57,6 +57,7 @@ static int include_source(INSTRUCTION *file);
 static int load_library(INSTRUCTION *file);
 static void next_sourcefile(void);
 static char *tokexpand(void);
+static bool is_deferred_variable(const char *name);
 
 #define instruction(t)	bcalloc(t, 1, 0)
 
@@ -4135,7 +4136,7 @@ install_function(char *fname, INSTRUCTION *fi, INSTRUCTION *plist)
 	int pcount = 0;
 
 	r = lookup(fname);
-	if (r != NULL) {
+	if (r != NULL || is_deferred_variable(fname)) {
 		error_ln(fi->source_line, _("function name `%s' previously defined"), fname);
 		return -1;
 	}
@@ -4364,6 +4365,19 @@ register_deferred_variable(const char *name, NODE *(*load_func)(void))
 	memcpy(dv->name, name, sl+1);
 	deferred_variables = dv;
 }
+
+/* is_deferred_variable --- check if NAME is a deferred variable */
+
+static bool
+is_deferred_variable(const char *name)
+{
+	struct deferred_variable *dv;
+	for (dv = deferred_variables; dv != NULL; dv = dv->next)
+		if (strcmp(name, dv->name) == 0)
+			return true;
+	return false;
+}
+
 
 /* variable --- make sure NAME is in the symbol table */
 

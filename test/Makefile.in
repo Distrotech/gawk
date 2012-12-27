@@ -314,8 +314,6 @@ EXTRA_DIST = \
 	asort.ok \
 	asorti.awk \
 	asorti.ok \
-	assignconst.awk \
-	assignconst.ok \
 	awkpath.ok \
 	back89.awk \
 	back89.in \
@@ -795,6 +793,8 @@ EXTRA_DIST = \
 	paramres.ok \
 	paramtyp.awk \
 	paramtyp.ok \
+	paramuninitglobal.awk \
+	paramuninitglobal.ok \
 	parse1.awk \
 	parse1.in \
 	parse1.ok \
@@ -1111,8 +1111,8 @@ BASIC_TESTS = \
 	nlinstr nlstrina noeffect nofile nofmtch noloop1 noloop2 nonl \
 	noparms nors nulrsend numindex numsubstr \
 	octsub ofmt ofmta ofmtbig ofmtfidl ofmts ofs1 onlynl opasnidx opasnslf \
-	paramdup paramres paramtyp parse1 parsefld parseme pcntplus \
-	posix2008sub prdupval prec printf0 printf1 prmarscl prmreuse \
+	paramdup paramres paramtyp paramuninitglobal parse1 parsefld parseme \
+	pcntplus posix2008sub prdupval prec printf0 printf1 prmarscl prmreuse \
 	prt1eval prtoeval \
 	rand range1 rebt8b1 redfilnm regeq regexprange regrange \
 	reindops reparse \
@@ -1160,7 +1160,7 @@ LOCALE_CHARSET_TESTS = \
 	mbprintf1 mbprintf2 mbprintf3 rebt8b2 rtlenmb sort1 sprintfc
 
 SHLIB_TESTS = \
-	assignconst fnmatch filefuncs fork fork2 fts ordchr ordchr2 \
+	fnmatch filefuncs fork fork2 fts ordchr ordchr2 \
 	readdir readfile revout revtwoway rwarray testext time
 
 
@@ -2062,13 +2062,6 @@ testext::
 	@$(AWK) -f testext.awk >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@ testext.awk
 
-assignconst:
-	@echo $@
-	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; \
-	do AWKPATH=$(srcdir) $(AWK) -f $@.awk $$i ; \
-	done 2>&1 | grep -v at_exit > _$@
-	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
-
 readdir:
 	@echo This test can fail on some filesystems.
 	@echo $@
@@ -2692,6 +2685,11 @@ paramres:
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
 paramtyp:
+	@echo $@
+	@AWKPATH=$(srcdir) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
+
+paramuninitglobal:
 	@echo $@
 	@AWKPATH=$(srcdir) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
