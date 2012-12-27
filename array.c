@@ -79,7 +79,7 @@ void
 array_init()
 {
 	(void) register_array_func(str_array_func);	/* the default */
-	if (! do_mpfr) {
+	if (numbr_hndlr == & awknum_hndlr) {
 		(void) register_array_func(int_array_func);
 		(void) register_array_func(cint_array_func);
 	}
@@ -652,10 +652,6 @@ do_delete_loop(NODE *symbol, NODE **lhs)
 static void
 value_info(NODE *n)
 {
-
-#define PREC_NUM -1
-#define PREC_STR -1
-
 	if (n == Nnull_string || n == Null_field) {
 		fprintf(output_fp, "<(null)>");
 		return;
@@ -663,30 +659,12 @@ value_info(NODE *n)
 
 	if ((n->flags & (STRING|STRCUR)) != 0) {
 		fprintf(output_fp, "<");
-		fprintf(output_fp, "\"%.*s\"", PREC_STR, n->stptr);
-		if ((n->flags & (NUMBER|NUMCUR)) != 0) {
-#ifdef HAVE_MPFR
-			if (is_mpg_float(n))
-				fprintf(output_fp, ":%s",
-					mpg_fmt("%.*R*g", PREC_NUM, ROUND_MODE, n->mpg_numbr));
-			else if (is_mpg_integer(n))
-				fprintf(output_fp, ":%s", mpg_fmt("%Zd", n->mpg_i));
-			else
-#endif
-			fprintf(output_fp, ":%.*g", PREC_NUM, n->numbr);
-		}
+		fprintf(output_fp, "\"%.*s\"", -1, n->stptr);
+		if ((n->flags & (NUMBER|NUMCUR)) != 0)
+			fprintf(output_fp, ":%s", fmt_number("%.17g", n));
 		fprintf(output_fp, ">");
-	} else {
-#ifdef HAVE_MPFR
-		if (is_mpg_float(n))
-			fprintf(output_fp, "<%s>",
-				mpg_fmt("%.*R*g", PREC_NUM, ROUND_MODE, n->mpg_numbr));
-		else if (is_mpg_integer(n))
-			fprintf(output_fp, "<%s>", mpg_fmt("%Zd", n->mpg_i));
-		else
-#endif
-		fprintf(output_fp, "<%.*g>", PREC_NUM, n->numbr);
-	}
+	} else
+		fprintf(output_fp, "<%s>", fmt_number("%.17g", n));
 
 	fprintf(output_fp, ":%s", flags2str(n->flags));
 
@@ -701,9 +679,6 @@ value_info(NODE *n)
 		fprintf(output_fp, "CONVFMT=\"%s\"", n->stfmt <= -1 ? "%ld"
 					: fmt_list[n->stfmt]->stptr);
 	}
-
-#undef PREC_NUM
-#undef PREC_STR
 }
 
 
@@ -1215,22 +1190,11 @@ sort_user_func(const void *p1, const void *p2)
 	PUSH(val2);
 
 	/* execute the comparison function */
-	(void) (*interpret)(code);
+	interpret(code);
 
 	/* return value of the comparison function */
 	r = POP_NUMBER();
-#ifdef HAVE_MPFR
-	/*
-	 * mpfr_sgn(mpz_sgn): Returns a positive value if op > 0,
-	 * zero if op = 0, and a negative value if op < 0.
-	 */
-	if (is_mpg_float(r))
-		ret = mpfr_sgn(r->mpg_numbr);
-	else if (is_mpg_integer(r))
-		ret = mpz_sgn(r->mpg_i);
-	else
-#endif
-		ret = (r->numbr < 0.0) ? -1 : (r->numbr > 0.0);
+        ret = sgn_number(r);
 	DEREF(r);
 	return ret;
 }

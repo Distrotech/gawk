@@ -63,26 +63,16 @@ err(bool isfatal, const char *s, const char *emsg, va_list argp)
 		(void) fprintf(stderr, "%d: ", sourceline);
 	}
 
-#ifdef HAVE_MPFR
-	if (FNR_node && is_mpg_number(FNR_node->var_value)) {
+	if (FNR_node != NULL && (FNR_node->var_value->flags & (NUMBER|NUMCUR)) != 0) {
 		NODE *val;
-		val = mpg_update_var(FNR_node);
-		assert((val->flags & MPZN) != 0);
-		if (mpz_sgn(val->mpg_i) > 0) {
+		val = numbr_hndlr->update_numvar(FNR_node);
+		if (sgn_number(val) > 0) {	/* positive nonzero number */ 
 			file = FILENAME_node->var_value->stptr;
 			(void) putc('(', stderr);
 			if (file)
 				(void) fprintf(stderr, "FILENAME=%s ", file);
-			(void) mpfr_fprintf(stderr, "FNR=%Zd) ", val->mpg_i);
+			fprintf(stderr, "FNR=%s) ", fmt_number("%d", val));
 		}
-	} else
-#endif
-	if (FNR > 0) {
-		file = FILENAME_node->var_value->stptr;
-		(void) putc('(', stderr);
-		if (file)
-			(void) fprintf(stderr, "FILENAME=%s ", file);
-		(void) fprintf(stderr, "FNR=%ld) ", FNR);
 	}
 
 	(void) fprintf(stderr, "%s", s);
@@ -97,6 +87,42 @@ err(bool isfatal, const char *s, const char *emsg, va_list argp)
 		gawk_exit(EXIT_FATAL);
 	}
 }
+
+
+/*
+ * N.B: format is awk printf format, NOT C format or any other special format
+ * supported. MUST NOT throw warning in format tree. "%ld" is BAD, "%d" is Ok!
+ */
+
+
+/* N.B: FORMAT must pass fmt_ok() used to check CONVFMT/OFMT specifier */
+
+const char *
+fmt_number(const char *format, const NODE *n)
+{
+	NODE *dummy[2], *r, *tmp;
+	static char *num_str;
+	extern bool fmt_ok(const char *p);
+
+	assert(fmt_ok(format) == true);
+	assert((n->flags & (NUMBER|NUMCUR)) != 0);
+
+	/* copy number so not to change state of the original including flags */
+	tmp = numbr_hndlr->gawk_copy_number(n);
+	if (num_str != NULL)
+		efree(num_str);
+
+	/* create dummy node for sole use of format_tree */
+	dummy[1] = tmp;
+	r = format_tree(format, strlen(format), dummy, 2);
+	assert(r != NULL);
+	num_str = r->stptr;
+	num_str[r->stlen] = '\0';
+	freenode(r);
+	unref(tmp);
+	return num_str;
+}
+
 
 /* msg --- take a varargs error message and print it */
 

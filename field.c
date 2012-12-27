@@ -195,28 +195,24 @@ rebuild_record()
 	 */
 	for (cops = ops, i = 1; i <= NF; i++) {
 		NODE *r = fields_arr[i];
+
 		if (r->stlen > 0) {
 			NODE *n;
-			getnode(n);
 
 			if ((r->flags & FIELD) == 0) {
-				*n = *Null_field;
-				n->stlen = r->stlen;
 				if ((r->flags & (NUMCUR|NUMBER)) != 0) {
-					n->flags |= (r->flags & (MPFN|MPZN|NUMCUR|NUMBER));
-#ifdef HAVE_MPFR
-					if (is_mpg_float(r)) {
-					        mpfr_init(n->mpg_numbr);
-						mpfr_set(n->mpg_numbr, r->mpg_numbr, ROUND_MODE);
-					} else if (is_mpg_integer(r)) {
-					        mpz_init(n->mpg_i);
-						mpz_set(n->mpg_i, r->mpg_i);
-					} else
-#endif
-					n->numbr = r->numbr;
+					n = numbr_hndlr->gawk_copy_number(r);
+					n->flags |= Null_field->flags;
+					n->flags &= ~MALLOC;
+				} else {
+					getnode(n);
+					*n = *Null_field;
 				}
+				n->stlen = r->stlen;
 			} else {
+				getnode(n);
 				*n = *r;
+				assert((n->flags & (NUMCUR|NUMBER)) == 0);
 				n->flags &= ~(MALLOC|STRING);
 			}
 

@@ -25,240 +25,20 @@
  */
 
 #include "awk.h"
-#include "math.h"
-#include "floatmagic.h"	/* definition of isnan */
 
-static int is_ieee_magic_val(const char *val);
-static NODE *r_make_number(double x);
-static AWKNUM get_ieee_magic_val(const char *val);
-extern NODE **fmt_list;          /* declared in eval.c */
+NODE *(*format_tree)(const char *, size_t, NODE **, long);
+NODE *(*str2node)(char *, char **, int, bool);
+NODE *(*make_number)(AWKNUM);
+NODE *(*str2number)(NODE *);
+NODE *(*format_val)(const char *, int, NODE *);
+int (*cmp_numbers)(const NODE *, const NODE *);
+void (*free_number)(NODE *);
+unsigned long (*get_number_ui)(const NODE *);
+long (*get_number_si)(const NODE *);
+AWKNUM (*get_number_d)(const NODE *);
+uintmax_t (*get_number_uj)(const NODE *);
+int (*sgn_number)(const NODE *);
 
-NODE *(*make_number)(double) = r_make_number;
-NODE *(*str2number)(NODE *) = r_force_number;
-NODE *(*format_val)(const char *, int, NODE *) = r_format_val;
-int (*cmp_numbers)(const NODE *, const NODE *) = cmp_awknums;
-
-/* force_number --- force a value to be numeric */
-
-NODE *
-r_force_number(NODE *n)
-{
-	char *cp;
-	char *cpend;
-	char save;
-	char *ptr;
-	unsigned int newflags;
-	extern double strtod();
-
-	if ((n->flags & NUMCUR) != 0)
-		return n;
-
-	/* all the conditionals are an attempt to avoid the expensive strtod */
-
-	/* Note: only set NUMCUR if we actually convert some digits */
-
-	n->numbr = 0.0;
-
-	if (n->stlen == 0) {
-		return n;
-	}
-
-	cp = n->stptr;
-	/*
-	 * 2/2007:
-	 * POSIX, by way of severe language lawyering, seems to
-	 * allow things like "inf" and "nan" to mean something.
-	 * So if do_posix, the user gets what he deserves.
-	 * This also allows hexadecimal floating point. Ugh.
-	 */
-	if (! do_posix) {
-		if (isalpha((unsigned char) *cp)) {
-			return n;
-		} else if (n->stlen == 4 && is_ieee_magic_val(n->stptr)) {
-			if ((n->flags & MAYBE_NUM) != 0)
-				n->flags &= ~MAYBE_NUM;
-			n->flags |= NUMBER|NUMCUR;
-			n->numbr = get_ieee_magic_val(n->stptr);
-
-			return n;
-		}
-		/* else
-			fall through */
-	}
-	/* else not POSIX, so
-		fall through */
-
-	cpend = cp + n->stlen;
-	while (cp < cpend && isspace((unsigned char) *cp))
-		cp++;
-
-	if (   cp == cpend		/* only spaces, or */
-	    || (! do_posix		/* not POSIXLY paranoid and */
-	        && (isalpha((unsigned char) *cp)	/* letter, or */
-					/* CANNOT do non-decimal and saw 0x */
-		    || (! do_non_decimal_data && cp[0] == '0'
-		        && (cp[1] == 'x' || cp[1] == 'X'))))) {
-		return n;
-	}
-
-	if ((n->flags & MAYBE_NUM) != 0) {
-		newflags = NUMBER;
-		n->flags &= ~MAYBE_NUM;
-	} else
-		newflags = 0;
-
-	if (cpend - cp == 1) {		/* only one character */
-		if (isdigit((unsigned char) *cp)) {	/* it's a digit! */
-			n->numbr = (AWKNUM)(*cp - '0');
-			n->flags |= newflags;
-			n->flags |= NUMCUR;
-			if (cp == n->stptr)		/* no leading spaces */
-				n->flags |= NUMINT;
-		}
-		return n;
-	}
-
-	if (do_non_decimal_data) {	/* main.c assures false if do_posix */
-		errno = 0;
-		if (! do_traditional && get_numbase(cp, true) != 10) {
-			n->numbr = nondec2awknum(cp, cpend - cp);
-			n->flags |= NUMCUR;
-			ptr = cpend;
-			goto finish;
-		}
-	}
-
-	errno = 0;
-	save = *cpend;
-	*cpend = '\0';
-	n->numbr = (AWKNUM) strtod((const char *) cp, &ptr);
-
-	/* POSIX says trailing space is OK for NUMBER */
-	while (isspace((unsigned char) *ptr))
-		ptr++;
-	*cpend = save;
-finish:
-	if (errno == 0 && ptr == cpend) {
-		n->flags |= newflags;
-		n->flags |= NUMCUR;
-	} else {
-		errno = 0;
-	}
-
-	return n;
-}
-
-
-/*
- * The following lookup table is used as an optimization in force_string;
- * (more complicated) variations on this theme didn't seem to pay off, but 
- * systematic testing might be in order at some point.
- */
-static const char *values[] = {
-	"0",
-	"1",
-	"2",
-	"3",
-	"4",
-	"5",
-	"6",
-	"7",
-	"8",
-	"9",
-};
-#define	NVAL	(sizeof(values)/sizeof(values[0]))
-
-/* r_format_val --- format a numeric value based on format */
-
-NODE *
-r_format_val(const char *format, int index, NODE *s)
-{
-	char buf[BUFSIZ];
-	char *sp = buf;
-	double val;
-
-	/*
-	 * 2/2007: Simplify our lives here. Instead of worrying about
-	 * whether or not the value will fit into a long just so we
-	 * can use sprintf("%ld", val) on it, always format it ourselves.
-	 * The only thing to worry about is that integral values always
-	 * format as integers. %.0f does that very well.
-	 *
-	 * 6/2008: Would that things were so simple. Always using %.0f
-	 * imposes a notable performance penalty for applications that
-	 * do a lot of conversion of integers to strings. So, we reinstate
-	 * the old code, but use %.0f for integral values that are outside
-	 * the range of a long.  This seems a reasonable compromise.
-	 *
-	 * 12/2009: Use <= and >= in the comparisons with LONG_xxx instead of
-	 * < and > so that things work correctly on systems with 64 bit integers.
-	 */
-
-	/* not an integral value, or out of range */
-	if ((val = double_to_int(s->numbr)) != s->numbr
-			|| val <= LONG_MIN || val >= LONG_MAX
-	) {
-		/*
-		 * Once upon a time, we just blindly did this:
-		 *	sprintf(sp, format, s->numbr);
-		 *	s->stlen = strlen(sp);
-		 *	s->stfmt = (char) index;
-		 * but that's no good if, e.g., OFMT is %s. So we punt,
-		 * and just always format the value ourselves.
-		 */
-
-		NODE *dummy[2], *r;
-		unsigned int oflags;
-
-		/* create dummy node for a sole use of format_tree */
-		dummy[1] = s;
-		oflags = s->flags;
-
-		if (val == s->numbr) {
-			/* integral value, but outside range of %ld, use %.0f */
-			r = format_tree("%.0f", 4, dummy, 2);
-			s->stfmt = -1;
-		} else {
-			r = format_tree(format, fmt_list[index]->stlen, dummy, 2);
-			assert(r != NULL);
-			s->stfmt = (char) index;
-		}
-		s->flags = oflags;
-		s->stlen = r->stlen;
-		if ((s->flags & STRCUR) != 0)
-			efree(s->stptr);
-		s->stptr = r->stptr;
-		freenode(r);	/* Do not unref(r)! We want to keep s->stptr == r->stpr.  */
-
-		goto no_malloc;
-	} else {
-		/*
-		 * integral value; force conversion to long only once.
-		 */
-		long num = (long) val;
-
-		if (num < NVAL && num >= 0) {
-			sp = (char *) values[num];
-			s->stlen = 1;
-		} else {
-			(void) sprintf(sp, "%ld", num);
-			s->stlen = strlen(sp);
-		}
-		s->stfmt = -1;
-		if ((s->flags & INTIND) != 0) {
-			s->flags &= ~(INTIND|NUMBER);
-			s->flags |= STRING;
-		}
-	}
-	if (s->stptr != NULL)
-		efree(s->stptr);
-	emalloc(s->stptr, char *, s->stlen + 2, "format_val");
-	memcpy(s->stptr, sp, s->stlen + 1);
-no_malloc:
-	s->flags |= STRCUR;
-	free_wstr(s);
-	return s;
-}
 
 /* r_dupnode --- duplicate a node */
 
@@ -308,53 +88,6 @@ r_dupnode(NODE *n)
 	
 	return r;
 }
-
-/* r_make_number --- allocate a node with defined number */
-
-static NODE *
-r_make_number(double x)
-{
-	NODE *r;
-	getnode(r);
-	r->type = Node_val;
-	r->numbr = x;
-	r->flags = MALLOC|NUMBER|NUMCUR;
-	r->valref = 1;
-	r->stptr = NULL;
-	r->stlen = 0;
-#if MBS_SUPPORT
-	r->wstptr = NULL;
-	r->wstlen = 0;
-#endif /* defined MBS_SUPPORT */
-	return r;
-}
-
-/* cmp_awknums --- compare two AWKNUMs */
-
-int
-cmp_awknums(const NODE *t1, const NODE *t2)
-{
-	/*
-	 * This routine is also used to sort numeric array indices or values.
-	 * For the purposes of sorting, NaN is considered greater than
-	 * any other value, and all NaN values are considered equivalent and equal.
-	 * This isn't in compliance with IEEE standard, but compliance w.r.t. NaN
-	 * comparison at the awk level is a different issue, and needs to be dealt
-	 * with in the interpreter for each opcode seperately.
-	 */
-
-	if (isnan(t1->numbr))
-		return ! isnan(t2->numbr);
-	if (isnan(t2->numbr))
-		return -1;
-	/* don't subtract, in case one or both are infinite */
-	if (t1->numbr == t2->numbr)
-		return 0;
-	if (t1->numbr < t2->numbr)
-		return -1;
-	return 1;
-}
-
 
 /* make_str_node --- make a string node */
 
@@ -456,7 +189,8 @@ r_unref(NODE *tmp)
 		efree(tmp->stptr);
 #endif
 
-	mpfr_unset(tmp);
+	if (free_number && (tmp->flags & (NUMBER|NUMCUR)) != 0)
+		free_number(tmp);
 
 	free_wstr(tmp);
 	freenode(tmp);
@@ -893,50 +627,6 @@ out:	;
 }
 #endif /* MBS_SUPPORT */
 
-/* is_ieee_magic_val --- return true for +inf, -inf, +nan, -nan */
-
-static int
-is_ieee_magic_val(const char *val)
-{
-	/*
-	 * Avoid strncasecmp: it mishandles ASCII bytes in some locales.
-	 * Assume the length is 4, as the caller checks this.
-	 */
-	return (   (val[0] == '+' || val[0] == '-')
-		&& (   (   (val[1] == 'i' || val[1] == 'I')
-			&& (val[2] == 'n' || val[2] == 'N')
-			&& (val[3] == 'f' || val[3] == 'F'))
-		    || (   (val[1] == 'n' || val[1] == 'N')
-			&& (val[2] == 'a' || val[2] == 'A')
-			&& (val[3] == 'n' || val[3] == 'N'))));
-}
-
-/* get_ieee_magic_val --- return magic value for string */
-
-static AWKNUM
-get_ieee_magic_val(const char *val)
-{
-	static bool first = true;
-	static AWKNUM inf;
-	static AWKNUM nan;
-
-	char *ptr;
-	AWKNUM v = strtod(val, &ptr);
-
-	if (val == ptr) { /* Older strtod implementations don't support inf or nan. */
-		if (first) {
-			first = false;
-			nan = sqrt(-1.0);
-			inf = -log(0.0);
-		}
-
-		v = ((val[1] == 'i' || val[1] == 'I') ? inf : nan);
-		if (val[0] == '-')
-			v = -v;
-	}
-
-	return v;
-}
 
 #if MBS_SUPPORT
 wint_t btowc_cache[256];

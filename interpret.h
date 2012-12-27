@@ -37,6 +37,7 @@ r_interpret(INSTRUCTION *code)
 	AWKNUM x, x2;
 	int di;
 	Regexp *rp;
+	NODE *booleans[] = { false_node, true_node };
 	NODE *set_array = NULL;	/* array with a post-assignment routine */
 	NODE *set_idx = NULL;	/* the index of the array element */
 
@@ -180,7 +181,7 @@ top:
 				cant_happen();
 			}
 		}
-			break;	
+			break;
 
 		case Op_push_param:		/* function argument */
 			m = pc->memory;
@@ -392,7 +393,7 @@ top:
 			DEREF(t1);
 			if ((op == Op_and && di) || (op == Op_or && ! di))
 				break;
-			r = node_Boolean[di];
+			r = booleans[di];
 			UPREF(r);
 			PUSH(r);
 			ni = pc->target_jmp;
@@ -401,7 +402,7 @@ top:
 		case Op_and_final:
 		case Op_or_final:
 			t1 = TOP_SCALAR();
-			r = node_Boolean[eval_condition(t1)];
+			r = booleans[eval_condition(t1)];
 			DEREF(t1);
 			UPREF(r);
 			REPLACE(r);
@@ -409,181 +410,115 @@ top:
 
 		case Op_not:
 			t1 = TOP_SCALAR();
-			r = node_Boolean[! eval_condition(t1)];
+			r = booleans[! eval_condition(t1)];
 			DEREF(t1);
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_equal:
-			r = node_Boolean[cmp_scalars() == 0];
+			r = booleans[cmp_scalars() == 0];
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_notequal:
-			r = node_Boolean[cmp_scalars() != 0];
+			r = booleans[cmp_scalars() != 0];
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_less:
-			r = node_Boolean[cmp_scalars() < 0];
+			r = booleans[cmp_scalars() < 0];
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_greater:
-			r = node_Boolean[cmp_scalars() > 0];
+			r = booleans[cmp_scalars() > 0];
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_leq:
-			r = node_Boolean[cmp_scalars() <= 0];
+			r = booleans[cmp_scalars() <= 0];
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_geq:
-			r = node_Boolean[cmp_scalars() >= 0];
+			r = booleans[cmp_scalars() >= 0];
 			UPREF(r);
 			REPLACE(r);
 			break;
 
-		case Op_plus_i:
-			x2 = force_number(pc->memory)->numbr;
-			goto plus;
+#define ARITHOP(OP)	\
+t2 = POP_NUMBER();	\
+t1 = TOP_NUMBER();	\
+r = numbr_hndlr->OP(t1, t2);	\
+DEREF(t1);		\
+DEREF(t2); REPLACE(r)
+
 		case Op_plus:
-			t2 = POP_NUMBER();
-			x2 = t2->numbr;
-			DEREF(t2);
-plus:
-			t1 = TOP_NUMBER();
-			r = make_number(t1->numbr + x2);
-			DEREF(t1);
-			REPLACE(r);
+			ARITHOP(add);
 			break;
 
-		case Op_minus_i:
-			x2 = force_number(pc->memory)->numbr;
-			goto minus;
 		case Op_minus:
-			t2 = POP_NUMBER();
-			x2 = t2->numbr;
-			DEREF(t2);			
-minus:
-			t1 = TOP_NUMBER();
-			r = make_number(t1->numbr - x2);
-			DEREF(t1);
-			REPLACE(r);
+			ARITHOP(sub);
 			break;
 
-		case Op_times_i:
-			x2 = force_number(pc->memory)->numbr;
-			goto times;
 		case Op_times:
-			t2 = POP_NUMBER();
-			x2 = t2->numbr;
-			DEREF(t2);
-times:
-			t1 = TOP_NUMBER();
-			r = make_number(t1->numbr * x2);
-			DEREF(t1);
-			REPLACE(r);
+			ARITHOP(mul);
 			break;
 
-		case Op_exp_i:
-			x2 = force_number(pc->memory)->numbr;
-			goto exp;
-		case Op_exp:
-			t2 = POP_NUMBER();
-			x2 = t2->numbr;
-			DEREF(t2);
-exp:
-			t1 = TOP_NUMBER();
-			r = make_number(calc_exp(t1->numbr, x2));
-			DEREF(t1);
-			REPLACE(r);
-			break;
-
-		case Op_quotient_i:
-			x2 = force_number(pc->memory)->numbr;
-			goto quotient;
 		case Op_quotient:
-			t2 = POP_NUMBER();
-			x2 = t2->numbr;
-			DEREF(t2);
-quotient:
-			t1 = TOP_NUMBER();
-			if (x2 == 0)
-				fatal(_("division by zero attempted"));
-			r = make_number(t1->numbr / x2);
-			DEREF(t1);
-			REPLACE(r);
-			break;		
-
-		case Op_mod_i:
-			x2 = force_number(pc->memory)->numbr;
-			goto mod;
-		case Op_mod:
-			t2 = POP_NUMBER();
-			x2 = t2->numbr;
-			DEREF(t2);
-mod:
-			t1 = TOP_NUMBER();
-			if (x2 == 0)
-				fatal(_("division by zero attempted in `%%'"));
-#ifdef HAVE_FMOD
-			x = fmod(t1->numbr, x2);
-#else	/* ! HAVE_FMOD */
-			(void) modf(t1->numbr / x2, &x);
-			x = t1->numbr - x * x2;
-#endif	/* ! HAVE_FMOD */
-			r = make_number(x);
-
-			DEREF(t1);
-			REPLACE(r);
+			ARITHOP(div);
 			break;
+
+		case Op_exp:
+			ARITHOP(pow);
+			break;
+
+		case Op_mod:
+			ARITHOP(mod);
+			break;
+#undef ARITHOP
 
 		case Op_preincrement:
 		case Op_predecrement:
-			x = op == Op_preincrement ? 1.0 : -1.0;
 			lhs = TOP_ADDRESS();
-			t1 = *lhs;
-			force_number(t1);
-			if (t1->valref == 1 && t1->flags == (MALLOC|NUMCUR|NUMBER)) {
-				/* optimization */
-				t1->numbr += x;
-				r = t1;
-			} else {
-				r = *lhs = make_number(t1->numbr + x);
-				unref(t1);
-			}
+			t1 = force_number(*lhs);
+			r = *lhs = numbr_hndlr->add_long(t1, op == Op_preincrement ? 1 : -1);
+			unref(t1);
 			UPREF(r);
 			REPLACE(r);
 			break;
 
 		case Op_postincrement:
 		case Op_postdecrement:
-			x = op == Op_postincrement ? 1.0 : -1.0;
 			lhs = TOP_ADDRESS();
-			t1 = *lhs;
-			force_number(t1);
-			r = make_number(t1->numbr);
-			if (t1->valref == 1 && t1->flags == (MALLOC|NUMCUR|NUMBER)) {
- 				/* optimization */
-				t1->numbr += x;
-			} else {
-				*lhs = make_number(t1->numbr + x);
-				unref(t1);
-			}
+			t1 = force_number(*lhs);
+			r = numbr_hndlr->gawk_copy_number(t1);
+			*lhs = numbr_hndlr->add_long(t1, op == Op_postincrement ? 1 : -1);
+			unref(t1);
+			REPLACE(r);
+			break;
+
+		case Op_unary_plus:
+     			/*
+			 * POSIX semantics: force a conversion to numeric type.
+			 * Arbitrary-precision semantics: force the working precision.
+			 */
+			t1 = TOP_NUMBER();
+			r = numbr_hndlr->gawk_copy_number(t1);
+			DEREF(t1);
 			REPLACE(r);
 			break;
 
 		case Op_unary_minus:
 			t1 = TOP_NUMBER();
-			r = make_number(-t1->numbr);
+			r = numbr_hndlr->gawk_copy_number(t1);
+			numbr_hndlr->gawk_negate_number(r);
 			DEREF(t1);
 			REPLACE(r);
 			break;
@@ -834,7 +769,7 @@ mod:
 		case Op_in_array:
 			t1 = POP_ARRAY();
 			t2 = mk_sub(pc->expr_count);
-			r = node_Boolean[(in_array(t1, t2) != NULL)];
+			r = booleans[(in_array(t1, t2) != NULL)];
 			DEREF(t2);
 			UPREF(r);
 			PUSH(r);
@@ -983,13 +918,13 @@ match_re:
 			 */
 
 			di = research(rp, t1->stptr, 0, t1->stlen,
-								avoid_dfa(m, t1->stptr, t1->stlen));
+							avoid_dfa(m, t1->stptr, t1->stlen));
 			di = (di == -1) ^ (op != Op_nomatch);
 			if (op != Op_match_rec) {
 				decr_sp();
 				DEREF(t1);
 			}
-			r = node_Boolean[di];
+			r = booleans[di];
 			UPREF(r);
 			PUSH(r);
 			break;
@@ -1328,8 +1263,8 @@ match_re:
 			}
 
 			result = ip->triggered || di;
-			ip->triggered ^= di;          /* update triggered flag */
-			r = node_Boolean[result];      /* final value of condition pair */
+			ip->triggered ^= di;       /* update triggered flag */
+			r = booleans[result];      /* final value of condition pair */
 			UPREF(r);
 			REPLACE(r);
 			JUMPTO(pc->target_jmp);

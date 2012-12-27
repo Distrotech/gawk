@@ -210,18 +210,6 @@ typedef void *stackoverflow_context_t;
    this is a hack but it gives us the right semantics */
 #define lintwarn (*(set_loc(__FILE__, __LINE__),lintfunc))
 
-#ifdef HAVE_MPFR
-#include <gmp.h>
-#include <mpfr.h>
-#ifndef MPFR_RNDN
-/* for compatibility with MPFR 2.X */
-#define MPFR_RNDN GMP_RNDN
-#define MPFR_RNDZ GMP_RNDZ
-#define MPFR_RNDU GMP_RNDU
-#define MPFR_RNDD GMP_RNDD
-#endif
-#endif
-
 #include "regex.h"
 #include "dfa.h"
 typedef struct Regexp {
@@ -243,6 +231,13 @@ typedef struct Regexp {
 /* regexp matching flags: */
 #define RE_NEED_START	1	/* need to know start/end of match */
 #define RE_NO_BOL	2	/* not allowed to match ^ in regexp */
+
+
+#ifndef CHAR_BIT
+# define CHAR_BIT 8
+#endif
+
+#define DEFAULT_G_PRECISION 6
 
 #include "gawkapi.h"
 
@@ -386,17 +381,6 @@ typedef struct exp_node {
 		} nodep;
 
 		struct {
-#ifdef HAVE_MPFR
-			union {
-				AWKNUM fltnum;
-				mpfr_t mpnum;
-				mpz_t mpi;
-			} nm;
-#else
-			AWKNUM fltnum;	/* this is here for optimal packing of
-			             	 * the structure on many machines
-			              	 */
-#endif
 			char *sp;
 			size_t slen;
 			long sref;
@@ -404,7 +388,14 @@ typedef struct exp_node {
 #if MBS_SUPPORT
 			wchar_t *wsp;
 			size_t wslen;
-#endif
+#endif		
+			union {
+				AWKNUM fltnum;
+				void *pq;
+			} nmb;
+#define numbr	sub.val.nmb.fltnum
+#define	qnumbr	sub.val.nmb.pq
+
 		} val;
 	} sub;
 	NODETYPE type;
@@ -469,13 +460,6 @@ typedef struct exp_node {
 #define stfmt	sub.val.idx
 #define wstptr	sub.val.wsp
 #define wstlen	sub.val.wslen
-#ifdef HAVE_MPFR
-#define mpg_numbr	sub.val.nm.mpnum
-#define mpg_i		sub.val.nm.mpi
-#define numbr		sub.val.nm.fltnum
-#else
-#define numbr		sub.val.fltnum
-#endif
 
 /* Node_arrayfor */
 #define for_list	sub.nodep.r.av
@@ -553,18 +537,19 @@ typedef enum opcodeval {
 	Op_illegal,
 
 	/* binary operators */
-	Op_times,
-	Op_times_i,
-	Op_quotient,
-	Op_quotient_i,
-	Op_mod,
-	Op_mod_i,
 	Op_plus,
-	Op_plus_i,
 	Op_minus,
-	Op_minus_i,
+	Op_times,
+	Op_quotient,
+	Op_mod,
 	Op_exp,
-	Op_exp_i,
+	Op_assign_plus,
+	Op_assign_minus,
+	Op_assign_times,
+	Op_assign_quotient,
+	Op_assign_mod,
+	Op_assign_exp,
+
 	Op_concat,
 
 	/* line range instruction pair */
@@ -579,6 +564,7 @@ typedef enum opcodeval {
 	Op_predecrement,
 	Op_postincrement,
 	Op_postdecrement,
+	Op_unary_plus,
 	Op_unary_minus,
 	Op_field_spec,
 
@@ -590,12 +576,6 @@ typedef enum opcodeval {
 	Op_store_var,		/* simple variable assignment optimization */
 	Op_store_sub,		/* array[subscript] assignment optimization */
 	Op_store_field,  	/* $n assignment optimization */
-	Op_assign_times,
-	Op_assign_quotient,
-	Op_assign_mod,
-	Op_assign_plus,
-	Op_assign_minus,
-	Op_assign_exp,
 	Op_assign_concat,
 
 	/* boolean binaries */
@@ -882,6 +862,63 @@ typedef struct exp_instruction {
 /* Op_store_var */
 #define initval         x.xn
 
+
+typedef struct {
+	const char *name;	/* name of the built-in */
+	NODE *(*ptr)(int);	/* function that implements this built-in */
+} bltin_t;
+
+
+typedef struct {
+	bool (*init)(bltin_t **);                /* initialization */
+	const char *(*version_str)(void);        /* library version */
+	void (*load_procinfo)(void);             /* load relevant PROCINFO entries */
+
+	NODE *(*gawk_make_number)(AWKNUM);       /* convert AWKNUM to numeric value */
+	NODE *(*gawk_str2number)(char *, char **, int, bool);   /* convert a C-style string
+                                                                   to number */
+	NODE *(*gawk_copy_number)(const NODE *); /* deep-copy a numeric NODE */
+
+	void (*gawk_free_number)(NODE *);        /* free internally allocated space */
+
+	NODE *(*gawk_force_number)(NODE *);      /* force a NODE value to be numeric */
+	void (*gawk_negate_number)(NODE *);      /* in place negation of a number */
+	int (*gawk_cmp_numbers)(const NODE *, const NODE *);   /* compare two numbers */
+	int (*gawk_sgn_number)(const NODE *);    /* test if a numeric node is zero,
+                                                    positive or negative */
+	bool (*gawk_is_integer)(const NODE *);    /* test if a number is an integer */
+
+	NODE *(*gawk_fmt_number)(const char *, int, NODE *);   /* stringify a numeric value
+	                                                          based on awk input/output format */
+	NODE *(*gawk_format_nodes)(const char *, size_t, NODE **, long); /* format NODES according to
+	                                                                    user-specified FORMAT */  
+
+	/* conversion to C types */
+	AWKNUM (*gawk_todouble)(const NODE *);         /* number to AWKNUM */
+	long (*gawk_tolong)(const NODE *);             /* number to long */
+	unsigned long (*gawk_toulong)(const NODE *);   /* number to unsigned long */
+	uintmax_t (*gawk_touintmax_t)(const NODE *);   /* number to uintmax_t */
+
+	/* operators */
+	NODE *(*add)(const NODE *, const NODE *);      /* addition */
+	NODE *(*sub)(const NODE *, const NODE *);      /* subtraction */
+	NODE *(*mul)(const NODE *, const NODE *);      /* multiplication */
+	NODE *(*div)(const NODE *, const NODE *);      /* division */
+	NODE *(*mod)(const NODE *, const NODE *);      /* remainder */
+	NODE *(*pow)(const NODE *, const NODE *);      /* exponentiation */
+
+	NODE *(*add_long)(const NODE *, long);    /* add a long to a number */
+
+	NODE *(*update_numvar)(NODE *);           /* update a NODE value from
+                                                     internal variable(s) */
+	void (*set_numvar)(const NODE *);         /* update internal variable(s)
+                                                     from a NODE value */
+	long (*increment_var)(const NODE *, long);     /* update NR or FNR related internal
+                                                          variables -- efficiency hack */
+	void (*init_numvars)(void);               /* set default values for PREC etc. */
+} numbr_handler_t;
+
+
 typedef struct iobuf {
 	awk_input_buf_t public;	/* exposed to extensions */
 	char *buf;              /* start data buffer */
@@ -1046,14 +1083,28 @@ extern NODE *LINT_node, *ERRNO_node, *TEXTDOMAIN_node, *FPAT_node;
 extern NODE *PREC_node, *ROUNDMODE_node;
 extern NODE *Nnull_string;
 extern NODE *Null_field;
+extern NODE *true_node, *false_node;
 extern NODE **fields_arr;
 extern int sourceline;
 extern char *source;
 extern int (*interpret)(INSTRUCTION *);	/* interpreter routine */
-extern NODE *(*make_number)(double);	/* double instead of AWKNUM on purpose */
+
+extern numbr_handler_t awknum_hndlr;	/* double */
+extern numbr_handler_t mpfp_hndlr;	/* arbitrary-precision floating-point */
+extern numbr_handler_t *numbr_hndlr;	/* active handler */
+
+extern NODE *(*make_number)(AWKNUM);
 extern NODE *(*str2number)(NODE *);
 extern NODE *(*format_val)(const char *, int, NODE *);
 extern int (*cmp_numbers)(const NODE *, const NODE *);
+extern NODE *(*str2node)(char *, char **, int, bool);
+extern void (*free_number)(NODE *);
+extern unsigned long (*get_number_ui)(const NODE *);
+extern long (*get_number_si)(const NODE *);
+extern double (*get_number_d)(const NODE *);
+extern uintmax_t (*get_number_uj)(const NODE *);
+extern int (*sgn_number)(const NODE *);
+extern NODE *(*format_tree)(const char *, size_t, NODE **, long);
 
 /* built-in array types */
 extern afunc_t str_array_func[];
@@ -1080,7 +1131,6 @@ enum do_flag_values {
 	DO_SANDBOX	= 0x0800,	/* sandbox mode - disable 'system' function & redirections */
 	DO_PROFILE	= 0x1000,	/* profile the program */
 	DO_DEBUG	= 0x2000,	/* debug the program */
-	DO_MPFR		= 0x4000	/* arbitrary-precision floating-point math */
 };
 
 #define do_traditional      (do_flags & DO_TRADITIONAL)
@@ -1094,7 +1144,6 @@ enum do_flag_values {
 #define do_tidy_mem         (do_flags & DO_TIDY_MEM)
 #define do_sandbox          (do_flags & DO_SANDBOX)
 #define do_debug            (do_flags & DO_DEBUG)
-#define do_mpfr             (do_flags & DO_MPFR)
 
 extern bool do_optimize;
 extern int use_lc_numeric;
@@ -1121,15 +1170,6 @@ extern int ngroups;
 #ifdef HAVE_LOCALE_H
 extern struct lconv loc;
 #endif /* HAVE_LOCALE_H */
-
-#ifdef HAVE_MPFR
-extern mpfr_prec_t PRECISION;
-extern mpfr_rnd_t ROUND_MODE;
-extern mpz_t MNR;
-extern mpz_t MFNR;
-extern mpz_t mpzval;
-extern bool do_ieee_fmt;	/* emulate IEEE 754 floating-point format */
-#endif
 
 
 extern const char *myname;
@@ -1193,43 +1233,8 @@ DEREF(NODE *r)
 #define TOP_NUMBER() force_number(TOP_SCALAR())
 
 /* ------------------------- Pseudo-functions ------------------------- */
-#ifdef HAVE_MPFR
-/* conversion to C types */
-#define get_number_ui(n)	(((n)->flags & MPFN) ? mpfr_get_ui((n)->mpg_numbr, ROUND_MODE) \
-				: ((n)->flags & MPZN) ? mpz_get_ui((n)->mpg_i) \
-				: (unsigned long) (n)->numbr)
-#define get_number_si(n)	(((n)->flags & MPFN) ? mpfr_get_si((n)->mpg_numbr, ROUND_MODE) \
-				: ((n)->flags & MPZN) ? mpz_get_si((n)->mpg_i) \
-				: (long) (n)->numbr)
-#define get_number_d(n)		(((n)->flags & MPFN) ? mpfr_get_d((n)->mpg_numbr, ROUND_MODE) \
-				: ((n)->flags & MPZN) ? mpz_get_d((n)->mpg_i) \
-				: (double) (n)->numbr)
-#define get_number_uj(n)	(((n)->flags & MPFN) ? mpfr_get_uj((n)->mpg_numbr, ROUND_MODE) \
-				: ((n)->flags & MPZN) ? (uintmax_t) mpz_get_d((n)->mpg_i) \
-				: (uintmax_t) (n)->numbr)
-
-#define iszero(n)		(((n)->flags & MPFN) ? mpfr_zero_p((n)->mpg_numbr) \
-				: ((n)->flags & MPZN) ? (mpz_sgn((n)->mpg_i) == 0) \
-				: ((n)->numbr == 0.0))
-
-#define IEEE_FMT(r, t)		(void) (do_ieee_fmt && format_ieee(r, t))
-
-#define mpg_float()		mpg_node(MPFN)
-#define mpg_integer()		mpg_node(MPZN)
-#define is_mpg_float(n)		(((n)->flags & MPFN) != 0)
-#define is_mpg_integer(n)	(((n)->flags & MPZN) != 0)
-#define is_mpg_number(n)	(((n)->flags & (MPZN|MPFN)) != 0)
-#else
-#define get_number_ui(n)	(unsigned long) (n)->numbr
-#define get_number_si(n)	(long) (n)->numbr
-#define get_number_d(n)		(double) (n)->numbr
-#define get_number_uj(n)	(uintmax_t) (n)->numbr
-
-#define is_mpg_number(n)	0
-#define is_mpg_float(n)		0
-#define is_mpg_integer(n)	0
-#define iszero(n)		((n)->numbr == 0.0)
-#endif
+#define iszero(n)	(sgn_number(n) == 0)
+#define isinteger(n)	numbr_hndlr->gawk_is_integer(n)
 
 #define var_uninitialized(n)	((n)->var_value == Nnull_string)
 
@@ -1355,6 +1360,7 @@ extern NODE *do_aoption(int nargs);
 extern NODE *do_asort(int nargs);
 extern NODE *do_asorti(int nargs);
 extern unsigned long (*hash)(const char *s, size_t len, unsigned long hsize, size_t *code);
+
 /* awkgram.c */
 extern NODE *variable(int location, char *name, NODETYPE type);
 extern int parse_program(INSTRUCTION **pcode);
@@ -1369,21 +1375,15 @@ extern SRCFILE *add_srcfile(int stype, char *src, SRCFILE *curr, bool *already_i
 extern void register_deferred_variable(const char *name, NODE *(*load_func)(void));
 extern int files_are_same(char *path, SRCFILE *src);
 extern void valinfo(NODE *n, Func_print print_func, FILE *fp);
-extern void negate_num(NODE *n);
+
 /* builtin.c */
-extern double double_to_int(double d);
-extern NODE *do_exp(int nargs);
 extern NODE *do_fflush(int nargs);
 extern NODE *do_index(int nargs);
-extern NODE *do_int(int nargs);
 extern NODE *do_isarray(int nargs);
 extern NODE *do_length(int nargs);
-extern NODE *do_log(int nargs);
 extern NODE *do_mktime(int nargs);
 extern NODE *do_sprintf(int nargs);
 extern void do_printf(int nargs, int redirtype);
-extern void print_simple(NODE *tree, FILE *fp);
-extern NODE *do_sqrt(int nargs);
 extern NODE *do_substr(int nargs);
 extern NODE *do_strftime(int nargs);
 extern NODE *do_systime(int nargs);
@@ -1392,22 +1392,8 @@ extern void do_print(int nargs, int redirtype);
 extern void do_print_rec(int args, int redirtype);
 extern NODE *do_tolower(int nargs);
 extern NODE *do_toupper(int nargs);
-extern NODE *do_atan2(int nargs);
-extern NODE *do_sin(int nargs);
-extern NODE *do_cos(int nargs);
-extern NODE *do_rand(int nargs);
-extern NODE *do_srand(int nargs);
 extern NODE *do_match(int nargs);
 extern NODE *do_sub(int nargs, unsigned int flags);
-extern NODE *format_tree(const char *, size_t, NODE **, long);
-extern NODE *do_lshift(int nargs);
-extern NODE *do_rshift(int nargs);
-extern NODE *do_and(int nargs);
-extern NODE *do_or(int nargs);
-extern NODE *do_xor(int nargs);
-extern NODE *do_compl(int nargs);
-extern NODE *do_strtonum(int nargs);
-extern AWKNUM nondec2awknum(char *str, size_t len);
 extern NODE *do_dcgettext(int nargs);
 extern NODE *do_dcngettext(int nargs);
 extern NODE *do_bindtextdomain(int nargs);
@@ -1415,12 +1401,12 @@ extern NODE *do_bindtextdomain(int nargs);
 extern int strncasecmpmbs(const unsigned char *,
 			  const unsigned char *, size_t);
 #endif
+
 /* eval.c */
 extern void PUSH_CODE(INSTRUCTION *cp);
 extern INSTRUCTION *POP_CODE(void);
 extern void init_interpret(void);
 extern int cmp_nodes(NODE *t1, NODE *t2);
-extern int cmp_awknums(const NODE *t1, const NODE *t2);
 extern void set_IGNORECASE(void);
 extern void set_OFS(void);
 extern void set_ORS(void);
@@ -1440,13 +1426,13 @@ extern const char *flags2str(int);
 extern const char *genflags2str(int flagval, const struct flagtab *tab);
 extern const char *nodetype2str(NODETYPE type);
 extern void load_casetable(void);
-extern AWKNUM calc_exp(AWKNUM x1, AWKNUM x2);
 extern const char *opcode2str(OPCODE type);
 extern const char *op2str(OPCODE type);
 extern NODE **r_get_lhs(NODE *n, bool reference);
 extern STACK_ITEM *grow_stack(void);
 extern void dump_fcall_stack(FILE *fp);
 extern int register_exec_hook(Func_pre_exec preh, Func_post_exec posth);
+
 /* ext.c */
 extern NODE *do_ext(int nargs);
 void load_ext(const char *lib_name);	/* temporary */
@@ -1460,11 +1446,14 @@ extern NODE *get_actual_argument(int, bool, bool);
 #define get_scalar_argument(i, opt)  get_actual_argument((i), (opt), false)
 #define get_array_argument(i, opt)   get_actual_argument((i), (opt), true)
 #endif
+
 /* field.c */
 extern void init_fields(void);
 extern void set_record(const char *buf, int cnt);
 extern void reset_record(void);
 extern void set_NF(void);
+extern void set_PREC(void);
+extern void set_ROUNDMODE(void);
 extern NODE **get_field(long num, Func_ptr *assign);
 extern NODE *do_split(int nargs);
 extern NODE *do_patsplit(int nargs);
@@ -1512,7 +1501,6 @@ extern void register_output_wrapper(awk_output_wrapper_t *wrapper);
 extern void register_two_way_processor(awk_two_way_processor_t *processor);
 extern void set_FNR(void);
 extern void set_NR(void);
-
 extern struct redirect *redirect(NODE *redir_exp, int redirtype, int *errflg);
 extern NODE *do_close(int nargs);
 extern int flush_io(void);
@@ -1525,6 +1513,7 @@ extern NODE *do_getline(int intovar, IOBUF *iop);
 extern struct redirect *getredirect(const char *str, int len);
 extern int inrec(IOBUF *iop, int *errcode);
 extern int nextfile(IOBUF **curfile, bool skipping);
+
 /* main.c */
 extern int arg_assign(char *arg, bool initing);
 extern int is_std_var(const char *var);
@@ -1533,40 +1522,11 @@ extern char *estrdup(const char *str, size_t len);
 extern void update_global_values();
 extern long getenv_long(const char *name);
 
-/* mpfr.c */
-extern void set_PREC(void);
-extern void set_ROUNDMODE(void);
-extern void mpfr_unset(NODE *n);
-#ifdef HAVE_MPFR
-extern int mpg_cmp(const NODE *, const NODE *);
-extern int format_ieee(mpfr_ptr, int);
-extern NODE *mpg_update_var(NODE *);
-extern long mpg_set_var(NODE *);
-extern NODE *do_mpfr_and(int);
-extern NODE *do_mpfr_atan2(int);
-extern NODE *do_mpfr_compl(int);
-extern NODE *do_mpfr_cos(int);
-extern NODE *do_mpfr_exp(int);
-extern NODE *do_mpfr_int(int);
-extern NODE *do_mpfr_log(int);
-extern NODE *do_mpfr_lshift(int);
-extern NODE *do_mpfr_or(int);
-extern NODE *do_mpfr_rand(int);
-extern NODE *do_mpfr_rhift(int);
-extern NODE *do_mpfr_sin(int);
-extern NODE *do_mpfr_sqrt(int);
-extern NODE *do_mpfr_srand(int);
-extern NODE *do_mpfr_strtonum(int);
-extern NODE *do_mpfr_xor(int);
-extern void init_mpfr(mpfr_prec_t, const char *);
-extern NODE *mpg_node(unsigned int);
-extern const char *mpg_fmt(const char *, ...);
-extern int mpg_strtoui(mpz_ptr, char *, size_t, char **, int);
-#endif
 /* msg.c */
 extern void gawk_exit(int status);
 extern void final_exit(int status) ATTRIBUTE_NORETURN;
 extern void err(bool isfatal, const char *s, const char *emsg, va_list argp) ATTRIBUTE_PRINTF(3, 0);
+const char *fmt_number(const char *format, const NODE *n);
 extern void msg (const char *mesg, ...) ATTRIBUTE_PRINTF_1;
 extern void error (const char *mesg, ...) ATTRIBUTE_PRINTF_1;
 extern void warning (const char *mesg, ...) ATTRIBUTE_PRINTF_1;
@@ -1577,6 +1537,7 @@ extern void (*lintfunc)(const char *mesg, ...) ATTRIBUTE_PRINTF_1;
 #else
 extern void (*lintfunc)(const char *mesg, ...);
 #endif
+
 /* profile.c */
 extern void init_profiling_signals(void);
 extern void set_prof_file(const char *filename);
@@ -1587,6 +1548,7 @@ extern char *pp_node(NODE *n);
 extern int pp_func(INSTRUCTION *pc, void *);
 extern void pp_string_fp(Func_print print_func, FILE *fp, const char *str,
 		size_t namelen, int delim, bool breaklines);
+
 /* node.c */
 extern NODE *r_force_number(NODE *n);
 extern NODE *r_format_val(const char *format, int index, NODE *s);
@@ -1594,6 +1556,7 @@ extern NODE *r_dupnode(NODE *n);
 extern NODE *make_str_node(const char *s, size_t len, int flags);
 extern void *more_blocks(int id);
 extern int parse_escape(const char **string_ptr);
+extern int get_numbase(const char *str, bool use_locale);
 #if MBS_SUPPORT
 extern NODE *str2wstr(NODE *n, size_t **ptr);
 extern NODE *wstr2str(NODE *n);
@@ -1611,6 +1574,7 @@ extern void init_btowc_cache();
 #else
 #define free_wstr(NODE)	/* empty */
 #endif
+
 /* re.c */
 extern Regexp *make_regexp(const char *s, size_t len, bool ignorecase, bool dfa, bool canfatal);
 extern int research(Regexp *rp, char *str, int start, size_t len, int flags);
@@ -1621,7 +1585,6 @@ extern void resyntax(int syntax);
 extern void resetup(void);
 extern int avoid_dfa(NODE *re, char *str, size_t len);
 extern int reisstring(const char *text, size_t len, Regexp *re, const char *buf);
-extern int get_numbase(const char *str, bool use_locale);
 
 /* symbol.c */
 extern void load_symbols();
@@ -1767,7 +1730,7 @@ in_array(NODE *a, NODE *s)
 	NODE **ret;
 
 	ret = a->aexists(a, s);
-	
+
 	return ret ? *ret : NULL;
 }
 

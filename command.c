@@ -2350,7 +2350,7 @@ yyreduce:
 		if ((n->flags & NUMBER) == 0)
 			yyerror(_("non-numeric value found, numeric expected"));
 		else
-			negate_num(n);
+			numbr_hndlr->gawk_negate_number(n);
 		(yyval) = (yyvsp[(2) - (2)]);
 	  }
     break;
@@ -3168,24 +3168,9 @@ err:
 	if (isdigit((unsigned char) tokstart[0])) {
 		NODE *r = NULL;
 
-		errno = 0;
-#ifdef HAVE_MPFR
-		if (do_mpfr) {
-			int tval;
-			r = mpg_float();
-			tval = mpfr_strtofr(r->mpg_numbr, tokstart, & lexptr, 0, ROUND_MODE);
-			IEEE_FMT(r->mpg_numbr, tval);
-			if (mpfr_integer_p(r->mpg_numbr)) {
-				/* integral value, convert to a GMP type. */
-				NODE *tmp = r;
-				r = mpg_integer();
-				mpfr_get_z(r->mpg_i, tmp->mpg_numbr, MPFR_RNDZ);
-				unref(tmp);
-			}			
-		} else 
-#endif
-			r = make_number(strtod(tokstart, & lexptr));
-
+		/* XXX: not accepting a hex or octal number, maybe should? */
+  
+		r = str2node(tokstart, & lexptr, 0, false);
 		if (errno != 0) {
 			yyerror(strerror(errno));
 			unref(r);
@@ -3383,7 +3368,8 @@ do_help(CMDARG *arg, int cmd)
 }
 
 
-/* next_word --- find the next word in a line to complete 
+/*
+ * next_word --- find the next word in a line to complete 
  *               (word seperation characters are space and tab).
  */
    
@@ -3411,9 +3397,10 @@ next_word(char *p, int len, char **endp)
 
 #ifdef HAVE_LIBREADLINE
 
-/* command_completion --- attempt to complete based on the word number in line;
- *    try to complete on command names if this is the first word; for the next
- *    word(s), the type of completion depends on the command name (first word).
+/*
+ * command_completion --- attempt to complete based on the word number in line;
+ *	try to complete on command names if this is the first word; for the next
+ *	word(s), the type of completion depends on the command name (first word).
  */
 
 #ifndef RL_READLINE_VERSION		/* < 4.2a */

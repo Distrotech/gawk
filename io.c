@@ -144,14 +144,6 @@
 #define PIPES_SIMULATED
 #endif
 
-#ifdef HAVE_MPFR
-/* increment NR or FNR */
-#define INCREMENT_REC(X)	(do_mpfr && X == (LONG_MAX - 1)) ? \
-				(mpz_add_ui(M##X, M##X, 1), X = 0) : X++
-#else
-#define INCREMENT_REC(X)	X++
-#endif
-
 typedef enum { CLOSE_ALL, CLOSE_TO, CLOSE_FROM } two_way_close_type;
 
 /* Several macros to make the code a bit clearer. */
@@ -413,11 +405,11 @@ nextfile(IOBUF **curfile, bool skipping)
 			/* manage the awk variables: */
 			unref(FILENAME_node->var_value);
 			FILENAME_node->var_value = dupnode(arg);
-#ifdef HAVE_MPFR
-			if (is_mpg_number(FNR_node->var_value))
-				mpz_set_ui(MFNR, 0);
-#endif
-			FNR = 0;
+
+			unref(FNR_node->var_value);
+			FNR_node->var_value = dupnode(false_node);
+			numbr_hndlr->set_numvar(FNR_node);
+			assert(FNR == 0);
 
 			/* IOBUF management: */
 			errno = 0;
@@ -474,14 +466,8 @@ nextfile(IOBUF **curfile, bool skipping)
 void
 set_FNR()
 {
-	NODE *n = FNR_node->var_value;
-	(void) force_number(n);
-#ifdef HAVE_MPFR
-	if (is_mpg_number(n))
-		FNR = mpg_set_var(FNR_node);
-	else
-#endif
-	FNR = get_number_si(n);
+	(void) force_number(FNR_node->var_value);
+	numbr_hndlr->set_numvar(FNR_node);
 }
 
 /* set_NR --- update internal NR from awk variable */
@@ -489,14 +475,8 @@ set_FNR()
 void
 set_NR()
 {
-	NODE *n = NR_node->var_value;
-	(void) force_number(n);
-#ifdef HAVE_MPFR
-	if (is_mpg_number(n))
-		NR = mpg_set_var(NR_node);
-	else
-#endif
-	NR = get_number_si(n);
+	(void) force_number(NR_node->var_value);
+	numbr_hndlr->set_numvar(NR_node);
 }
 
 /* inrec --- This reads in a record from the input file */
@@ -520,8 +500,17 @@ inrec(IOBUF *iop, int *errcode)
 		if (*errcode > 0)
 			update_ERRNO_int(*errcode);
 	} else {
-		INCREMENT_REC(NR);
-		INCREMENT_REC(FNR);
+#if 0
+		/* XXX: looser if AWKNUM is long double */
+		if (numbr_hndlr == & awknum_hndlr) {
+			NR++;
+			FNR++;
+		} else
+#endif
+		{
+			NR = numbr_hndlr->increment_var(NR_node, NR);
+			FNR = numbr_hndlr->increment_var(FNR_node, FNR);
+		}
 		set_record(begin, cnt);
 	}
 
@@ -2393,8 +2382,17 @@ do_getline(int into_variable, IOBUF *iop)
 
 	if (cnt == EOF)
 		return NULL;	/* try next file */
-	INCREMENT_REC(NR);
-	INCREMENT_REC(FNR);
+#if 0
+	/* XXX: looser if AWKNUM is long double */
+	if (numbr_hndlr == & awknum_hndlr) {
+		NR++;
+		FNR++;
+	} else
+#endif
+	{
+		NR = numbr_hndlr->increment_var(NR_node, NR);
+		FNR = numbr_hndlr->increment_var(FNR_node, FNR);
+	}
 
 	if (! into_variable)	/* no optional var. */
 		set_record(s, cnt);

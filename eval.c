@@ -34,6 +34,8 @@ long fcall_count = 0;
 int currule = 0;
 IOBUF *curfile = NULL;		/* current data file */
 bool exiting = false;
+NODE *true_node;
+NODE *false_node;
 
 int (*interpret)(INSTRUCTION *);
 #define MAX_EXEC_HOOKS	10
@@ -48,7 +50,6 @@ int ORSlen;
 int OFMTidx;
 int CONVFMTidx;
 
-static NODE *node_Boolean[2];
 
 /* This rather ugly macro is for VMS C */
 #ifdef C
@@ -263,18 +264,18 @@ static struct optypetab {
 	char *operator;
 } optypes[] = {
 	{ "Op_illegal", NULL },
-	{ "Op_times", " * " },
-	{ "Op_times_i", " * " },
-	{ "Op_quotient", " / " },
-	{ "Op_quotient_i", " / " },
-	{ "Op_mod", " % " },
-	{ "Op_mod_i", " % " },
 	{ "Op_plus", " + " },
-	{ "Op_plus_i", " + " },
 	{ "Op_minus", " - " },
-	{ "Op_minus_i", " - " },
+	{ "Op_times", " * " },
+	{ "Op_quotient", " / " },
+	{ "Op_mod", " % " },
 	{ "Op_exp", " ^ " },
-	{ "Op_exp_i", " ^ " },
+	{ "Op_assign_plus", " += " },
+	{ "Op_assign_minus", " -= " },
+	{ "Op_assign_times", " *= " },
+	{ "Op_assign_quotient", " /= " },
+	{ "Op_assign_mod", " %= " },
+	{ "Op_assign_exp", " ^= " },
 	{ "Op_concat", " " },
 	{ "Op_line_range", NULL },
 	{ "Op_cond_pair", ", " },
@@ -284,6 +285,7 @@ static struct optypetab {
 	{ "Op_predecrement", "--" },
 	{ "Op_postincrement", "++" },
 	{ "Op_postdecrement", "--" },
+	{ "Op_unary_plus", "+" },
 	{ "Op_unary_minus", "-" },
 	{ "Op_field_spec", "$" },
 	{ "Op_not", "! " },
@@ -291,12 +293,6 @@ static struct optypetab {
 	{ "Op_store_var", " = " },
 	{ "Op_store_sub", " = " },
 	{ "Op_store_field", " = " },
-	{ "Op_assign_times", " *= " },
-	{ "Op_assign_quotient", " /= " },
-	{ "Op_assign_mod", " %= " },
-	{ "Op_assign_plus", " += " },
-	{ "Op_assign_minus", " -= " },
-	{ "Op_assign_exp", " ^= " },
 	{ "Op_assign_concat", " " },
 	{ "Op_and", " && " },
 	{ "Op_and_final", NULL },
@@ -822,15 +818,11 @@ set_ORS()
 /* fmt_ok --- is the conversion format a valid one? */
 
 NODE **fmt_list = NULL;
-static int fmt_ok(NODE *n);
 static int fmt_index(NODE *n);
 
-static int
-fmt_ok(NODE *n)
+bool
+fmt_ok(const char *p)
 {
-	NODE *tmp = force_string(n);
-	const char *p = tmp->stptr;
-
 #if ! defined(PRINTF_HAS_F_FORMAT) || PRINTF_HAS_F_FORMAT != 1
 	static const char float_formats[] = "efgEG";
 #else
@@ -843,22 +835,22 @@ fmt_ok(NODE *n)
 #endif
 
 	if (*p++ != '%')
-		return 0;
+		return false;
 	while (*p && strchr(flags, *p) != NULL)	/* flags */
 		p++;
 	while (*p && isdigit((unsigned char) *p))	/* width - %*.*g is NOT allowed */
 		p++;
 	if (*p == '\0' || (*p != '.' && ! isdigit((unsigned char) *p)))
-		return 0;
+		return false;
 	if (*p == '.')
 		p++;
 	while (*p && isdigit((unsigned char) *p))	/* precision */
 		p++;
 	if (*p == '\0' || strchr(float_formats, *p) == NULL)
-		return 0;
+		return false;
 	if (*++p != '\0')
-		return 0;
-	return 1;
+		return false;
+	return true;
 }
 
 /* fmt_index --- track values of OFMT and CONVFMT to keep semantics correct */
@@ -880,7 +872,7 @@ fmt_index(NODE *n)
 	}
 	/* not found */
 	n->stptr[n->stlen] = '\0';
-	if (do_lint && ! fmt_ok(n))
+	if (do_lint && ! fmt_ok(n->stptr))
 		lintwarn(_("bad `%sFMT' specification `%s'"),
 			    n == CONVFMT_node->var_value ? "CONV"
 			  : n == OFMT_node->var_value ? "O"
@@ -990,6 +982,23 @@ set_TEXTDOMAIN()
 	 */
 }
 
+/* set_PREC --- tarck PREC correctly */
+
+void
+set_PREC()
+{
+	numbr_hndlr->set_numvar(PREC_node);
+}
+
+/* set_ROUNDMODE --- track ROUNDMODE correctly */
+
+void
+set_ROUNDMODE()
+{
+	numbr_hndlr->set_numvar(ROUNDMODE_node);
+}
+
+
 /* update_ERRNO_int --- update the value of ERRNO based on argument */
 
 void
@@ -1029,15 +1038,7 @@ unset_ERRNO(void)
 void
 update_NR()
 {
-#ifdef HAVE_MPFR
-	if (is_mpg_number(NR_node->var_value))
-		(void) mpg_update_var(NR_node);
-	else
-#endif
-	if (NR_node->var_value->numbr != NR) {
-		unref(NR_node->var_value);
-		NR_node->var_value = make_number(NR);
-	}
+	(void) numbr_hndlr->update_numvar(NR_node);
 }
 
 /* update_NF --- update the value of NF */
@@ -1061,15 +1062,7 @@ update_NF()
 void
 update_FNR()
 {
-#ifdef HAVE_MPFR
-	if (is_mpg_number(FNR_node->var_value))
-		(void) mpg_update_var(FNR_node);
-	else
-#endif
-	if (FNR_node->var_value->numbr != FNR) {
-		unref(FNR_node->var_value);
-		FNR_node->var_value = make_number(FNR);
-	}
+	(void) numbr_hndlr->update_numvar(FNR_node);
 }
 
 
@@ -1182,42 +1175,6 @@ r_get_field(NODE *n, Func_ptr *assign, bool reference)
 		lintwarn(_("reference to uninitialized field `$%ld'"),
 			      field_num);
 	return lhs;
-}
-
-
-/*
- * calc_exp_posint --- calculate x^n for positive integral n,
- * using exponentiation by squaring without recursion.
- */
-
-static AWKNUM
-calc_exp_posint(AWKNUM x, long n)
-{
-	AWKNUM mult = 1;
-
-	while (n > 1) {
-		if ((n % 2) == 1)
-			mult *= x;
-		x *= x;
-		n /= 2;
-	}
-	return mult * x;
-}
-
-/* calc_exp --- calculate x1^x2 */
-
-AWKNUM
-calc_exp(AWKNUM x1, AWKNUM x2)
-{
-	long lx;
-
-	if ((lx = x2) == x2) {		/* integer exponent */
-		if (lx == 0)
-			return 1;
-		return (lx > 0) ? calc_exp_posint(x1, lx)
-				: 1.0 / calc_exp_posint(x1, -lx);
-	}
-	return (AWKNUM) pow((double) x1, (double) x2);
 }
 
 
@@ -1490,10 +1447,10 @@ unwind_stack(long n)
 static inline int
 eval_condition(NODE *t)
 {
-	if (t == node_Boolean[false])
+	if (t == false_node)
 		return false;
 
-	if (t == node_Boolean[true])
+	if (t == true_node)
 		return true;
 
 	if ((t->flags & MAYBE_NUM) != 0)
@@ -1533,63 +1490,42 @@ static void
 op_assign(OPCODE op)
 {
 	NODE **lhs;
-	NODE *t1, *t2;
-	AWKNUM x = 0.0, x1, x2;
+	NODE *r, *t1, *t2;
 
 	lhs = POP_ADDRESS();
 	t1 = *lhs;
-	x1 = force_number(t1)->numbr;
+	(void) force_number(t1);
 
-	t2 = TOP_SCALAR();
-	x2 = force_number(t2)->numbr;
-	DEREF(t2);
+	t2 = TOP_NUMBER();
 
 	switch (op) {
 	case Op_assign_plus:
-		x = x1 + x2;
+		r = numbr_hndlr->add(t1, t2);
 		break;
 	case Op_assign_minus:
-		x = x1 - x2;
+		r = numbr_hndlr->sub(t1, t2);
 		break;
 	case Op_assign_times:
-		x = x1 * x2;
+		r = numbr_hndlr->mul(t1, t2);
 		break;
 	case Op_assign_quotient:
-		if (x2 == (AWKNUM) 0) {
-			decr_sp();
-			fatal(_("division by zero attempted in `/='"));
-		}
-		x = x1 / x2;
+		r = numbr_hndlr->div(t1, t2);
 		break;
 	case Op_assign_mod:
-		if (x2 == (AWKNUM) 0) {
-			decr_sp();
-			fatal(_("division by zero attempted in `%%='"));
-		}
-#ifdef HAVE_FMOD
-		x = fmod(x1, x2);
-#else   /* ! HAVE_FMOD */
-		(void) modf(x1 / x2, &x);
-		x = x1 - x2 * x;
-#endif  /* ! HAVE_FMOD */
+		r = numbr_hndlr->mod(t1, t2);
 		break;
 	case Op_assign_exp:
-		x = calc_exp((double) x1, (double) x2);
+		r = numbr_hndlr->pow(t1, t2);
 		break;
 	default:
-		break;
+		cant_happen();
 	}
 
-	if (t1->valref == 1 && t1->flags == (MALLOC|NUMCUR|NUMBER)) {
-		/* optimization */
-		t1->numbr = x;
-	} else {
-		unref(t1);
-		t1 = *lhs = make_number(x);
-	}
-
-	UPREF(t1);
-	REPLACE(t1);
+	DEREF(t2);
+	unref(*lhs);
+	*lhs = r;
+	UPREF(r);
+	REPLACE(r);
 }
 
 /* PUSH_CODE --- push a code onto the runtime stack */
@@ -1729,7 +1665,7 @@ register_exec_hook(Func_pre_exec preh, Func_post_exec posth)
 /* interpreter routine when not debugging */ 
 #include "interpret.h"
 
-/* interpreter routine with exec hook(s). Used when debugging and/or with MPFR. */
+/* interpreter routine with exec hook(s). Used when debugging */
 #define r_interpret h_interpret
 #define EXEC_HOOK 1
 #include "interpret.h"
@@ -1756,14 +1692,6 @@ init_interpret()
 	frame_ptr->func_node = NULL;	/* in main */
 	frame_ptr->num_tail_calls = 0;
 	frame_ptr->vname = NULL;
-
-	/* initialize true and false nodes */
-	node_Boolean[false] = make_number(0.0);
-	node_Boolean[true] = make_number(1.0);
-	if (! is_mpg_number(node_Boolean[false])) {
-		node_Boolean[false]->flags |= NUMINT;
-		node_Boolean[true]->flags |= NUMINT;
-	}
 
 	/*
 	 * Select the interpreter routine. The version without

@@ -1,3 +1,13 @@
+2012-12-27         John Haque      <j.eh@mchsi.com>
+
+	Number handling interface.
+	
+	* awk.h (numbr_handler_t, bltin_t): New definitions.
+	* double.c: New file for C double numbers.
+	* mpfr.c: Reworked.
+
+	Lots of other changes.
+
 2012-12-19         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* bootstrap.sh: Touch extension/aclocal.m4 also.

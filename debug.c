@@ -3656,27 +3656,13 @@ print_memory(NODE *m, NODE *func, Func_print print_func, FILE *fp)
 		case Node_val:
 			if (m == Nnull_string)
 				print_func(fp, "Nnull_string");
-			else if ((m->flags & NUMBER) != 0) {
-#ifdef HAVE_MPFR
-				if ((m->flags & MPFN) != 0)
-					print_func(fp, "%s", mpg_fmt("%R*g", ROUND_MODE, m->mpg_numbr));
-				else if ((m->flags & MPZN) != 0)
-					print_func(fp, "%s", mpg_fmt("%Zd", m->mpg_i));
-				else
-#endif
-					print_func(fp, "%g", m->numbr);
-			} else if ((m->flags & STRING) != 0)
+			else if ((m->flags & NUMBER) != 0)
+				print_func(fp, "%s", fmt_number("%0.17g", m));
+			else if ((m->flags & STRING) != 0)
 				pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
-			else if ((m->flags & NUMCUR) != 0) {
-#ifdef HAVE_MPFR
-				if ((m->flags & MPFN) != 0)
-					print_func(fp, "%s", mpg_fmt("%R*g", ROUND_MODE, m->mpg_numbr));
-				else if ((m->flags & MPZN) != 0)
-					print_func(fp, "%s", mpg_fmt("%Zd", m->mpg_i));
-				else
-#endif
-					print_func(fp, "%g", m->numbr);
-			} else if ((m->flags & STRCUR) != 0)
+			else if ((m->flags & NUMCUR) != 0)
+				print_func(fp, "%s", fmt_number("%0.17g", m));
+			else if ((m->flags & STRCUR) != 0)
 				pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
 			else
 				print_func(fp, "-?-");
@@ -3968,12 +3954,6 @@ print_instruction(INSTRUCTION *pc, Func_print print_func, FILE *fp, int in_dump)
 	case Op_match_rec:
 	case Op_match:
 	case Op_nomatch:
-	case Op_plus_i:
-	case Op_minus_i:
-	case Op_times_i:
-	case Op_exp_i:
-	case Op_quotient_i:
-	case Op_mod_i:
 	case Op_assign_concat:
 		print_memory(pc->memory, func, print_func, fp);
 		/* fall through */

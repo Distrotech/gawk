@@ -85,7 +85,7 @@ is_integer(NODE *symbol, NODE *subs)
 	long l;
 	AWKNUM d;
 
-	if (subs == Nnull_string || do_mpfr)
+	if (subs == Nnull_string)
 		return NULL;
 
 	if ((subs->flags & NUMINT) != 0)

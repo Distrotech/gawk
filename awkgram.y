@@ -69,7 +69,6 @@ static INSTRUCTION *mk_expression_list(INSTRUCTION *list, INSTRUCTION *s1);
 static INSTRUCTION *mk_for_loop(INSTRUCTION *forp, INSTRUCTION *init, INSTRUCTION *cond,
 		INSTRUCTION *incr, INSTRUCTION *body);
 static void fix_break_continue(INSTRUCTION *list, INSTRUCTION *b_target, INSTRUCTION *c_target);
-static INSTRUCTION *mk_binary(INSTRUCTION *s1, INSTRUCTION *s2, INSTRUCTION *op);
 static INSTRUCTION *mk_boolean(INSTRUCTION *left, INSTRUCTION *right, INSTRUCTION *op);
 static INSTRUCTION *mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op);
 static INSTRUCTION *mk_getline(INSTRUCTION *op, INSTRUCTION *opt_var, INSTRUCTION *redir, int redirtype);
@@ -1096,7 +1095,7 @@ case_value
 	  { 
 		NODE *n = $2->memory;
 		(void) force_number(n);
-		negate_num(n);
+		numbr_hndlr->gawk_negate_number(n);
 		bcfree($1);
 		$$ = $2;
 	  }
@@ -1378,17 +1377,17 @@ simp_exp
 	: non_post_simp_exp
 	/* Binary operators in order of decreasing precedence.  */
 	| simp_exp '^' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp '*' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp '/' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp '%' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp '+' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp '-' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| LEX_GETLINE opt_variable input_redir
 	  {
 		/*
@@ -1454,17 +1453,17 @@ simp_exp_nc
 		}
 	/* Binary operators in order of decreasing precedence.  */
 	| simp_exp_nc '^' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp_nc '*' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp_nc '/' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp_nc '%' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp_nc '+' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	| simp_exp_nc '-' simp_exp
-	  { $$ = mk_binary($1, $3, $2); }
+	  {	$$ = list_append(list_merge($1, $3), $2); }
 	;
 
 non_post_simp_exp
@@ -1558,7 +1557,7 @@ non_post_simp_exp
 		) {
 			NODE *n = $2->lasti->memory;
 			(void) force_number(n);
-			negate_num(n);			
+			numbr_hndlr->gawk_negate_number(n);
 			$$ = $2;
 			bcfree($1);
 		} else {
@@ -1572,8 +1571,7 @@ non_post_simp_exp
 	     * was: $$ = $2
 	     * POSIX semantics: force a conversion to numeric type
 	     */
-		$1->opcode = Op_plus_i;
-		$1->memory = make_number(0.0);
+		$1->opcode = Op_unary_plus;
 		$$ = list_append($2, $1);
 	  }
 	;
@@ -1803,7 +1801,6 @@ struct token {
 #	define	CONTINUE	0x1000	/* continue allowed inside */
 	
 	NODE *(*ptr)(int);	/* function that implements this keyword */
-	NODE *(*ptr2)(int);	/* alternate arbitrary-precision function */
 };
 
 #if 'a' == 0x81 /* it's EBCDIC */
@@ -1827,90 +1824,85 @@ tokcompare(const void *l, const void *r)
  * Function pointers come from declarations in awk.h.
  */
 
-#ifdef HAVE_MPFR
-#define MPF(F) do_mpfr_##F
-#else
-#define MPF(F) 0
-#endif
 
-static const struct token tokentab[] = {
-{"BEGIN",	Op_rule,	 LEX_BEGIN,	0,		0,	0},
-{"BEGINFILE",	Op_rule,	 LEX_BEGINFILE,	GAWKX,		0,	0},
-{"END",		Op_rule,	 LEX_END,	0,		0,	0},
-{"ENDFILE",		Op_rule,	 LEX_ENDFILE,	GAWKX,		0,	0},
+static struct token tokentab[] = {
+{"BEGIN",	Op_rule,	 LEX_BEGIN,	0,		0 },
+{"BEGINFILE",	Op_rule,	 LEX_BEGINFILE,	GAWKX,		0 },
+{"END",		Op_rule,	 LEX_END,	0,		0 },
+{"ENDFILE",		Op_rule,	 LEX_ENDFILE,	GAWKX,		0 },
 #ifdef ARRAYDEBUG
-{"adump",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1)|A(2),	do_adump,	0},
+{"adump",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1)|A(2),	do_adump },
 #endif
-{"and",		Op_builtin,    LEX_BUILTIN,	GAWKX,		do_and,	MPF(and)},
-{"asort",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_asort,	0},
-{"asorti",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_asorti,	0},
-{"atan2",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2),	do_atan2,	MPF(atan2)},
-{"bindtextdomain",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2),	do_bindtextdomain,	0},
-{"break",	Op_K_break,	 LEX_BREAK,	0,		0,	0},
-{"case",	Op_K_case,	 LEX_CASE,	GAWKX,		0,	0},
-{"close",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1)|A(2),	do_close,	0},
-{"compl",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1),	do_compl,	MPF(compl)},
-{"continue",	Op_K_continue, LEX_CONTINUE,	0,		0,	0},
-{"cos",		Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_cos,	MPF(cos)},
-{"dcgettext",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_dcgettext,	0},
-{"dcngettext",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3)|A(4)|A(5),	do_dcngettext,	0},
-{"default",	Op_K_default,	 LEX_DEFAULT,	GAWKX,		0,	0},
-{"delete",	Op_K_delete,	 LEX_DELETE,	NOT_OLD,	0,	0},
-{"do",		Op_K_do,	 LEX_DO,	NOT_OLD|BREAK|CONTINUE,	0,	0},
-{"else",	Op_K_else,	 LEX_ELSE,	0,		0,	0},
-{"eval",	Op_symbol,	 LEX_EVAL,	0,		0,	0},
-{"exit",	Op_K_exit,	 LEX_EXIT,	0,		0,	0},
-{"exp",		Op_builtin,	 LEX_BUILTIN,	A(1),		do_exp,	MPF(exp)},
+{"and",		Op_builtin,    LEX_BUILTIN,	GAWKX,		0 },
+{"asort",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_asort },
+{"asorti",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_asorti },
+{"atan2",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2),	0 },
+{"bindtextdomain",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2),	do_bindtextdomain },
+{"break",	Op_K_break,	 LEX_BREAK,	0,		0 },
+{"case",	Op_K_case,	 LEX_CASE,	GAWKX,		0 },
+{"close",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1)|A(2),	do_close },
+{"compl",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1),	0 },
+{"continue",	Op_K_continue, LEX_CONTINUE,	0,		0 },
+{"cos",		Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	0 },
+{"dcgettext",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_dcgettext },
+{"dcngettext",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3)|A(4)|A(5),	do_dcngettext },
+{"default",	Op_K_default,	 LEX_DEFAULT,	GAWKX,		0 },
+{"delete",	Op_K_delete,	 LEX_DELETE,	NOT_OLD,	0 },
+{"do",		Op_K_do,	 LEX_DO,	NOT_OLD|BREAK|CONTINUE,	0 },
+{"else",	Op_K_else,	 LEX_ELSE,	0,		0 },
+{"eval",	Op_symbol,	 LEX_EVAL,	0,		0 },
+{"exit",	Op_K_exit,	 LEX_EXIT,	0,		0 },
+{"exp",		Op_builtin,	 LEX_BUILTIN,	A(1),		0 },
 #ifdef DYNAMIC
-{"extension",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_ext,	0},
+{"extension",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_ext },
 #endif
-{"fflush",	Op_builtin,	 LEX_BUILTIN,	A(0)|A(1), do_fflush,	0},
-{"for",		Op_K_for,	 LEX_FOR,	BREAK|CONTINUE,	0,	0},
-{"func",	Op_func, LEX_FUNCTION,	NOT_POSIX|NOT_OLD,	0,	0},
-{"function",Op_func, LEX_FUNCTION,	NOT_OLD,	0,	0},
-{"gensub",	Op_sub_builtin,	 LEX_BUILTIN,	GAWKX|A(3)|A(4), 0,	0},
-{"getline",	Op_K_getline_redir,	 LEX_GETLINE,	NOT_OLD,	0,	0},
-{"gsub",	Op_sub_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), 0,	0},
-{"if",		Op_K_if,	 LEX_IF,	0,		0,	0},
-{"in",		Op_symbol,	 LEX_IN,	0,		0,	0},
-{"include",  Op_symbol,	 LEX_INCLUDE,	GAWKX,	0,	0},
-{"index",	Op_builtin,	 LEX_BUILTIN,	A(2),		do_index,	0},
-{"int",		Op_builtin,	 LEX_BUILTIN,	A(1),		do_int,	MPF(int)},
-{"isarray",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_isarray,	0},
-{"length",	Op_builtin,	 LEX_LENGTH,	A(0)|A(1),	do_length,	0},
-{"load",  	Op_symbol,	 LEX_LOAD,	GAWKX,		0,	0},
-{"log",		Op_builtin,	 LEX_BUILTIN,	A(1),		do_log,	MPF(log)},
-{"lshift",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2),	do_lshift,	MPF(lshift)},
-{"match",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), do_match,	0},
-{"mktime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_mktime,	0},
-{"next",	Op_K_next,	 LEX_NEXT,	0,		0,	0},
-{"nextfile",	Op_K_nextfile, LEX_NEXTFILE,	0,		0,	0},
-{"or",		Op_builtin,    LEX_BUILTIN,	GAWKX,		do_or,	MPF(or)},
-{"patsplit",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2)|A(3)|A(4), do_patsplit,	0},
-{"print",	Op_K_print,	 LEX_PRINT,	0,		0,	0},
-{"printf",	Op_K_printf,	 LEX_PRINTF,	0,		0,	0},
-{"rand",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(0),	do_rand,	MPF(rand)},
-{"return",	Op_K_return,	 LEX_RETURN,	NOT_OLD,	0,	0},
-{"rshift",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2),	do_rshift,	MPF(rhift)},
-{"sin",		Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_sin,	MPF(sin)},
-{"split",	Op_builtin,	 LEX_BUILTIN,	A(2)|A(3)|A(4),	do_split,	0},
-{"sprintf",	Op_builtin,	 LEX_BUILTIN,	0,		do_sprintf,	0},
-{"sqrt",	Op_builtin,	 LEX_BUILTIN,	A(1),		do_sqrt,	MPF(sqrt)},
-{"srand",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(0)|A(1), do_srand,	MPF(srand)},
+{"fflush",	Op_builtin,	 LEX_BUILTIN,	A(0)|A(1), do_fflush },
+{"for",		Op_K_for,	 LEX_FOR,	BREAK|CONTINUE,	0 },
+{"func",	Op_func, LEX_FUNCTION,	NOT_POSIX|NOT_OLD,	0 },
+{"function",Op_func, LEX_FUNCTION,	NOT_OLD,	0 },
+{"gensub",	Op_sub_builtin,	 LEX_BUILTIN,	GAWKX|A(3)|A(4), 0 },
+{"getline",	Op_K_getline_redir,	 LEX_GETLINE,	NOT_OLD,	0 },
+{"gsub",	Op_sub_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), 0 },
+{"if",		Op_K_if,	 LEX_IF,	0,		0 },
+{"in",		Op_symbol,	 LEX_IN,	0,		0 },
+{"include",  Op_symbol,	 LEX_INCLUDE,	GAWKX,	0 },
+{"index",	Op_builtin,	 LEX_BUILTIN,	A(2),	do_index },
+{"int",		Op_builtin,	 LEX_BUILTIN,	A(1),	0 },
+{"isarray",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_isarray },
+{"length",	Op_builtin,	 LEX_LENGTH,	A(0)|A(1),	do_length },
+{"load",  	Op_symbol,	 LEX_LOAD,	GAWKX,		0 },
+{"log",		Op_builtin,	 LEX_BUILTIN,	A(1),		0 },
+{"lshift",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2),	0 },
+{"match",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), do_match },
+{"mktime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_mktime },
+{"next",	Op_K_next,	 LEX_NEXT,	0,		0 },
+{"nextfile",	Op_K_nextfile, LEX_NEXTFILE,	0,		0 },
+{"or",		Op_builtin,    LEX_BUILTIN,	GAWKX,		0 },
+{"patsplit",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2)|A(3)|A(4), do_patsplit },
+{"print",	Op_K_print,	 LEX_PRINT,	0,		0 },
+{"printf",	Op_K_printf,	 LEX_PRINTF,	0,		0 },
+{"rand",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(0),	0 },
+{"return",	Op_K_return,	 LEX_RETURN,	NOT_OLD,	0 },
+{"rshift",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2),	0 },
+{"sin",		Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	0 },
+{"split",	Op_builtin,	 LEX_BUILTIN,	A(2)|A(3)|A(4),	do_split },
+{"sprintf",	Op_builtin,	 LEX_BUILTIN,	0,		do_sprintf },
+{"sqrt",	Op_builtin,	 LEX_BUILTIN,	A(1),		0 },
+{"srand",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(0)|A(1), 0 },
 #if defined(GAWKDEBUG) || defined(ARRAYDEBUG) /* || ... */
-{"stopme",	Op_builtin,	LEX_BUILTIN,	GAWKX|A(0),	stopme,		0},
+{"stopme",	Op_builtin,	LEX_BUILTIN,	GAWKX|A(0),	stopme },
 #endif
-{"strftime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(0)|A(1)|A(2)|A(3), do_strftime,	0},
-{"strtonum",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1),	do_strtonum, MPF(strtonum)},
-{"sub",		Op_sub_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), 0,	0},
-{"substr",	Op_builtin,	 LEX_BUILTIN,	A(2)|A(3),	do_substr,	0},
-{"switch",	Op_K_switch,	 LEX_SWITCH,	GAWKX|BREAK,	0,	0},
-{"system",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_system,	0},
-{"systime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(0),	do_systime,	0},
-{"tolower",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_tolower,	0},
-{"toupper",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_toupper,	0},
-{"while",	Op_K_while,	 LEX_WHILE,	BREAK|CONTINUE,	0,	0},
-{"xor",		Op_builtin,    LEX_BUILTIN,	GAWKX,		do_xor,	MPF(xor)},
+{"strftime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(0)|A(1)|A(2)|A(3), do_strftime },
+{"strtonum",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1),	0 },
+{"sub",		Op_sub_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), 0 },
+{"substr",	Op_builtin,	 LEX_BUILTIN,	A(2)|A(3),	do_substr },
+{"switch",	Op_K_switch,	 LEX_SWITCH,	GAWKX|BREAK,	0 },
+{"system",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_system },
+{"systime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(0),	do_systime },
+{"tolower",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_tolower },
+{"toupper",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_toupper },
+{"while",	Op_K_while,	 LEX_WHILE,	BREAK|CONTINUE,	0 },
+{"xor",		Op_builtin,    LEX_BUILTIN,	GAWKX,		0 },
 };
 
 #if MBS_SUPPORT
@@ -1946,22 +1938,6 @@ getfname(NODE *(*fptr)(int))
 	return NULL;
 }
 
-/* negate_num --- negate a number in NODE */
-
-void
-negate_num(NODE *n)
-{
-#ifdef HAVE_MPFR
-	if (is_mpg_float(n)) {
-		int tval;
-		tval = mpfr_neg(n->mpg_numbr, n->mpg_numbr, ROUND_MODE);
-		IEEE_FMT(n->mpg_numbr, tval);
-	} else if (is_mpg_integer(n)) {
-		mpz_neg(n->mpg_i, n->mpg_i);
-	} else
-#endif
-		n->numbr = -n->numbr;
-}
 
 /* print_included_from --- print `Included from ..' file names and locations */
 
@@ -2130,6 +2106,18 @@ yyerror(const char *m, ...)
 	va_end(args);
 	efree(buf);
 }
+
+void
+init_parser(const bltin_t *numbr_bltins)
+{
+	int i, tokentab_idx;
+
+	for (i = 0; numbr_bltins[i].name != NULL; i++) {
+		tokentab_idx = check_special(numbr_bltins[i].name);
+		tokentab[tokentab_idx].ptr = numbr_bltins[i].ptr;
+	}
+}
+
 
 /* mk_program --- create a single list of instructions */
 
@@ -3502,32 +3490,7 @@ retry:
 			}
 		}
 
-#ifdef HAVE_MPFR
-		if (do_mpfr) {
-			NODE *r;
-
-			if (! seen_point && ! seen_e) {
-				r = mpg_integer();
-				mpg_strtoui(r->mpg_i, tokstart, strlen(tokstart), NULL, base);
-				errno = 0;
-			} else {
-				int tval;
-				r = mpg_float();
-				tval = mpfr_strtofr(r->mpg_numbr, tokstart, NULL, base, ROUND_MODE);
-				errno = 0;
-				IEEE_FMT(r->mpg_numbr, tval);
-			}
-			yylval->memory = r;
-			return lasttok = YNUMBER;
-		}
-#endif
-		if (base != 10)
-			d = nondec2awknum(tokstart, strlen(tokstart));
-		else
-			d = atof(tokstart);
-		yylval->memory = make_number(d);
-		if (d <= INT32_MAX && d >= INT32_MIN && d == (int32_t) d)
-			yylval->memory->flags |= NUMINT;
+		yylval->memory = str2node(tokstart, NULL, base, ! (seen_point || seen_e));
 		return lasttok = YNUMBER;
 
 	case '&':
@@ -3831,13 +3794,7 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 		}
 	}
 
-#ifdef HAVE_MPFR
-	/* N.B.: There isn't any special processing for an alternate function below */
-	if (do_mpfr && tokentab[idx].ptr2)
-		r->builtin =  tokentab[idx].ptr2;
-	else
-#endif
-		r->builtin = tokentab[idx].ptr;
+	r->builtin = tokentab[idx].ptr;
 
 	/* special case processing for a few builtins */
 
@@ -4044,26 +4001,12 @@ valinfo(NODE *n, Func_print print_func, FILE *fp)
 		pp_string_fp(print_func, fp, n->stptr, n->stlen, '"', false);
 		print_func(fp, "\n");
 	} else if (n->flags & NUMBER) {
-#ifdef HAVE_MPFR
-		if (is_mpg_float(n))
-			print_func(fp, "%s\n", mpg_fmt("%.17R*g", ROUND_MODE, n->mpg_numbr));
-		else if (is_mpg_integer(n))
-			print_func(fp, "%s\n", mpg_fmt("%Zd", n->mpg_i));
-		else
-#endif
-		print_func(fp, "%.17g\n", n->numbr);
+		print_func(fp, "%s\n", fmt_number("%.17g", n));
 	} else if (n->flags & STRCUR) {
 		pp_string_fp(print_func, fp, n->stptr, n->stlen, '"', false);
 		print_func(fp, "\n");
 	} else if (n->flags & NUMCUR) {
-#ifdef HAVE_MPFR
-		if (is_mpg_float(n))
-			print_func(fp, "%s\n", mpg_fmt("%.17R*g", ROUND_MODE, n->mpg_numbr));
-		else if (is_mpg_integer(n))
-			print_func(fp, "%s\n", mpg_fmt("%Zd", n->mpg_i));
-		else
-#endif
-		print_func(fp, "%.17g\n", n->numbr);
+		print_func(fp, "%s\n", fmt_number("%.17g", n));
 	} else
 		print_func(fp, "?? flags %s\n", flags2str(n->flags));
 }
@@ -4524,20 +4467,15 @@ isnoeffect(OPCODE type)
 {
 	switch (type) {
 	case Op_times:
-	case Op_times_i:
 	case Op_quotient:
-	case Op_quotient_i:
 	case Op_mod:
-	case Op_mod_i:
 	case Op_plus:
-	case Op_plus_i:
 	case Op_minus:
-	case Op_minus_i:
 	case Op_subscript:
 	case Op_concat:
 	case Op_exp:
-	case Op_exp_i:
 	case Op_unary_minus:
+	case Op_unary_plus:
 	case Op_field_spec:
 	case Op_and_final:
 	case Op_or_final:
@@ -4640,112 +4578,6 @@ dumpintlstr2(const char *str1, size_t len1, const char *str2, size_t len2)
 	fflush(stdout);
 }
 
-/* mk_binary --- instructions for binary operators */
-
-static INSTRUCTION *
-mk_binary(INSTRUCTION *s1, INSTRUCTION *s2, INSTRUCTION *op)
-{
-	INSTRUCTION *ip1,*ip2;
-	AWKNUM res;
-
-	ip2 = s2->nexti;
-	if (s2->lasti == ip2 && ip2->opcode == Op_push_i) {
-	/* do any numeric constant folding */
-		ip1 = s1->nexti;
-		if (do_optimize > 1
-				&& ip1 == s1->lasti && ip1->opcode == Op_push_i
-				&& (ip1->memory->flags & (MPFN|MPZN|STRCUR|STRING)) == 0
-				&& (ip2->memory->flags & (MPFN|MPZN|STRCUR|STRING)) == 0
-		) {
-			NODE *n1 = ip1->memory, *n2 = ip2->memory;
-			res = force_number(n1)->numbr;
-			(void) force_number(n2);
-			switch (op->opcode) {
-			case Op_times:
-				res *= n2->numbr;
-				break;
-			case Op_quotient:
-				if (n2->numbr == 0.0) {
-					/* don't fatalize, allow parsing rest of the input */
-					error_ln(op->source_line, _("division by zero attempted"));
-					goto regular;
-				}
-
-				res /= n2->numbr;
-				break;
-			case Op_mod:
-				if (n2->numbr == 0.0) {
-					/* don't fatalize, allow parsing rest of the input */
-					error_ln(op->source_line, _("division by zero attempted in `%%'"));
-					goto regular;
-				}
-#ifdef HAVE_FMOD
-				res = fmod(res, n2->numbr);
-#else	/* ! HAVE_FMOD */
-				(void) modf(res / n2->numbr, &res);
-				res = n1->numbr - res * n2->numbr;
-#endif	/* ! HAVE_FMOD */
-				break;
-			case Op_plus:
-				res += n2->numbr;
-				break;
-			case Op_minus:
-				res -= n2->numbr;
-				break;
-			case Op_exp:
-				res = calc_exp(res, n2->numbr);
-				break;
-			default:
-				goto regular;
-			}
-
-			op->opcode = Op_push_i;
-			op->memory = make_number(res);
-			unref(n1);
-			unref(n2);
-			bcfree(ip1);
-			bcfree(ip2);
-			bcfree(s1);
-			bcfree(s2);
-			return list_create(op);
-		} else {
-		/* do basic arithmetic optimisation */
-		/* convert (Op_push_i Node_val) + (Op_plus) to (Op_plus_i Node_val) */
-			switch (op->opcode) {
-			case Op_times:
-				op->opcode = Op_times_i;
-				break;
-			case Op_quotient:
-				op->opcode = Op_quotient_i;
-				break;
-			case Op_mod:
-				op->opcode = Op_mod_i;
-				break;
-			case Op_plus:
-				op->opcode = Op_plus_i;
-				break;
-			case Op_minus:
-				op->opcode = Op_minus_i;
-				break;
-			case Op_exp:
-				op->opcode = Op_exp_i;
-				break;
-			default:
-				goto regular;
-			}	
-
-			op->memory = ip2->memory;
-			bcfree(ip2);
-			bcfree(s2);	/* Op_list */
-			return list_append(s1, op);
-		}
-	}
-
-regular:
-	/* append lists s1, s2 and add `op' bytecode */
-	(void) list_merge(s1, s2);
-	return list_append(s1, op);
-}
 
 /* mk_boolean --- instructions for boolean and, or */
  
@@ -5141,8 +4973,8 @@ optimize_assignment(INSTRUCTION *exp)
 					i3->opcode = Op_store_sub;
 					i3->memory = i2->memory;
 					i3->expr_count = 1;  /* sub_count shadows memory,
-                                          * so use expr_count instead.
-				                          */
+					                      * so use expr_count instead
+					                      */
 					i3->nexti = NULL;
 					i2->opcode = Op_no_op;					
 					bcfree(i1);          /* Op_assign */

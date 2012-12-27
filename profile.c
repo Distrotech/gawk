@@ -330,27 +330,6 @@ cleanup:
 			pc = pc->target_jmp;
 			break;
 
-		case Op_plus_i:
-		case Op_minus_i:
-		case Op_times_i:
-		case Op_exp_i:
-		case Op_quotient_i:
-		case Op_mod_i:
-			m = pc->memory;
-			t1 = pp_pop();
-			if (prec_level(pc->opcode) > prec_level(t1->type)
-					&& is_binary(t1->type))  /* (a - b) * 1 */
-				pp_parenthesize(t1);
-			if ((m->flags & NUMBER) != 0)
-				tmp = pp_number(m);
-			else
-				tmp = pp_string(m->stptr, m->stlen, '"');
-			str = pp_concat(t1->pp_str, op2str(pc->opcode), tmp);
-			efree(tmp);
-			pp_free(t1);
-			pp_push(pc->opcode, str, CAN_FREE);
-			break;
-
 		case Op_plus:
 		case Op_minus:
 		case Op_times:
@@ -388,6 +367,7 @@ cleanup:
 		case Op_field_spec:
 		case Op_field_spec_lhs:
 		case Op_unary_minus:
+		case Op_unary_plus:
 		case Op_not:
 			t1 = pp_pop();
 			if (is_binary(t1->type))
@@ -971,7 +951,6 @@ prec_level(int type)
 		return 14;
 
 	case Op_exp:
-	case Op_exp_i:
 		return 13;
 
 	case Op_preincrement:
@@ -981,22 +960,14 @@ prec_level(int type)
 		return 12;
 
 	case Op_unary_minus:
+	case Op_unary_plus:
 	case Op_not:
 		return 11;
 
 	case Op_times:
-	case Op_times_i:
 	case Op_quotient:
-	case Op_quotient_i:
 	case Op_mod:
-	case Op_mod_i:
 		return 10;
-
-	case Op_plus:
-	case Op_plus_i:
-	case Op_minus:
-	case Op_minus_i:
-		return 9;
 
 	case Op_concat:
 	case Op_assign_concat:
@@ -1060,12 +1031,6 @@ is_binary(int type)
 	case Op_mod:
 	case Op_plus:
 	case Op_minus:
-	case Op_exp_i:
-	case Op_times_i:
-	case Op_quotient_i:
-	case Op_mod_i:
-	case Op_plus_i:
-	case Op_minus_i:
 	case Op_concat:
 	case Op_assign_concat:
 	case Op_match:
@@ -1206,20 +1171,9 @@ pp_string(const char *in_str, size_t len, int delim)
 char *
 pp_number(NODE *n)
 {
-#define PP_PRECISION 6
-	char *str;
-
-	emalloc(str, char *, PP_PRECISION + 10, "pp_number");
-#ifdef HAVE_MPFR
-	if (is_mpg_float(n))
-		mpfr_sprintf(str, "%0.*R*g", PP_PRECISION, ROUND_MODE, n->mpg_numbr);
-	else if (is_mpg_integer(n))
-		mpfr_sprintf(str, "%Zd", n->mpg_i);
-	else
-#endif
-	sprintf(str, "%0.*g", PP_PRECISION, n->numbr);
-	return str;
-#undef PP_PRECISION
+	const char *str;
+	str = fmt_number("%0.6g", n);
+	return estrdup(str, strlen(str));
 }
 
 /* pp_node --- pretty format a node */

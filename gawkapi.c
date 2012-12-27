@@ -665,7 +665,7 @@ api_sym_update_scalar(awk_ext_id_t id,
 	 */
 	switch (value->val_type) {
 	case AWK_NUMBER:
-		if (node->var_value->valref == 1 && ! do_mpfr) {
+		if (node->var_value->valref == 1 && numbr_hndlr == & awknum_hndlr) {
 			NODE *r = node->var_value;
 
 			/* r_unref: */
@@ -689,7 +689,8 @@ api_sym_update_scalar(awk_ext_id_t id,
 			if ((r->flags & (MALLOC|STRCUR)) == (MALLOC|STRCUR))
 				efree(r->stptr);
 
-			mpfr_unset(r);
+			if (free_number && (r->flags & (NUMBER|NUMCUR)) != 0)
+				free_number(r);
 			free_wstr(r);
 
 			/* make_str_node(s, l, ALREADY_MALLOCED): */
@@ -1149,7 +1150,7 @@ init_ext_api()
 	api_impl.do_flags[2] = (do_profile ? 1 : 0);
 	api_impl.do_flags[3] = (do_sandbox ? 1 : 0);
 	api_impl.do_flags[4] = (do_debug ? 1 : 0);
-	api_impl.do_flags[5] = (do_mpfr ? 1 : 0);
+	api_impl.do_flags[5] = (numbr_hndlr != & awknum_hndlr);
 }
 
 /* update_ext_api --- update the variables in the API that can change */

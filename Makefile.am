@@ -93,6 +93,7 @@ base_sources = \
 	debug.c \
 	dfa.c \
 	dfa.h \
+	double.c \
 	eval.c \
 	ext.c \
 	field.c \

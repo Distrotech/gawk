@@ -35,8 +35,6 @@
 
 #define DEFAULT_PROFILE		"awkprof.out"	/* where to put profile */
 #define DEFAULT_VARFILE		"awkvars.out"	/* where to put vars */
-#define DEFAULT_PREC		53
-#define DEFAULT_ROUNDMODE	"N"		/* round to nearest */
 
 static const char *varfile = DEFAULT_VARFILE;
 const char *command_file = NULL;	/* debugger commands */
@@ -58,9 +56,12 @@ static void version(void) ATTRIBUTE_NORETURN;
 static void init_fds(void);
 static void init_groupset(void);
 static void save_argv(int, char **);
+static void init_numbr_handler(bltin_t **);
+static void print_numbr_hndlr_versions(void);
 
 extern int debug_prog(INSTRUCTION *pc); /* debug.c */
-extern int init_debug();	/* debug.c */
+extern int init_debug(void);	/* debug.c */
+extern void init_parser(const bltin_t *);	/* awkgram.c */
 
 /* These nodes store all the special variables AWK uses */
 NODE *ARGC_node, *ARGIND_node, *ARGV_node, *BINMODE_node, *CONVFMT_node;
@@ -110,6 +111,8 @@ char **d_argv;			/* saved argv for debugger restarting */
 INSTRUCTION *rule_list;
 
 int exit_val = EXIT_SUCCESS;		/* exit value */
+
+numbr_handler_t *numbr_hndlr;	/* number handler */
 
 #if defined(YYDEBUG) || defined(GAWKDEBUG)
 extern int yydebug;
@@ -210,6 +213,10 @@ main(int argc, char **argv)
 	char *extra_stack;
 	int have_srcfile = 0;
 	SRCFILE *s;
+	bltin_t *numbr_bltins;
+
+	/* default number handler */
+	numbr_hndlr = & awknum_hndlr;
 
 	/* do these checks early */
 	if (getenv("TIDYMEM") != NULL)
@@ -281,7 +288,7 @@ main(int argc, char **argv)
 #undef STACK_SIZE
 
 	myname = gawk_name(argv[0]);
-	os_arg_fixup(&argc, &argv); /* emulate redirection, expand wildcards */
+	os_arg_fixup(& argc, & argv); /* emulate redirection, expand wildcards */
 
 	if (argc < 2)
 		usage(EXIT_FAILURE, stderr);
@@ -291,12 +298,6 @@ main(int argc, char **argv)
 
 	/* Robustness: check that file descriptors 0, 1, 2 are open */
 	init_fds();
-
-	/* init array handling. */
-	array_init();
-
-	/* init the symbol tables */
-	init_symbol_table();
 
 	output_fp = stdout;
 
@@ -456,9 +457,7 @@ main(int argc, char **argv)
 			break;
 
 		case 'M':
-#ifdef HAVE_MPFR
-			do_flags |= DO_MPFR;
-#endif
+			numbr_hndlr = & mpfp_hndlr;
 			break;
 
 		case 'P':
@@ -580,28 +579,20 @@ out:
 	}
 #endif
 
+	/* Set up number handler */
+	init_numbr_handler(& numbr_bltins);
+
 	if (do_debug)	/* Need to register the debugger pre-exec hook before any other */
 		init_debug();
 
-#ifdef HAVE_MPFR
-	/* Set up MPFR defaults, and register pre-exec hook to process arithmetic opcodes */ 
-	if (do_mpfr)
-		init_mpfr(DEFAULT_PREC, DEFAULT_ROUNDMODE);
-#endif
+	/* init array handling. */
+	array_init();
+
+	/* init the symbol tables */
+	init_symbol_table();
 
 	/* load group set */
 	init_groupset();
-
-#ifdef HAVE_MPFR
-	if (do_mpfr) {
-		mpz_init(Nnull_string->mpg_i);
-		Nnull_string->flags = (MALLOC|STRCUR|STRING|MPZN|NUMCUR|NUMBER);
-	} else
-#endif
-	{
-		Nnull_string->numbr = 0.0;
-		Nnull_string->flags = (MALLOC|STRCUR|STRING|NUMCUR|NUMBER);
-	}
 
 	/*
 	 * Tell the regex routines how they should work.
@@ -667,7 +658,7 @@ out:
 		optind++;
 	}
 
-	/* Select the interpreter routine */
+	/* select the interpreter routine */
 	init_interpret();
 
 	init_args(optind, argc,
@@ -682,6 +673,10 @@ out:
 	 */
 	setlocale(LC_NUMERIC, "C");
 #endif
+
+	/* initialize parser related variables */
+	init_parser(numbr_bltins);
+
 	/* Read in the program */
 	if (parse_program(& code_block) != 0)
 		exit(EXIT_FAILURE);
@@ -980,7 +975,7 @@ static const struct varinit varinit[] = {
 {&FPAT_node,	"FPAT",		"[^[:space:]]+", 0,  NULL, set_FPAT,	false, NON_STANDARD },
 {&IGNORECASE_node, "IGNORECASE", NULL,	0,  NULL, set_IGNORECASE,	false, NON_STANDARD },
 {&LINT_node,	"LINT",		NULL,	0,  NULL, set_LINT,	false, NON_STANDARD },
-{&PREC_node,	"PREC",		NULL,	DEFAULT_PREC,	NULL,	set_PREC,	false,	NON_STANDARD}, 	
+{&PREC_node,	"PREC",		NULL,	0,	NULL,	set_PREC,	false,	NON_STANDARD}, 	
 {&NF_node,	"NF",		NULL,	-1, update_NF, set_NF,	false, 0 },
 {&NR_node,	"NR",		NULL,	0,  update_NR, set_NR,	true, 0 },
 {&OFMT_node,	"OFMT",		"%.6g",	0,  NULL, set_OFMT,	true, 0 },
@@ -988,7 +983,7 @@ static const struct varinit varinit[] = {
 {&ORS_node,	"ORS",		"\n",	0,  NULL, set_ORS,	true, 0 },
 {NULL,		"PROCINFO",	NULL,	0,  NULL, NULL,	false, NO_INSTALL | NON_STANDARD | NOT_OFF_LIMITS },
 {&RLENGTH_node, "RLENGTH",	NULL,	0,  NULL, NULL,	false, 0 },
-{&ROUNDMODE_node, "ROUNDMODE",	DEFAULT_ROUNDMODE,	0,  NULL, set_ROUNDMODE,	false, NON_STANDARD },
+{&ROUNDMODE_node, "ROUNDMODE",	"",	0,  NULL, set_ROUNDMODE,	false, NON_STANDARD },
 {&RS_node,	"RS",		"\n",	0,  NULL, set_RS,	true, 0 },
 {&RSTART_node,	"RSTART",	NULL,	0,  NULL, NULL,	false, 0 },
 {&RT_node,	"RT",		"",	0,  NULL, NULL,	false, NON_STANDARD },
@@ -1018,6 +1013,8 @@ init_vars()
 		if (vp->do_assign)
 			(*(vp->assign))();
 	}
+
+	numbr_hndlr->init_numvars();	/* set default values for variables e.g. PREC */ 
 
 	/* Set up deferred variables (loaded only when accessed). */
 	if (! do_traditional)
@@ -1107,7 +1104,7 @@ load_procinfo()
 #if defined (HAVE_GETGROUPS) && defined(NGROUPS_MAX) && NGROUPS_MAX > 0
 	int i;
 #endif
-#if (defined (HAVE_GETGROUPS) && defined(NGROUPS_MAX) && NGROUPS_MAX > 0) || defined(HAVE_MPFR)
+#if (defined (HAVE_GETGROUPS) && defined(NGROUPS_MAX) && NGROUPS_MAX > 0)
 	char name[100];
 #endif
 	AWKNUM value;
@@ -1123,14 +1120,8 @@ load_procinfo()
 	update_PROCINFO_str("version", VERSION);
 	update_PROCINFO_str("strftime", def_strftime_format);
 
-#ifdef HAVE_MPFR
-	sprintf(name, "GNU MPFR %s", mpfr_get_version());
-	update_PROCINFO_str("mpfr_version", name);
-	sprintf(name, "GNU MP %s", gmp_version);
-	update_PROCINFO_str("gmp_version", name);
-	update_PROCINFO_num("prec_max", MPFR_PREC_MAX);
-	update_PROCINFO_num("prec_min", MPFR_PREC_MIN);
-#endif
+	if (numbr_hndlr != & awknum_hndlr && numbr_hndlr->load_procinfo)
+		numbr_hndlr->load_procinfo();
 
 #ifdef GETPGRP_VOID
 #define getpgrp_arg() /* nothing */
@@ -1426,9 +1417,7 @@ static void
 version()
 {
 	printf("%s", version_string);
-#ifdef HAVE_MPFR
-	printf(" (GNU MPFR %s, GNU MP %s)", mpfr_get_version(), gmp_version);
-#endif
+	print_numbr_hndlr_versions();
 	printf("\n"); 
 	print_ext_versions();
 
@@ -1544,6 +1533,44 @@ init_locale(struct lconv *l)
 	l->negative_sign = estrdup(t->negative_sign, strlen(t->negative_sign));
 }
 #endif /* LOCALE_H */
+
+static void
+init_numbr_handler(bltin_t **bltins)
+{
+	if (! numbr_hndlr->init(bltins)) {
+		/* not available */
+		numbr_hndlr = & awknum_hndlr;	/* fall back to AWKNUM */
+		(void) numbr_hndlr->init(bltins);
+	}
+
+	make_number = numbr_hndlr->gawk_make_number;
+	str2number = numbr_hndlr->gawk_force_number;
+	format_val = numbr_hndlr->gawk_fmt_number;
+	cmp_numbers = numbr_hndlr->gawk_cmp_numbers;
+	str2node = numbr_hndlr->gawk_str2number;
+	free_number = numbr_hndlr->gawk_free_number;
+	format_tree = numbr_hndlr->gawk_format_nodes;
+	get_number_d = numbr_hndlr->gawk_todouble;
+	get_number_si = numbr_hndlr->gawk_tolong;
+	get_number_ui = numbr_hndlr->gawk_toulong;
+	get_number_uj = numbr_hndlr->gawk_touintmax_t;
+	sgn_number = numbr_hndlr->gawk_sgn_number;
+}
+
+static void
+print_numbr_hndlr_versions()
+{
+	static numbr_handler_t *hndlrs[] = {
+		& awknum_hndlr,
+		& mpfp_hndlr,
+	};
+	int i;
+
+	for (i = 0; i < sizeof(hndlrs) / sizeof(hndlrs[0]); i++)
+		if (hndlrs[i]->version_str)
+			printf(" (%s)", hndlrs[i]->version_str());
+}
+
 
 /* save_argv --- save argv array */
 
