@@ -1,3 +1,9 @@
+2012-12-28         John Haque      <j.eh@mchsi.com>
+
+	* double.c: Use make_awknum everywhere instead of make_number
+	in case a routine is called using not the current handler
+	or before initialization.
+ 
 2012-12-27         John Haque      <j.eh@mchsi.com>
 
 	Number handling interface.

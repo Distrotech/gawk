@@ -42,9 +42,7 @@ extern void srandom(unsigned long seed);
 
 extern NODE **fmt_list;          /* declared in eval.c */
 
-static int is_ieee_magic_val(const char *val);
-static AWKNUM get_ieee_magic_val(const char *val);
-static AWKNUM calc_exp(AWKNUM x1, AWKNUM x2);
+/* exported routines */
 
 static NODE *make_awknum(AWKNUM);
 static int cmp_awknums(const NODE *, const NODE *);
@@ -90,8 +88,11 @@ static NODE *do_srand(int);
 static NODE *do_strtonum(int);
 static NODE *do_xor(int);
 
-/* internal functions */
+/* internal routines */
 static double double_to_int(double d);
+static int is_ieee_magic_val(const char *val);
+static AWKNUM get_ieee_magic_val(const char *val);
+static AWKNUM calc_exp(AWKNUM x1, AWKNUM x2);
 
 
 numbr_handler_t awknum_hndlr = {
@@ -356,7 +357,7 @@ static inline NODE *
 make_integer(uintmax_t n)
 {
 	n = adjust_uint(n);
-	return make_number(n);
+	return make_awknum(n);
 }
 
 /* do_lshift --- perform a << operation */
@@ -676,7 +677,7 @@ do_rand(int nargs ATTRIBUTE_UNUSED)
 	 *
 	 * 	0 <= n < 1
 	 */
-	return make_number((AWKNUM) (random() % GAWK_RANDOM_MAX) / GAWK_RANDOM_MAX);
+	return make_awknum((AWKNUM) (random() % GAWK_RANDOM_MAX) / GAWK_RANDOM_MAX);
 }
 
 /* do_srand --- seed the random number generator */
@@ -704,11 +705,11 @@ do_srand(int nargs)
 		srandom((unsigned int) (save_seed = (long) force_number(tmp)->numbr));
 		DEREF(tmp);
 	}
-	return make_number((AWKNUM) ret);
+	return make_awknum((AWKNUM) ret);
 }
 
 
-/*-------------------------------------------------------------------*/
+/* str2awknum --- create a number node from string */
 
 static NODE *
 str2awknum(char *str, char **endptr, int base, bool is_integer ATTRIBUTE_UNUSED)
@@ -837,7 +838,6 @@ force_awknum(NODE *n)
 	char save;
 	char *ptr;
 	unsigned int newflags;
-	extern double strtod();
 
 	if ((n->flags & NUMCUR) != 0)
 		return n;
@@ -868,7 +868,6 @@ force_awknum(NODE *n)
 				n->flags &= ~MAYBE_NUM;
 			n->flags |= NUMBER|NUMCUR;
 			n->numbr = get_ieee_magic_val(n->stptr);
-
 			return n;
 		}
 		/* else
@@ -1121,7 +1120,7 @@ do_int(int nargs)
 	(void) force_number(tmp);
 	d = tmp->numbr;
 	DEREF(tmp);
-	return make_number(double_to_int(d));
+	return make_awknum(double_to_int(d));
 }
 
 /* do_log --- the log function */
@@ -1140,7 +1139,7 @@ do_log(int nargs)
 		warning(_("log: received negative argument %g"), (double) arg);
 	d = log(arg);
 	DEREF(tmp);
-	return make_number(d);
+	return make_awknum(d);
 }
 
 /* do_sqrt --- do the sqrt function */
@@ -1158,7 +1157,7 @@ do_sqrt(int nargs)
 	DEREF(tmp);
 	if (arg < 0.0)
 		warning(_("sqrt: called with negative argument %g"), (double) arg);
-	return make_number(sqrt(arg));
+	return make_awknum(sqrt(arg));
 }
 
 /* do_exp --- exponential function */
@@ -1178,7 +1177,7 @@ do_exp(int nargs)
 	res = exp(d);
 	if (errno == ERANGE)
 		warning(_("exp: argument %g is out of range"), (double) d);
-	return make_number(res);
+	return make_awknum(res);
 }
 
 
@@ -1202,7 +1201,7 @@ do_atan2(int nargs)
 	d2 = force_number(t2)->numbr;
 	DEREF(t1);
 	DEREF(t2);
-	return make_number(atan2(d1, d2));
+	return make_awknum(atan2(d1, d2));
 }
 
 /* do_sin --- do the sin function */
@@ -1218,7 +1217,7 @@ do_sin(int nargs)
 		lintwarn(_("sin: received non-numeric argument"));
 	d = sin(force_number(tmp)->numbr);
 	DEREF(tmp);
-	return make_number(d);
+	return make_awknum(d);
 }
 
 /* do_cos --- do the cos function */
@@ -1234,7 +1233,7 @@ do_cos(int nargs)
 		lintwarn(_("cos: received non-numeric argument"));
 	d = cos(force_number(tmp)->numbr);
 	DEREF(tmp);
-	return make_number(d);
+	return make_awknum(d);
 }
 
 /* do_strtonum --- the strtonum function */
@@ -1254,7 +1253,7 @@ do_strtonum(int nargs)
 		d = force_number(tmp)->numbr;
 
 	DEREF(tmp);
-	return make_number(d);
+	return make_awknum(d);
 }
 
 
