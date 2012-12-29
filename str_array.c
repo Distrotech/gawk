@@ -157,7 +157,7 @@ str_lookup(NODE *symbol, NODE *subs)
 		* never be used.
 		*/
 
-		if ((subs->flags & (MPFN|MPZN|NUMCUR)) == NUMCUR) {
+		if ((subs->flags & NUMCUR) != 0 && numbr_hndlr == & awknum_hndlr) {
 			tmp->numbr = subs->numbr;
 			tmp->flags |= NUMCUR;
 		}

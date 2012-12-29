@@ -97,7 +97,8 @@ make_str_node(const char *s, size_t len, int flags)
 	NODE *r;
 	getnode(r);
 	r->type = Node_val;
-	r->numbr = 0;
+	r->numbr = 0;	/* FIXME: uninitialized? it is NaN in MPFR */
+	r->qnumbr = NULL;
 	r->flags = (MALLOC|STRING|STRCUR);
 	r->valref = 1;
 	r->stfmt = -1;
@@ -649,6 +650,7 @@ BLOCK nextfree[BLOCK_MAX] = {
 	{ 0, NULL},	/* invalid */	
 	{ sizeof(NODE), NULL },
 	{ sizeof(BUCKET), NULL },
+	{ sizeof(long double), NULL},
 };
 
 

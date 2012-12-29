@@ -165,6 +165,7 @@ AC_TYPE_LONG_LONG_INT
 AC_TYPE_UNSIGNED_LONG_LONG_INT
 AC_TYPE_INTMAX_T
 AC_TYPE_UINTMAX_T
+AC_TYPE_LONG_DOUBLE
 AC_CHECK_TYPE(ssize_t, int)
 AC_CHECK_SIZEOF(unsigned int)
 AC_CHECK_SIZEOF(unsigned long)
@@ -342,6 +343,9 @@ if test "$has_f_format" = yes; then
 	AC_DEFINE(PRINTF_HAS_F_FORMAT, 1, [Define to 1 if *printf supports %F format])
 fi
 AC_MSG_RESULT($has_f_format)
+
+dnl see if long double is usable
+GAWK_USE_LONG_DOUBLE
 
 dnl check for sockets
 GAWK_AC_LIB_SOCKETS

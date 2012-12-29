@@ -20,11 +20,17 @@
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
+/* Define to 1 if you have 'atan2l' function. */
+#undef HAVE_ATAN2L
+
 /* Define to 1 if you have the `atexit' function. */
 #undef HAVE_ATEXIT
 
 /* Define to 1 if you have the `btowc' function. */
 #undef HAVE_BTOWC
+
+/* Define to 1 if you have 'ceill' function. */
+#undef HAVE_CEILL
 
 /* Define to 1 if you have the MacOS X function CFLocaleCopyCurrent in the
    CoreFoundation framework. */
@@ -33,6 +39,9 @@
 /* Define to 1 if you have the MacOS X function CFPreferencesCopyAppValue in
    the CoreFoundation framework. */
 #undef HAVE_CFPREFERENCESCOPYAPPVALUE
+
+/* Define to 1 if you have 'cosl' function. */
+#undef HAVE_COSL
 
 /* Define if the GNU dcgettext() function is already present or preinstalled.
    */
@@ -45,11 +54,20 @@
 /* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
 #undef HAVE_DOPRNT
 
+/* Define to 1 if you have 'expl' function. */
+#undef HAVE_EXPL
+
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
+/* Define to 1 if you have 'floorl' function. */
+#undef HAVE_FLOORL
+
 /* Define to 1 if you have the `fmod' function. */
 #undef HAVE_FMOD
+
+/* Define to 1 if you have 'fmodl' function. */
+#undef HAVE_FMODL
 
 /* have getaddrinfo */
 #undef HAVE_GETADDRINFO
@@ -111,6 +129,12 @@
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
 
+/* Define to 1 if you have 'logl' function. */
+#undef HAVE_LOGL
+
+/* Define to 1 if the system has the type `long double'. */
+#undef HAVE_LONG_DOUBLE
+
 /* Define to 1 if the system has the type `long long int'. */
 #undef HAVE_LONG_LONG_INT
 
@@ -162,6 +186,9 @@
 /* Define to 1 if you have the `posix_openpt' function. */
 #undef HAVE_POSIX_OPENPT
 
+/* Define to 1 if you have 'powl' function. */
+#undef HAVE_POWL
+
 /* Define to 1 if you have the `setenv' function. */
 #undef HAVE_SETENV
 
@@ -171,6 +198,9 @@
 /* Define to 1 if you have the `setsid' function. */
 #undef HAVE_SETSID
 
+/* Define to 1 if you have 'sinl' function. */
+#undef HAVE_SINL
+
 /* Define to 1 if you have the `snprintf' function. */
 #undef HAVE_SNPRINTF
 
@@ -179,6 +209,9 @@
 
 /* we have sockets on this system */
 #undef HAVE_SOCKETS
+
+/* Define to 1 if you have 'sqrtl' function. */
+#undef HAVE_SQRTL
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #undef HAVE_STDARG_H
@@ -224,6 +257,9 @@
 
 /* Define to 1 if you have the `strtod' function. */
 #undef HAVE_STRTOD
+
+/* Define to 1 if you have 'strtold' function. */
+#undef HAVE_STRTOLD
 
 /* Define to 1 if you have the `strtoul' function. */
 #undef HAVE_STRTOUL
@@ -374,6 +410,9 @@
 
 /* force use of our version of strftime */
 #undef USE_INCLUDED_STRFTIME
+
+/* Define to 1 if can use 'long double'. */
+#undef USE_LONG_DOUBLE
 
 /* Enable extensions on AIX 3, Interix.  */
 #ifndef _ALL_SOURCE

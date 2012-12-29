@@ -110,6 +110,8 @@ base_sources = \
 	int_array.c \
 	interpret.h \
 	io.c \
+	long_double.c \
+	long_double.h \
 	mbsupport.h \
 	main.c \
 	mpfr.c \

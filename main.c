@@ -204,7 +204,7 @@ main(int argc, char **argv)
 	/*
 	 * The + on the front tells GNU getopt not to rearrange argv.
 	 */
-	const char *optlist = "+F:f:v:W;m:bcCd::D::e:E:gh:i:l:L:nNo::Op::MPrStVY";
+	const char *optlist = "+F:f:v:W;m:bcCd::D::e:E:gh:i:l:L:nNo::Op::BMPrStVY";
 	bool stopped_early = false;
 	int old_optind;
 	int i;
@@ -367,6 +367,10 @@ main(int argc, char **argv)
 			do_binary = true;
 			break;
 
+		case 'B':
+			numbr_hndlr = & awkldbl_hndlr;
+			break;
+			
 		case 'c':
 			do_flags |= DO_TRADITIONAL;
 			break;
@@ -1562,6 +1566,7 @@ print_numbr_hndlr_versions()
 {
 	static numbr_handler_t *hndlrs[] = {
 		& awknum_hndlr,
+		& awkldbl_hndlr,
 		& mpfp_hndlr,
 	};
 	int i;

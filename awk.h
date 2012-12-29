@@ -1041,6 +1041,7 @@ enum block_id {
 	BLOCK_INVALID = 0,	/* not legal */
 	BLOCK_NODE,
 	BLOCK_BUCKET,
+	BLOCK_LDBL,
 	BLOCK_MAX	/* count */
 };	
 
@@ -1090,6 +1091,7 @@ extern char *source;
 extern int (*interpret)(INSTRUCTION *);	/* interpreter routine */
 
 extern numbr_handler_t awknum_hndlr;	/* double */
+extern numbr_handler_t awkldbl_hndlr;	/* long double */
 extern numbr_handler_t mpfp_hndlr;	/* arbitrary-precision floating-point */
 extern numbr_handler_t *numbr_hndlr;	/* active handler */
 

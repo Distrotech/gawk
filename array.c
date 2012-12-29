@@ -701,7 +701,7 @@ assoc_info(NODE *subs, NODE *val, NODE *ndump, const char *aname)
 	indent(indent_level);
 	fprintf(output_fp, "I: [%s:", aname);
 	if ((subs->flags & (MPFN|MPZN|INTIND)) == INTIND)
-		fprintf(output_fp, "<%ld>", (long) subs->numbr);
+		fprintf(output_fp, "<%ld>", get_number_si(subs));
 	else
 		value_info(subs);
 	fprintf(output_fp, "]\n");

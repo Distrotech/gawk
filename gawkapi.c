@@ -661,12 +661,15 @@ api_sym_update_scalar(awk_ext_id_t id,
 			if ((r->flags & (MALLOC|STRCUR)) == (MALLOC|STRCUR))
 				efree(r->stptr);
 
-			if (free_number && (r->flags & (NUMBER|NUMCUR)) != 0)
+			if (free_number && (r->flags & (NUMBER|NUMCUR)) != 0) {
 				free_number(r);
+				r->flags &= ~(NUMBER|NUMCUR);
+			}
 			free_wstr(r);
 
 			/* make_str_node(s, l, ALREADY_MALLOCED): */
 			r->numbr = 0;
+			r->qnumbr = NULL;
 			r->flags = (MALLOC|STRING|STRCUR);
 			r->stfmt = -1;
 			r->stptr = value->str_value.str;

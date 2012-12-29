@@ -1481,27 +1481,9 @@ non_post_simp_exp
 			$$ = list_append(list_append(list_create($1),
 						instruction(Op_field_spec)), $2);
 		} else {
-			if (do_optimize > 1 && $2->nexti == $2->lasti
-					&& $2->nexti->opcode == Op_push_i
-					&& ($2->nexti->memory->flags & (MPFN|MPZN)) == 0
-			) {
-				NODE *n = $2->nexti->memory;
-				if ((n->flags & (STRCUR|STRING)) != 0) {
-					n->numbr = (AWKNUM) (n->stlen == 0);
-					n->flags &= ~(STRCUR|STRING);
-					n->flags |= (NUMCUR|NUMBER);
-					efree(n->stptr);
-					n->stptr = NULL;
-					n->stlen = 0;
-				} else
-					n->numbr = (AWKNUM) (n->numbr == 0.0);
-				bcfree($1);
-				$$ = $2;
-			} else {
-				$1->opcode = Op_not;
-				add_lint($2, LINT_assign_in_cond);
-				$$ = list_append($2, $1);
-			}
+			$1->opcode = Op_not;
+			add_lint($2, LINT_assign_in_cond);
+			$$ = list_append($2, $1);
 		}
 	   }
 	| '(' exp r_paren

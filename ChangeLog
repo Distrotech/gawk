@@ -1,3 +1,19 @@
+2012-12-29         John Haque      <j.eh@mchsi.com>
+
+	Add support for long double numbers.
+	
+	* awk.h (awkldbl_hndlr): Declare.
+	(enum block_id): Add BLOCK_LDBL.
+	* gawkapi.c (api_sym_update_scalar): Update NODE flag
+	after freeing number.
+	* long_double.h: New file.
+	* long_double.c: New file.
+	* main.c (main): Added temporary option 'B' to select long double.
+	(print_numbr_hndlr_versions(): New entry for awkldbl_hndlr.
+	* node.c (BLOCK nextfree): New entry for long double.
+	* configure.ac: Added GAWK_USE_LONG_DOUBLE.
+	* Makefile.am: Added long_double.h and long_double.c.
+
 2012-12-28         John Haque      <j.eh@mchsi.com>
 
 	* double.c: Use make_awknum everywhere instead of make_number
