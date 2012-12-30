@@ -2226,7 +2226,7 @@ out:
 
 #else
 
-static bool mpfp_init(bltin_t **bltins);
+static bool awkldbl_init(bltin_t **bltins);
 
 numbr_handler_t awkldbl_hndlr = {
 	awkldbl_init,
