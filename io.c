@@ -382,6 +382,7 @@ nextfile(IOBUF **curfile, bool skipping)
 			return 0;
 	}
 
+	(void) force_number(ARGC_node->var_value);	/* make no assumptions! */
 	argc = get_number_si(ARGC_node->var_value);
 	
 	for (; i < argc; i++) {

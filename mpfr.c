@@ -150,7 +150,6 @@ mpfp_tofloat(const NODE *t, mpfr_ptr pf)
 }
 
 
-
 numbr_handler_t mpfp_hndlr = {
 	mpfp_init,
 	mpfp_version_string,
@@ -214,6 +213,8 @@ mpfp_init(bltin_t **numbr_bltins)
 	ROUND_MODE = mpfp_get_rounding_mode(rndmode[0]); 
 	mpfr_set_default_rounding_mode(ROUND_MODE);
 
+	mpz_init(MNR);
+	mpz_init(MFNR);
 	do_ieee_fmt = false;
 
 	mpfr_init2(_mp1, PRECISION_MIN);
@@ -261,7 +262,7 @@ mpfp_version_string()
 static unsigned long
 mpfp_toulong(const NODE *n)
 {
-	return (n->flags & MPFN) ? mpfr_get_ui(n->qnumbr, ROUND_MODE) : mpz_get_ui(n->qnumbr);
+	return (n->flags & MPFN) != 0 ? mpfr_get_ui(n->qnumbr, ROUND_MODE) : mpz_get_ui(n->qnumbr);
 }
 
 /* mpfp_tolong --- conversion to long */
@@ -269,7 +270,7 @@ mpfp_toulong(const NODE *n)
 static long
 mpfp_tolong(const NODE *n)
 {
-	return (n->flags & MPFN) ? mpfr_get_si(n->qnumbr, ROUND_MODE) : mpz_get_si(n->qnumbr);
+	return (n->flags & MPFN) != 0 ? mpfr_get_si(n->qnumbr, ROUND_MODE) : mpz_get_si(n->qnumbr);
 }
 
 /* mpfp_todouble --- conversion to AWKNUM */
@@ -277,7 +278,7 @@ mpfp_tolong(const NODE *n)
 static AWKNUM
 mpfp_todouble(const NODE *n)
 {
-	return (n->flags & MPFN) ? mpfr_get_d(n->qnumbr, ROUND_MODE) : mpz_get_d(n->qnumbr);
+	return (n->flags & MPFN) != 0 ? mpfr_get_d(n->qnumbr, ROUND_MODE) : mpz_get_d(n->qnumbr);
 }
 
 /* mpfp_touintmax_t --- conversion to uintmax_t */
@@ -285,7 +286,7 @@ mpfp_todouble(const NODE *n)
 static uintmax_t
 mpfp_touintmax_t(const NODE *n)
 {
-	return (n->flags & MPFN) ? mpfr_get_uj(n->qnumbr, ROUND_MODE) \
+	return (n->flags & MPFN) != 0 ? mpfr_get_uj(n->qnumbr, ROUND_MODE) \
 			: (uintmax_t) mpz_get_d(n->qnumbr);
 }
 
@@ -294,7 +295,7 @@ mpfp_touintmax_t(const NODE *n)
 static int
 mpfp_sgn(const NODE *n)
 {
-	return (n->flags & MPFN) ? mpfr_sgn(MPFR_T(n->qnumbr)) \
+	return (n->flags & MPFN) != 0 ? mpfr_sgn(MPFR_T(n->qnumbr)) \
 		: mpz_sgn(MPZ_T(n->qnumbr));
 }
 
@@ -328,7 +329,7 @@ mpfp_make_node(unsigned int type)
 	}
 	
 	r->valref = 1;
-	r->flags |= (NUMBER|NUMCUR);
+	r->flags |= (MALLOC|NUMBER|NUMCUR);
 	r->stptr = NULL;
 	r->stlen = 0;
 #if MBS_SUPPORT
@@ -867,6 +868,7 @@ mpfp_set_var(const NODE *var)
 			NR = mpz_fdiv_q_ui(MNR, r, LONG_MAX);	/* MNR is quotient */
 		else
 			FNR = mpz_fdiv_q_ui(MFNR, r, LONG_MAX);
+
 		if (r != val->qnumbr)
 			mpz_clear(mpz_val);
 	}
