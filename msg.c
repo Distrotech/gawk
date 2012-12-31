@@ -90,12 +90,10 @@ err(bool isfatal, const char *s, const char *emsg, va_list argp)
 
 
 /*
- * N.B: format is awk printf format, NOT C format or any other special format
- * supported. MUST NOT throw warning in format tree. "%ld" is BAD, "%d" is Ok!
+ * fmt_number --- format a number node for use in error messages.
+ * 	N.B: format is awk printf format. MUST NOT throw warning in format
+ * 	tree. "%ld" is BAD, "%d" is Ok!
  */
-
-
-/* N.B: FORMAT must pass fmt_ok() used to check CONVFMT/OFMT specifier */
 
 const char *
 fmt_number(const char *format, const NODE *n)
@@ -104,7 +102,7 @@ fmt_number(const char *format, const NODE *n)
 	static char *num_str;
 	extern bool fmt_ok(const char *p);
 
-	assert(fmt_ok(format) == true);
+	/* FIXME: %d etc -- assert(fmt_ok(format) == true); */
 	assert((n->flags & (NUMBER|NUMCUR)) != 0);
 
 	/* copy number so not to change state of the original including flags */
