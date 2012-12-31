@@ -1645,7 +1645,7 @@ mpfp_add_long(const NODE *t1, long l)
 		if (l >= 0)
 			mpz_add_ui(r->qnumbr, t1->qnumbr, l);
 		else
-			mpz_sub_ui(r->qnumbr, t1->qnumbr, l);
+			mpz_sub_ui(r->qnumbr, t1->qnumbr, -l);
 	} else {
 		int tval;
 
