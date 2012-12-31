@@ -1302,6 +1302,7 @@ do_exp(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("exp: received non-numeric argument"));
 	(void) force_number(tmp);
+	d = LDBL(tmp);
 	DEREF(tmp);
 	errno = 0;
 	res = gawk_expl(d);
