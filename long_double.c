@@ -30,6 +30,9 @@
 #include "random.h"
 #include "floatmagic.h"	/* definition of isnan */
 
+#include "format.h"
+
+
 #define AWKLDBL	long double
 
 /* XXX: define to 1 to try AWKNUM as long double */
@@ -78,12 +81,14 @@ static NODE *force_awkldbl(NODE *);
 static NODE *format_awkldbl_val(const char *, int, NODE *);
 static unsigned long awkldbl_toulong(const NODE *);
 static long awkldbl_tolong(const NODE *);
-static AWKNUM awkldbl_todouble(const NODE *);
+static double awkldbl_todouble(const NODE *);
 static uintmax_t awkldbl_touintmax_t(const NODE *);
 static int awkldbl_sgn(const NODE *);
-static bool awkldbl_is_integer(const NODE *);
+static bool awkldbl_isinteger(const NODE *);
+static bool awkldbl_isnan(const NODE *);
+static bool awkldbl_isinf(const NODE *);
 static NODE *awkldbl_copy(const NODE *);
-static NODE *format_nodes_awkldbl(const char *, size_t, NODE **, long);
+static int format_awkldbl_printf(NODE *, struct format_spec *, struct print_fmt_buf *);
 static bool awkldbl_init(bltin_t **);
 static NODE *awkldbl_add(const NODE *, const NODE *);
 static NODE *awkldbl_sub(const NODE *, const NODE *);
@@ -155,9 +160,11 @@ numbr_handler_t awkldbl_hndlr = {
 	negate_awkldbl,
 	cmp_awkldbls,
 	awkldbl_sgn,
-	awkldbl_is_integer,
+	awkldbl_isinteger,
+	awkldbl_isnan,
+	awkldbl_isinf,
 	format_awkldbl_val,
-	format_nodes_awkldbl,
+	format_awkldbl_printf,
 	awkldbl_todouble,
 	awkldbl_tolong,
 	awkldbl_toulong,
@@ -231,9 +238,9 @@ awkldbl_tolong(const NODE *n)
 	return LDBL(n);
 }
 
-/* awkldbl_todouble --- conversion to AWKNUM */
+/* awkldbl_todouble --- conversion to double */
 
-static AWKNUM
+static double
 awkldbl_todouble(const NODE *n)
 {
 	return LDBL(n);
@@ -256,16 +263,32 @@ awkldbl_sgn(const NODE *n)
 	return (d < 0.0 ? -1 : d > 0.0);
 }
 
-/* awkldbl_is_integer --- check if a number is an integer */
+/* awkldbl_isinteger --- check if a number is an integer */
 
 static bool
-awkldbl_is_integer(const NODE *n)
+awkldbl_isinteger(const NODE *n)
 {
 	AWKLDBL d = LDBL(n);
 
 	if (isnan(d) || isinf(d))
 		return false;
 	return double_to_int(d) == d;
+}
+
+/* awkldbl_isnan --- check if number is NaN */
+
+static bool
+awkldbl_isnan(const NODE *n)
+{
+	return isnan(LDBL(n));
+}
+
+/* awkldbl_isinf --- check if number is infinity */
+
+static bool
+awkldbl_isinf(const NODE *n)
+{
+	return isinf(LDBL(n));
 }
 
 /* negate_awkldbl --- negate number in NODE */
@@ -1394,835 +1417,233 @@ do_strtonum(int nargs)
 	return make_awkldbl(d);
 }
 
+/* format_awkldbl_prinf --- format a number for (s)printf */
 
-/*
- * format_tree() formats arguments of sprintf,
- * and accordingly to a fmt_string providing a format like in
- * printf family from C library.  Returns a string node which value
- * is a formatted string.  Called by  sprintf function.
- *
- * It is one of the uglier parts of gawk.  Thanks to Michal Jaegermann
- * for taming this beast and making it compatible with ANSI C.
- */
-
-static NODE *
-format_nodes_awkldbl(
-	const char *fmt_string,
-	size_t n0,
-	NODE **the_args,
-	long num_args)
+static int
+format_awkldbl_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf *outb)
 {
-/* copy 'l' bytes from 's' to 'obufout' checking for space in the process */
-/* difference of pointers should be of ptrdiff_t type, but let us be kind */
-#define bchunk(s, l) if (l) { \
-	while ((l) > ofre) { \
-		size_t olen = obufout - obuf; \
-		erealloc(obuf, char *, osiz * 2, "format_tree"); \
-		ofre += osiz; \
-		osiz *= 2; \
-		obufout = obuf + olen; \
-	} \
-	memcpy(obufout, s, (size_t) (l)); \
-	obufout += (l); \
-	ofre -= (l); \
-}
-
-/* copy one byte from 's' to 'obufout' checking for space in the process */
-#define bchunk_one(s) { \
-	if (ofre < 1) { \
-		size_t olen = obufout - obuf; \
-		erealloc(obuf, char *, osiz * 2, "format_tree"); \
-		ofre += osiz; \
-		osiz *= 2; \
-		obufout = obuf + olen; \
-	} \
-	*obufout++ = *s; \
-	--ofre; \
-}
-
-/* Is there space for something L big in the buffer? */
-#define chksize(l)  if ((l) >= ofre) { \
-	size_t olen = obufout - obuf; \
-	size_t delta = osiz+l-ofre; \
-	erealloc(obuf, char *, osiz + delta, "format_tree"); \
-	obufout = obuf + olen; \
-	ofre += delta; \
-	osiz += delta; \
-}
-
-	size_t cur_arg = 0;
-	NODE *r = NULL;
-	int i, nc;
-	bool toofew = false;
-	char *obuf, *obufout;
-	size_t osiz, ofre;
-	const char *chbuf;
-	const char *s0, *s1;
-	int cs1;
-	NODE *arg;
-	long fw, prec, argnum;
-	bool used_dollar;
-	bool lj, alt, big_flag, bigbig_flag, small_flag, have_prec, need_format;
-	long *cur = NULL;
+	AWKLDBL tmpval;
 	uintmax_t uval;
 	bool sgn;
-	int base;
-	/*
-	 * Although this is an array, the elements serve two different
-	 * purposes. The first element is the general buffer meant
-	 * to hold the entire result string.  The second one is a
-	 * temporary buffer for large floating point values. They
-	 * could just as easily be separate variables, and the
-	 * code might arguably be clearer.
-	 */
-	struct {
-		char *buf;
-		size_t bufsize;
-		char stackbuf[30];
-	} cpbufs[2];
-#define cpbuf	cpbufs[0].buf
-	char *cend = &cpbufs[0].stackbuf[sizeof(cpbufs[0].stackbuf)];
-	char *cp;
-	const char *fill;
-	AWKLDBL tmpval = 0.0;
-	char signchar = '\0';
-	size_t len;
-	bool zero_flag = false;
-	bool quote_flag = false;
-	int ii, jj;
-	char *chp;
-	size_t copy_count, char_count;
+	int i, ii, jj;
+	char *chp, *cp;
+	char cs1;
+	int nc;
 
-	static const char sp[] = " ";
-	static const char zero_string[] = "0";
-	static const char lchbuf[] = "0123456789abcdef";
-	static const char Uchbuf[] = "0123456789ABCDEF";
+	static char stackbuf[64];	/* temporary buffer for integer formatting */ 
+	static char *intbuf = stackbuf;
+	size_t intbuf_size = 64;
 
-#define INITIAL_OUT_SIZE	512
-	emalloc(obuf, char *, INITIAL_OUT_SIZE, "format_tree");
-	obufout = obuf;
-	osiz = INITIAL_OUT_SIZE;
-	ofre = osiz - 2;
+#	define CP		cpbuf_start(outb)
+#	define CEND		cpbuf_end(outb)
+#	define CPBUF		cpbuf(outb)
 
-	cur_arg = 1;
+	tmpval = LDBL(arg);
+	spec->fill = space_string;
+	spec->chbuf = lchbuf;
 
-	{
-		size_t k;
-		for (k = 0; k < sizeof(cpbufs)/sizeof(cpbufs[0]); k++) {
-			cpbufs[k].bufsize = sizeof(cpbufs[k].stackbuf);
-			cpbufs[k].buf = cpbufs[k].stackbuf;
+	cp = CP;
+	cs1 = spec->fmtchar;
+	switch (cs1) {
+	case 'd':
+	case 'i':
+		if (isnan(tmpval) || isinf(tmpval))
+			goto out_of_range;
+		else
+			tmpval = double_to_int(tmpval);
+
+		/*
+		 * ``The result of converting a zero value with a
+		 * precision of zero is no characters.''
+		 */
+		if (spec->have_prec && spec->prec == 0 && tmpval == (AWKLDBL) 0) {
+			pr_num_tail(cp, spec->prec, spec, outb);
+			return 0;
 		}
-	}
 
-	/*
-	 * The point of this goop is to grow the buffer
-	 * holding the converted number, so that large
-	 * values don't overflow a fixed length buffer.
-	 */
-#define PREPEND(CH) do {	\
-	if (cp == cpbufs[0].buf) {	\
-		char *prev = cpbufs[0].buf;	\
-		emalloc(cpbufs[0].buf, char *, 2*cpbufs[0].bufsize, \
-		 	"format_tree");	\
-		memcpy((cp = cpbufs[0].buf+cpbufs[0].bufsize), prev,	\
-		       cpbufs[0].bufsize);	\
-		cpbufs[0].bufsize *= 2;	\
-		if (prev != cpbufs[0].stackbuf)	\
-			efree(prev);	\
-		cend = cpbufs[0].buf+cpbufs[0].bufsize;	\
-	}	\
-	*--cp = (CH);	\
-} while(0)
-
-	/*
-	 * Check first for use of `count$'.
-	 * If plain argument retrieval was used earlier, choke.
-	 *	Otherwise, return the requested argument.
-	 * If not `count$' now, but it was used earlier, choke.
-	 * If this format is more than total number of args, choke.
-	 * Otherwise, return the current argument.
-	 */
-#define parse_next_arg() { \
-	if (argnum > 0) { \
-		if (cur_arg > 1) { \
-			msg(_("fatal: must use `count$' on all formats or none")); \
-			goto out; \
-		} \
-		arg = the_args[argnum]; \
-	} else if (used_dollar) { \
-		msg(_("fatal: must use `count$' on all formats or none")); \
-		arg = 0; /* shutup the compiler */ \
-		goto out; \
-	} else if (cur_arg >= num_args) { \
-		arg = 0; /* shutup the compiler */ \
-		toofew = true; \
-		break; \
-	} else { \
-		arg = the_args[cur_arg]; \
-		cur_arg++; \
-	} \
-}
-
-	need_format = false;
-	used_dollar = false;
-
-	s0 = s1 = fmt_string;
-	while (n0-- > 0) {
-		if (*s1 != '%') {
-			s1++;
-			continue;
+		if (tmpval < 0) {
+			tmpval = -tmpval;
+			sgn = true;
+		} else {
+			if (tmpval == - (AWKLDBL) 0.0)	/* avoid printing -0 */
+				tmpval = (AWKLDBL) 0.0;
+			sgn = false;
 		}
-		need_format = true;
-		bchunk(s0, s1 - s0);
-		s0 = s1;
-		cur = &fw;
-		fw = 0;
-		prec = 0;
-		base = 0;
-		argnum = 0;
-		base = 0;
-		have_prec = false;
-		signchar = '\0';
-		zero_flag = false;
-		quote_flag = false;
-		lj = alt = big_flag = bigbig_flag = small_flag = false;
-		fill = sp;
-		cp = cend;
-		chbuf = lchbuf;
-		s1++;
 
-retry:
-		if (n0-- == 0)	/* ran out early! */
-			break;
+		/*
+		 * Use snprintf return value to tell if there
+		 * is enough room in the buffer or not.
+		 */
+		while ((i = snprintf(intbuf, intbuf_size, "%.0Lf", tmpval)) >= intbuf_size) {
+			if (intbuf == stackbuf)
+				intbuf = NULL;
+			intbuf_size = i + 1;
+			erealloc(intbuf, char *, intbuf_size, "format_tree");
+		}
 
-		switch (cs1 = *s1++) {
-		case (-1):	/* dummy case to allow for checking */
-check_pos:
-			if (cur != & fw)
-				break;		/* reject as a valid format */
-			goto retry;
-		case '%':
-			need_format = false;
-			/*
-			 * 29 Oct. 2002:
-			 * The C99 standard pages 274 and 279 seem to imply that
-			 * since there's no arg converted, the field width doesn't
-			 * apply.  The code already was that way, but this
-			 * comment documents it, at least in the code.
-			 */
-			if (do_lint) {
-				const char *msg = NULL;
+		if (i < 1)
+			goto out_of_range;
 
-				if (fw && ! have_prec)
-					msg = _("field width is ignored for `%%' specifier");
-				else if (fw == 0 && have_prec)
-					msg = _("precision is ignored for `%%' specifier");
-				else if (fw && have_prec)
-					msg = _("field width and precision are ignored for `%%' specifier");
-
-				if (msg != NULL)
-					lintwarn("%s", msg);
-			}
-			bchunk_one("%");
-			s0 = s1;
-			break;
-
-		case '0':
-			/*
-			 * Only turn on zero_flag if we haven't seen
-			 * the field width or precision yet.  Otherwise,
-			 * screws up floating point formatting.
-			 */
-			if (cur == & fw)
-				zero_flag = true;
-			if (lj)
-				goto retry;
-			/* FALL through */
-		case '1':
-		case '2':
-		case '3':
-		case '4':
-		case '5':
-		case '6':
-		case '7':
-		case '8':
-		case '9':
-			if (cur == NULL)
-				break;
-			if (prec >= 0)
-				*cur = cs1 - '0';
-			/*
-			 * with a negative precision *cur is already set
-			 * to -1, so it will remain negative, but we have
-			 * to "eat" precision digits in any case
-			 */
-			while (n0 > 0 && *s1 >= '0' && *s1 <= '9') {
-				--n0;
-				*cur = *cur * 10 + *s1++ - '0';
-			}
-			if (prec < 0) 	/* negative precision is discarded */
-				have_prec = false;
-			if (cur == &prec)
-				cur = NULL;
-			if (n0 == 0)	/* badly formatted control string */
-				continue;
-			goto retry;
-		case '$':
-			if (do_traditional) {
-				msg(_("fatal: `$' is not permitted in awk formats"));
-				goto out;
-			}
-
-			if (cur == &fw) {
-				argnum = fw;
-				fw = 0;
-				used_dollar = true;
-				if (argnum <= 0) {
-					msg(_("fatal: arg count with `$' must be > 0"));
-					goto out;
-				}
-				if (argnum >= num_args) {
-					msg(_("fatal: arg count %ld greater than total number of supplied arguments"), argnum);
-					goto out;
-				}
-			} else {
-				msg(_("fatal: `$' not permitted after period in format"));
-				goto out;
-			}
-
-			goto retry;
-		case '*':
-			if (cur == NULL)
-				break;
-			if (! do_traditional && isdigit((unsigned char) *s1)) {
-				int val = 0;
-
-				for (; n0 > 0 && *s1 && isdigit((unsigned char) *s1); s1++, n0--) {
-					val *= 10;
-					val += *s1 - '0';
-				}
-				if (*s1 != '$') {
-					msg(_("fatal: no `$' supplied for positional field width or precision"));
-					goto out;
-				} else {
-					s1++;
-					n0--;
-				}
-				if (val >= num_args) {
-					toofew = true;
-					break;
-				}
-				arg = the_args[val];
-			} else {
-				parse_next_arg();
-			}
-			(void) force_number(arg);
-			*cur = get_number_si(arg);
-			if (*cur < 0 && cur == & fw) {
-				*cur = -*cur;
-				lj++;
-			}
-			if (cur == & prec) {
-				if (*cur >= 0)
-					have_prec = true;
-				else
-					have_prec = false;
-				cur = NULL;
-			}
-			goto retry;
-		case ' ':		/* print ' ' or '-' */
-					/* 'space' flag is ignored */
-					/* if '+' already present  */
-			if (signchar != false) 
-				goto check_pos;
-			/* FALL THROUGH */
-		case '+':		/* print '+' or '-' */
-			signchar = cs1;
-			goto check_pos;
-		case '-':
-			if (prec < 0)
-				break;
-			if (cur == & prec) {
-				prec = -1;
-				goto retry;
-			}
-			fill = sp;      /* if left justified then other */
-			lj++; 		/* filling is ignored */
-			goto check_pos;
-		case '.':
-			if (cur != & fw)
-				break;
-			cur = & prec;
-			have_prec = true;
-			goto retry;
-		case '#':
-			alt = true;
-			goto check_pos;
-		case '\'':
-#if defined(HAVE_LOCALE_H)       
-			/* allow quote_flag if there is a thousands separator. */
-			if (loc.thousands_sep[0] != '\0')
-				quote_flag = true;
-			goto check_pos;
-#else
-			goto retry;  
-#endif
-		case 'l':
-			if (big_flag)
-				break;
-			else {
-				static bool warned = false;
-				
-				if (do_lint && ! warned) {
-					lintwarn(_("`l' is meaningless in awk formats; ignored"));
-					warned = true;
-				}
-				if (do_posix) {
-					msg(_("fatal: `l' is not permitted in POSIX awk formats"));
-					goto out;
-				}
-			}
-			big_flag = true;
-			goto retry;
-		case 'L':
-			if (bigbig_flag)
-				break;
-			else {
-				static bool warned = false;
-				
-				if (do_lint && ! warned) {
-					lintwarn(_("`L' is meaningless in awk formats; ignored"));
-					warned = true;
-				}
-				if (do_posix) {
-					msg(_("fatal: `L' is not permitted in POSIX awk formats"));
-					goto out;
-				}
-			}
-			bigbig_flag = true;
-			goto retry;
-		case 'h':
-			if (small_flag)
-				break;
-			else {
-				static bool warned = false;
-				
-				if (do_lint && ! warned) {
-					lintwarn(_("`h' is meaningless in awk formats; ignored"));
-					warned = true;
-				}
-				if (do_posix) {
-					msg(_("fatal: `h' is not permitted in POSIX awk formats"));
-					goto out;
-				}
-			}
-			small_flag = true;
-			goto retry;
-		case 'c':
-			need_format = false;
-			parse_next_arg();
-			/* user input that looks numeric is numeric */
-			if ((arg->flags & (MAYBE_NUM|NUMBER)) == MAYBE_NUM)
-				(void) force_number(arg);
-			if ((arg->flags & NUMBER) != 0) {
-				uval = get_number_uj(arg);
-#if MBS_SUPPORT
-				if (gawk_mb_cur_max > 1) {
-					char buf[100];
-					wchar_t wc;
-					mbstate_t mbs;
-					size_t count;
-
-					memset(& mbs, 0, sizeof(mbs));
-					wc = uval;
-
-					count = wcrtomb(buf, wc, & mbs);
-					if (count == 0
-					    || count == (size_t)-1
-					    || count == (size_t)-2)
-						goto out0;
-
-					memcpy(cpbuf, buf, count);
-					prec = count;
-					cp = cpbuf;
-					goto pr_tail;
-				}
-out0:
-				;
-				/* else,
-					fall through */
-#endif
-				if (do_lint && uval > 255) {
-					lintwarn("[s]printf: value %Lg is too big for %%c format",
-							LDBL(arg));
-				}
-				cpbuf[0] = uval;
-				prec = 1;
-				cp = cpbuf;
-				goto pr_tail;
-			}
-			/*
-			 * As per POSIX, only output first character of a
-			 * string value.  Thus, we ignore any provided
-			 * precision, forcing it to 1.  (Didn't this
-			 * used to work? 6/2003.)
-			 */
-			cp = arg->stptr;
-#if MBS_SUPPORT
-			/*
-			 * First character can be multiple bytes if
-			 * it's a multibyte character. Grr.
-			 */
-			if (gawk_mb_cur_max > 1) {
-				mbstate_t state;
-				size_t count;
-
-				memset(& state, 0, sizeof(state));
-				count = mbrlen(cp, arg->stlen, & state);
-				if (count == 0
-				    || count == (size_t)-1
-				    || count == (size_t)-2)
-					goto out2;
-				prec = count;
-				goto pr_tail;
-			}
-out2:
-			;
-#endif
-			prec = 1;
-			goto pr_tail;
-		case 's':
-			need_format = false;
-			parse_next_arg();
-			arg = force_string(arg);
-			if (fw == 0 && ! have_prec)
-				prec = arg->stlen;
-			else {
-				char_count = mbc_char_count(arg->stptr, arg->stlen);
-				if (! have_prec || prec > char_count)
-					prec = char_count;
-			}
-			cp = arg->stptr;
-			goto pr_tail;
-		case 'd':
-		case 'i':
-			need_format = false;
-			parse_next_arg();
-			(void) force_number(arg);
-			tmpval = LDBL(arg);
-
-			/*
-			 * Check for Nan or Inf.
-			 */
-			if (isnan(tmpval) || isinf(tmpval))
-				goto out_of_range;
-			else
-				tmpval = double_to_int(tmpval);
-
-			/*
-			 * ``The result of converting a zero value with a
-			 * precision of zero is no characters.''
-			 */
-			if (have_prec && prec == 0 && tmpval == 0)
-				goto pr_tail;
-
-			if (tmpval < 0) {
-				tmpval = -tmpval;
-				sgn = true;
-			} else {
-				if (tmpval == -0.0)
-					/* avoid printing -0 */
-					tmpval = 0.0;
-				sgn = false;
-			}
-			/*
-			 * Use snprintf return value to tell if there
-			 * is enough room in the buffer or not.
-			 */
-			while ((i = snprintf(cpbufs[1].buf,
-				     cpbufs[1].bufsize, "%.0Lf", tmpval)) >= cpbufs[1].bufsize) {
-				if (cpbufs[1].buf == cpbufs[1].stackbuf)
-					cpbufs[1].buf = NULL;
-				if (i > 0) {
-					cpbufs[1].bufsize += ((i > cpbufs[1].bufsize) ?
-							      i : cpbufs[1].bufsize);
-				}
-				else
-					cpbufs[1].bufsize *= 2;
-				assert(cpbufs[1].bufsize > 0);
-				erealloc(cpbufs[1].buf, char *,
-					 cpbufs[1].bufsize, "format_tree");
-			}
-			if (i < 1)
-				goto out_of_range;
-			chp = & cpbufs[1].buf[i-1];
-			ii = jj = 0;
-			do {
-				PREPEND(*chp);
-				chp--; i--;
+		chp = & intbuf[i-1];
+		ii = jj = 0;
+		do {
+			tmpbuf_prepend(outb, *chp);
+			chp--; i--;
 #if defined(HAVE_LOCALE_H)
-				if (quote_flag && loc.grouping[ii] && ++jj == loc.grouping[ii]) {
-					if (i)	/* only add if more digits coming */
-						PREPEND(loc.thousands_sep[0]);	/* XXX - assumption it's one char */
-					if (loc.grouping[ii+1] == 0)
-						jj = 0;		/* keep using current val in loc.grouping[ii] */
-					else if (loc.grouping[ii+1] == CHAR_MAX)
-						quote_flag = false;
-					else {                 
-						ii++;
-						jj = 0;
-					}
+			if (spec->quote_flag && loc.grouping[ii] && ++jj == loc.grouping[ii]) {
+				if (i)	/* only add if more digits coming */
+					tmpbuf_prepend(outb, loc.thousands_sep[0]);	/* XXX - assumption it's one char */
+				if (loc.grouping[ii+1] == 0)
+					jj = 0;		/* keep using current val in loc.grouping[ii] */
+				else if (loc.grouping[ii+1] == CHAR_MAX)
+					spec->quote_flag= false;
+				else {                 
+					ii++;
+					jj = 0;
 				}
+			}
 #endif
-			} while (i > 0);
+		} while (i > 0);
 
-			/* add more output digits to match the precision */
-			if (have_prec) {
-				while (cend - cp < prec)
-					PREPEND('0');
-			}
 
-			if (sgn)
-				PREPEND('-');
-			else if (signchar)
-				PREPEND(signchar);
-			/*
-			 * When to fill with zeroes is of course not simple.
-			 * First: No zero fill if left-justifying.
-			 * Next: There seem to be two cases:
-			 * 	A '0' without a precision, e.g. %06d
-			 * 	A precision with no field width, e.g. %.10d
-			 * Any other case, we don't want to fill with zeroes.
-			 */
-			if (! lj
-			    && ((zero_flag && ! have_prec)
-				 || (fw == 0 && have_prec)))
-				fill = zero_string;
-			if (prec > fw)
-				fw = prec;
-			prec = cend - cp;
-			if (fw > prec && ! lj && fill != sp
-			    && (*cp == '-' || signchar)) {
-				bchunk_one(cp);
-				cp++;
-				prec--;
-				fw--;
-			}
-			goto pr_tail;
-		case 'X':
-			chbuf = Uchbuf;	/* FALL THROUGH */
-		case 'x':
-			base += 6;	/* FALL THROUGH */
-		case 'u':
-			base += 2;	/* FALL THROUGH */
-		case 'o':
-			base += 8;
-			need_format = false;
-			parse_next_arg();
-			(void) force_number(arg);
-			tmpval = LDBL(arg);
+		/* add more output digits to match the precision */
+		if (spec->have_prec) {
+			while (CEND - CP < spec->prec)
+				tmpbuf_prepend(outb, '0');
+		}
 
-			/*
-			 * ``The result of converting a zero value with a
-			 * precision of zero is no characters.''
-			 *
-			 * If I remember the ANSI C standard, though,
-			 * it says that for octal conversions
-			 * the precision is artificially increased
-			 * to add an extra 0 if # is supplied.
-			 * Indeed, in C,
-			 * 	printf("%#.0o\n", 0);
-			 * prints a single 0.
-			 */
-			if (! alt && have_prec && prec == 0 && tmpval == 0)
-				goto pr_tail;
+		if (sgn)
+			tmpbuf_prepend(outb, '-');
+		else if (spec->signchar)
+			tmpbuf_prepend(outb, spec->signchar);
+		/*
+		 * When to fill with zeroes is of course not simple.
+		 * First: No zero fill if left-justifying.
+		 * Next: There seem to be two cases:
+		 * 	A '0' without a precision, e.g. %06d
+		 * 	A precision with no field width, e.g. %.10d
+		 * Any other case, we don't want to fill with zeroes.
+		 */
+		if (! spec->lj
+		    && ((spec->zero_flag && ! spec->have_prec)
+			 || (spec->fw == 0 && spec->have_prec)))
+			spec->fill = zero_string;
+		if (spec->prec > spec->fw)
+			spec->fw = spec->prec;
+		spec->prec = CEND - CP;
+		if (spec->fw > spec->prec && ! spec->lj && spec->fill != space_string
+		    && (*CP == '-' || spec->signchar)) {
+			bchunk_one(outb, CP);
+			CP++;
+			spec->prec--;
+			spec->fw--;
+		}
+		cp = CP;
 
-			if (tmpval < 0) {
-				uval = (uintmax_t) (intmax_t) tmpval;
-				if ((AWKLDBL)(intmax_t)uval != double_to_int(tmpval))
-					goto out_of_range;
-			} else {
-				/* FIXME --- Why is this the case ? */
-				uval = (uintmax_t) tmpval;
-				if ((AWKLDBL) uval != double_to_int(tmpval))
-					goto out_of_range;
-			}
+		pr_num_tail(CP, spec->prec, spec, outb);
+		return 0;
 
-			/*
-			 * When to fill with zeroes is of course not simple.
-			 * First: No zero fill if left-justifying.
-			 * Next: There seem to be two cases:
-			 * 	A '0' without a precision, e.g. %06d
-			 * 	A precision with no field width, e.g. %.10d
-			 * Any other case, we don't want to fill with zeroes.
-			 */
-			if (! lj
-			    && ((zero_flag && ! have_prec)
-				 || (fw == 0 && have_prec)))
-				fill = zero_string;
-			ii = jj = 0;
-			do {
-				PREPEND(chbuf[uval % base]);
-				uval /= base;
-#if defined(HAVE_LOCALE_H)
-				if (base == 10 && quote_flag && loc.grouping[ii] && ++jj == loc.grouping[ii]) {
-					if (uval)	/* only add if more digits coming */
-						PREPEND(loc.thousands_sep[0]);	/* XXX --- assumption it's one char */
-					if (loc.grouping[ii+1] == 0)                                          
-						jj = 0;     /* keep using current val in loc.grouping[ii] */
-					else if (loc.grouping[ii+1] == CHAR_MAX)                        
-						quote_flag = false;
-					else {                 
-						ii++;
-						jj = 0;
-					}
-				}
-#endif
-			} while (uval > 0);
+	case 'X':
+		spec->chbuf = Uchbuf;
+		/* FALL THROUGH */
+	case 'x':
+		/* FALL THROUGH */
+	case 'u':
+		/* FALL THROUGH */
+	case 'o':
+		/*
+		 * ``The result of converting a zero value with a
+		 * precision of zero is no characters.''
+		 *
+		 * If I remember the ANSI C standard, though,
+		 * it says that for octal conversions
+		 * the precision is artificially increased
+		 * to add an extra 0 if # is supplied.
+		 * Indeed, in C,
+		 * 	printf("%#.0o\n", 0);
+		 * prints a single 0.
+		 */
+	
+		if (! spec->alt && spec->have_prec && spec->prec == 0 && tmpval == 0) {
+			pr_num_tail(cp, spec->prec, spec, outb);
+			return 0;
+		}
 
-			/* add more output digits to match the precision */
-			if (have_prec) {
-				while (cend - cp < prec)
-					PREPEND('0');
-			}
+		if (tmpval < 0) {
+			uval = (uintmax_t) (intmax_t) tmpval;
+			if ((AWKLDBL)(intmax_t) uval != double_to_int(tmpval))
+				goto out_of_range;
+		} else {
+			uval = (uintmax_t) tmpval;
+			if ((AWKLDBL) uval != double_to_int(tmpval))
+				goto out_of_range;
+		}
 
-			if (alt && tmpval != 0) {
-				if (base == 16) {
-					PREPEND(cs1);
-					PREPEND('0');
-					if (fill != sp) {
-						bchunk(cp, 2);
-						cp += 2;
-						fw -= 2;
-					}
-				} else if (base == 8)
-					PREPEND('0');
-			}
-			base = 0;
-			if (prec > fw)
-				fw = prec;
-			prec = cend - cp;
-	pr_tail:
-			if (! lj) {
-				while (fw > prec) {
-			    		bchunk_one(fill);
-					fw--;
-				}
-			}
-			copy_count = prec;
-			if (fw == 0 && ! have_prec)
-				;
-			else if (gawk_mb_cur_max > 1 && (cs1 == 's' || cs1 == 'c')) {
-				assert(cp == arg->stptr || cp == cpbuf);
-				copy_count = mbc_byte_count(arg->stptr, prec);
-			}
-			bchunk(cp, copy_count);
-			while (fw > prec) {
-				bchunk_one(fill);
-				fw--;
-			}
-			s0 = s1;
-			break;
+		/* spec->fmtchar = cs1; */
+		format_nondecimal(uval, spec, outb);
+		return 0;
 
-     out_of_range:
-			/* out of range - emergency use of %g format */
-			if (do_lint)
-				lintwarn(_("[s]printf: value %Lg is out of range for `%%%c' format"),
-							tmpval, cs1);
-			cs1 = 'g';
-			goto fmt1;
+out_of_range:
+		/* out of range - emergency use of %g format */
+		if (do_lint)
+			lintwarn(_("[s]printf: value %g is out of range for `%%%c' format"),
+					(double) tmpval, cs1);
+		cs1 = 'g';
+		goto fmt1;
 
-		case 'F':
+	case 'F':
 #if ! defined(PRINTF_HAS_F_FORMAT) || PRINTF_HAS_F_FORMAT != 1
-			cs1 = 'f';
-			/* FALL THROUGH */
+		cs1 = 'f';
+		/* FALL THROUGH */
 #endif
-		case 'g':
-		case 'G':
-		case 'e':
-		case 'f':
-		case 'E':
-			need_format = false;
-			parse_next_arg();
-			(void) force_number(arg);
-			tmpval = LDBL(arg);
-     fmt1:
-			if (! have_prec)
-				prec = DEFAULT_G_PRECISION;
+	case 'g':
+	case 'G':
+	case 'e':
+	case 'f':
+	case 'E':
+fmt1:
+		if (! spec->have_prec)
+			spec->prec = DEFAULT_G_PRECISION;
 
-			chksize(fw + prec + 11);	/* 11 == slop */
-			cp = cpbuf;
-			*cp++ = '%';
-			if (lj)
-				*cp++ = '-';
-			if (signchar)
-				*cp++ = signchar;
-			if (alt)
-				*cp++ = '#';
-			if (zero_flag)
-				*cp++ = '0';
-			if (quote_flag)
-				*cp++ = '\'';
+		chksize(outb, spec->fw + spec->prec + 11);	/* 11 == slop */
+		cp = CPBUF;	/* XXX --- using the temporary prepend-buffer and
+		                 * we know it has enough room (>=11).
+                                 */
+		*cp++ = '%';
+		if (spec->lj)
+			*cp++ = '-';
+		if (spec->signchar)
+			*cp++ = spec->signchar;
+		if (spec->alt)
+			*cp++ = '#';
+		if (spec->zero_flag)
+			*cp++ = '0';
+		if (spec->quote_flag)
+			*cp++ = '\'';
 
 #if defined(LC_NUMERIC)
-			if (quote_flag && ! use_lc_numeric)
-				setlocale(LC_NUMERIC, "");
+		if (spec->quote_flag && ! use_lc_numeric)
+			setlocale(LC_NUMERIC, "");
 #endif
 
-			sprintf(cp, "*.*L%c", cs1);
-			while ((nc = snprintf(obufout, ofre, cpbuf,
-				     (int) fw, (int) prec, tmpval)) >= ofre)
-				chksize(nc)
+		sprintf(cp, "*.*L%c", cs1);
+		while ((nc = snprintf(buf_end(outb), buf_space(outb), CPBUF,
+				(int) spec->fw, (int) spec->prec, tmpval)) >= buf_space(outb))
+			chksize(outb, nc + 1);
 
 #if defined(LC_NUMERIC)
-			if (quote_flag && ! use_lc_numeric)
-				setlocale(LC_NUMERIC, "C");
+		if (spec->quote_flag && ! use_lc_numeric)
+			setlocale(LC_NUMERIC, "C");
 #endif
 
-			len = strlen(obufout);
-			ofre -= len;
-			obufout += len;
-			s0 = s1;
-			break;
-		default:
-			if (do_lint && isalpha(cs1))
-				lintwarn(_("ignoring unknown format specifier character `%c': no argument converted"), cs1);
-			break;
-		}
-		if (toofew) {
-			msg("%s\n\t`%s'\n\t%*s%s",
-			      _("fatal: not enough arguments to satisfy format string"),
-			      fmt_string, (int) (s1 - fmt_string - 1), "",
-			      _("^ ran out for this one"));
-			goto out;
-		}
-	}
-	if (do_lint) {
-		if (need_format)
-			lintwarn(
-			_("[s]printf: format specifier does not have control letter"));
-		if (cur_arg < num_args)
-			lintwarn(
-			_("too many arguments supplied for format string"));
-	}
-	bchunk(s0, s1 - s0);
-	r = make_str_node(obuf, obufout - obuf, ALREADY_MALLOCED);
-	obuf = NULL;
-out:
-	{
-		size_t k;
-		size_t count = sizeof(cpbufs)/sizeof(cpbufs[0]);
-		for (k = 0; k < count; k++) {
-			if (cpbufs[k].buf != cpbufs[k].stackbuf)
-				efree(cpbufs[k].buf);
-		}
-		if (obuf != NULL)
-			efree(obuf);
+		buf_adjust(outb, nc); /* adjust data and free space in output buffer */
+		return 0;
+
+	default:
+		cant_happen();	
 	}
 
-	if (r == NULL)
-		gawk_exit(EXIT_FATAL);
-	return r;
+	return -1;
 }
 
 #else
