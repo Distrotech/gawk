@@ -1,1 +1,16 @@
-* put back constant-folding code for numbers
+* (Further) refactoring (s)printf formatting code:
+
+  [1] Remove direct calls to format_tree() in number to string (force_string)
+routines. Fix CONVFMT = "%s"/"%c" crash; present in all known gawk versions.
+Cache parsed format code in fmt_idx() ... 
+
+  [2] Try to format NaN/inf in main gawk code, and not in the individual handlers.
+
+* In non-number related routines (substr, index, ..), fetch an integer directly
+using get_number_si/get_number_ui to get the correct size at the int boundaries.
+Use isinteger() to test for a floating-point value instead of get_number_d() and ...
+May require additional tests e.g. SIZE_MAX <= UINT_MAX. In a nutshell, don't do this:
+
+			number => double => integer
+
+* Restore constant-folding code for numbers.
