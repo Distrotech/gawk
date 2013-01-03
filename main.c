@@ -1553,7 +1553,7 @@ init_numbr_handler(bltin_t **bltins)
 	cmp_numbers = numbr_hndlr->gawk_cmp_numbers;
 	str2node = numbr_hndlr->gawk_str2number;
 	free_number = numbr_hndlr->gawk_free_number;
-	format_tree = numbr_hndlr->gawk_format_nodes;
+	format_number_printf = numbr_hndlr->gawk_format_printf;
 	get_number_d = numbr_hndlr->gawk_todouble;
 	get_number_si = numbr_hndlr->gawk_tolong;
 	get_number_ui = numbr_hndlr->gawk_toulong;
