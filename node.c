@@ -26,7 +26,7 @@
 
 #include "awk.h"
 
-NODE *(*format_tree)(const char *, size_t, NODE **, long);
+int (*format_number_printf)(NODE *, struct format_spec *, struct print_fmt_buf *);
 NODE *(*str2node)(char *, char **, int, bool);
 NODE *(*make_number)(AWKNUM);
 NODE *(*str2number)(NODE *);

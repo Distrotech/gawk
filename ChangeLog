@@ -1,3 +1,25 @@
+2013-01-03         John Haque      <j.eh@mchsi.com>
+
+	Refactor format_tree() to seperate number formatting code.
+
+	* format.h: New file.
+	(format_spec, print_fmt_buf): Definitions.
+	(chksize, bchunk, bchunk_one, buf_adjust, buf2node,
+	tmpbuf_prepend, pr_fill, pr_num_tail, free_print_fmt_buf):
+	Inline routines.
+	* awk.h (num_handler_t): New fields gawk_format_printf,
+	gawk_isnan, gawk_isinf. Removed field gawk_format_nodes.
+	* builtin.c (chksize__internal, cpbuf_chksize__internal,
+	get_fmt_buf, format_nondecimal): New routines.
+	(format_tree): Restore function format_tree(). Adjusted to call
+	the current number formatting routine.
+	* double.c (awknum_isnan, awknum_isinf, format_awknum_printf):
+	New routines.
+	(format_nodes_awknum): Removed.
+	* mpfr.c (mpfp_isnan, mpfp_isinf, mpfp_format_printf):
+	New routines.
+	(mpfp_format_nodes): Removed.
+
 2012-12-28         John Haque      <j.eh@mchsi.com>
 
 	* double.c: Use make_awknum everywhere instead of make_number

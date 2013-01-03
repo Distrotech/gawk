@@ -868,6 +868,8 @@ typedef struct {
 	NODE *(*ptr)(int);	/* function that implements this built-in */
 } bltin_t;
 
+struct format_spec;
+struct print_fmt_buf;
 
 typedef struct {
 	bool (*init)(bltin_t **);                /* initialization */
@@ -884,17 +886,20 @@ typedef struct {
 	NODE *(*gawk_force_number)(NODE *);      /* force a NODE value to be numeric */
 	void (*gawk_negate_number)(NODE *);      /* in place negation of a number */
 	int (*gawk_cmp_numbers)(const NODE *, const NODE *);   /* compare two numbers */
+
 	int (*gawk_sgn_number)(const NODE *);    /* test if a numeric node is zero,
                                                     positive or negative */
-	bool (*gawk_is_integer)(const NODE *);    /* test if a number is an integer */
+	bool (*gawk_isinteger)(const NODE *);    /* test if a number is an integer */
+	bool (*gawk_isnan)(const NODE *);        /* test if NaN */
+	bool (*gawk_isinf)(const NODE *);        /* test if infinity */
 
 	NODE *(*gawk_fmt_number)(const char *, int, NODE *);   /* stringify a numeric value
 	                                                          based on awk input/output format */
-	NODE *(*gawk_format_nodes)(const char *, size_t, NODE **, long); /* format NODES according to
-	                                                                    user-specified FORMAT */  
+
+	int (*gawk_format_printf)(NODE *, struct format_spec *, struct print_fmt_buf *); /* (s)printf format */
 
 	/* conversion to C types */
-	AWKNUM (*gawk_todouble)(const NODE *);         /* number to AWKNUM */
+	double (*gawk_todouble)(const NODE *);         /* number to double */
 	long (*gawk_tolong)(const NODE *);             /* number to long */
 	unsigned long (*gawk_toulong)(const NODE *);   /* number to unsigned long */
 	uintmax_t (*gawk_touintmax_t)(const NODE *);   /* number to uintmax_t */
@@ -1104,7 +1109,8 @@ extern long (*get_number_si)(const NODE *);
 extern double (*get_number_d)(const NODE *);
 extern uintmax_t (*get_number_uj)(const NODE *);
 extern int (*sgn_number)(const NODE *);
-extern NODE *(*format_tree)(const char *, size_t, NODE **, long);
+extern int (*format_number_printf)(NODE *, struct format_spec *, struct print_fmt_buf *);
+
 
 /* built-in array types */
 extern afunc_t str_array_func[];
@@ -1234,7 +1240,7 @@ DEREF(NODE *r)
 
 /* ------------------------- Pseudo-functions ------------------------- */
 #define iszero(n)	(sgn_number(n) == 0)
-#define isinteger(n)	numbr_hndlr->gawk_is_integer(n)
+#define isinteger(n)	numbr_hndlr->gawk_isinteger(n)
 
 #define var_uninitialized(n)	((n)->var_value == Nnull_string)
 
@@ -1401,6 +1407,7 @@ extern NODE *do_bindtextdomain(int nargs);
 extern int strncasecmpmbs(const unsigned char *,
 			  const unsigned char *, size_t);
 #endif
+extern NODE *format_tree(const char *, size_t, NODE **, long);
 
 /* eval.c */
 extern void PUSH_CODE(INSTRUCTION *cp);

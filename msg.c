@@ -91,8 +91,9 @@ err(bool isfatal, const char *s, const char *emsg, va_list argp)
 
 /*
  * fmt_number --- format a number node for use in error messages.
- * 	N.B: format is awk printf format. MUST NOT throw warning in format
- * 	tree. "%ld" is BAD, "%d" is Ok!
+ *
+ * N.B: format is awk printf format. MUST NOT generate warning
+ * in format_tree(). "%ld" is BAD, "%d" is OK!
  */
 
 const char *
