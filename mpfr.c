@@ -1737,7 +1737,7 @@ mpfp_sprintf(const char *mesg, ...)
 static mpfr_ptr
 mpz2mpfr(mpz_ptr mpz_val, mpfr_ptr mpfr_val)
 {
-	size_t prec;
+	long prec, prec1;
 	int tval;
 
 	/*
@@ -1755,10 +1755,10 @@ mpz2mpfr(mpz_ptr mpz_val, mpfr_ptr mpfr_val)
 	/* estimate minimum precision for exact conversion */
 	prec = mpz_sizeinbase(mpz_val, 2);	/* most significant 1 bit position starting at 1 */
 
-	if (mpfr_val != NULL && mpfr_get_prec(mpfr_val) >= prec)
+	if (mpfr_val != NULL && (prec1 = mpfr_get_prec(mpfr_val)) >= prec)
 		goto finish;
 
-	prec -= (size_t) mpz_scan1(mpz_val, 0);	/* least significant 1 bit index starting at 0 */
+	prec -= (long) mpz_scan1(mpz_val, 0);	/* least significant 1 bit index starting at 0 */
 	if (prec < MPFR_PREC_MIN)
 		prec = MPFR_PREC_MIN;
 	else if (prec > MPFR_PREC_MAX)
@@ -1767,10 +1767,11 @@ mpz2mpfr(mpz_ptr mpz_val, mpfr_ptr mpfr_val)
 	if (mpfr_val == NULL) {
 		emalloc(mpfr_val, mpfr_ptr, sizeof (mpfr_t), "mpz2mpfr");
 		mpfr_init2(mpfr_val, prec);
-	} else if (prec < mpfr_get_prec(mpfr_val))
+	} else if (prec > prec1)
 		mpfr_set_prec(mpfr_val, prec);
 
 finish:
+
 	tval = mpfr_set_z(mpfr_val, mpz_val, ROUND_MODE);
 	IEEE_FMT(mpfr_val, tval);
 	return mpfr_val;
