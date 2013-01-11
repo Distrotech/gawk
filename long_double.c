@@ -35,17 +35,10 @@
 
 #define AWKLDBL	long double
 
-/* XXX: define to 1 to try AWKNUM as long double */
-/* #define AWKNUM_LDBL	1 */
-
 
 #include "long_double.h"
 
-#ifdef AWKNUM_LDBL
-#define LDBL(n)	((n)->numbr)
-#else
 #define LDBL(n)	(*((AWKLDBL *) (n)->qnumbr))
-#endif
 
 /* Can declare these, since we always use the random shipped with gawk */
 extern char *initstate(unsigned long seed, char *state, long n);
@@ -58,8 +51,6 @@ extern void srandom(unsigned long seed);
  * value to use here.
  */
 #define GAWK_RANDOM_MAX 0x7fffffffL
-
-extern NODE **fmt_list;          /* declared in eval.c */
 
 /*
  * FIXME -- some of these are almost identical except for the number definition
@@ -124,20 +115,13 @@ static int is_ieee_magic_val(const char *val);
 static AWKLDBL get_ieee_magic_val(const char *val);
 static AWKLDBL calc_exp(AWKLDBL x1, AWKLDBL x2);
 static AWKLDBL double_to_int(AWKLDBL d);
-#ifndef AWKNUM_LDBL
 static NODE *make_awkldbl(AWKLDBL);
-#endif
 
 static long MFNR;
 static long MNR;
 
-#ifdef AWKNUM_LDBL
-#define get_long_double(d)	/* nothing */
-#define free_long_double(d)	/* nothing */
-#else
 #define get_long_double(d) 	getblock(d, BLOCK_LDBL, AWKLDBL *)
 #define free_long_double(d)	freeblock(d, BLOCK_LDBL)
-#endif
 
 #if 0
 #define get_long_double(d)	emalloc(d, void *, sizeof(AWKLDBL), "long_double")
@@ -151,11 +135,7 @@ numbr_handler_t awkldbl_hndlr = {
 	make_awknum,
 	str2awkldbl,
 	awkldbl_copy,
-#ifndef AWKNUM_LDBL
 	free_awkldbl,
-#else
-	NULL,	/* free_awkldbl --- not needed for AWKNUM */
-#endif
 	force_awkldbl,
 	negate_awkldbl,
 	cmp_awkldbls,
@@ -434,7 +414,6 @@ awkldbl_init_vars()
  *	this routine is not exported. 
  */
 
-#ifndef AWKNUM_LDBL
 static NODE *
 make_awkldbl(AWKLDBL x)
 {
@@ -453,7 +432,6 @@ make_awkldbl(AWKLDBL x)
 #endif /* defined MBS_SUPPORT */
 	return r;
 }
-#endif
 
 /* make_awknum --- allocate a node with defined AWKNUM */
 
@@ -478,14 +456,12 @@ make_awknum(AWKNUM x)
 
 /* free_awkldbl --- free all storage allocated for a AWKLDBL */
 
-#ifndef AWKNUM_LDBL
 static void
 free_awkldbl(NODE *tmp)
 {
 	assert((tmp->flags & (NUMBER|NUMCUR)) != 0);
         free_long_double(tmp->qnumbr);
 }
-#endif
 
 /* make_integer --- Convert an integer to a number node. */
 
@@ -1134,10 +1110,17 @@ format_awkldbl_val(const char *format, int index, NODE *s)
 
 	d = LDBL(s);
 
+	if ((s->flags & STRCUR) != 0)
+		efree(s->stptr);
+	free_wstr(s);
+
 	/* not an integral value, or out of range */
 	if ((ival = double_to_int(d)) != d
 			|| ival <= LONG_MIN || ival >= LONG_MAX
 	) {
+		struct format_spec spec;
+		struct print_fmt_buf *outb;
+
 		/*
 		 * Once upon a time, we just blindly did this:
 		 *	sprintf(sp, format, s->numbr);
@@ -1147,30 +1130,24 @@ format_awkldbl_val(const char *format, int index, NODE *s)
 		 * and just always format the value ourselves.
 		 */
 
-		NODE *dummy[2], *r;
-		unsigned int oflags;
-
-		/* create dummy node for a sole use of format_tree */
-		dummy[1] = s;
-		oflags = s->flags;
+		/* XXX: format_spec copied since can be altered in the formatting routine */
 
 		if (ival == d) {
 			/* integral value, but outside range of %ld, use %.0f */
-			r = format_tree("%.0f", 4, dummy, 2);
+			spec = *fmt_list[INT_0f_FMT_INDEX].spec;
 			s->stfmt = -1;
 		} else {
-			r = format_tree(format, fmt_list[index]->stlen, dummy, 2);
-			assert(r != NULL);
-			s->stfmt = (char) index;
+			assert(fmt_list[index].spec != NULL);	/* or can use fmt_parse() --- XXX */
+			spec = *fmt_list[index].spec;
+			s->stfmt = (char) index;	
 		}
-		s->flags = oflags;
-		s->stlen = r->stlen;
-		if ((s->flags & STRCUR) != 0)
-			efree(s->stptr);
-		s->stptr = r->stptr;
-		freenode(r);	/* Do not unref(r)! We want to keep s->stptr == r->stpr.  */
 
-		goto no_malloc;
+		outb = get_fmt_buf();
+		format_awkldbl_printf(s, & spec, outb);
+		(void) bytes2node(outb, s);
+		free_fmt_buf(outb);
+
+		s->stptr[s->stlen] = '\0';
 	} else {
 		/*
 		 * integral value; force conversion to long only once.
@@ -1189,14 +1166,12 @@ format_awkldbl_val(const char *format, int index, NODE *s)
 			s->flags &= ~(INTIND|NUMBER);
 			s->flags |= STRING;
 		}
+
+		emalloc(s->stptr, char *, s->stlen + 2, "format_awkldbl_val");
+		memcpy(s->stptr, sp, s->stlen + 1);
 	}
-	if (s->stptr != NULL)
-		efree(s->stptr);
-	emalloc(s->stptr, char *, s->stlen + 2, "format_awkldbl_val");
-	memcpy(s->stptr, sp, s->stlen + 1);
-no_malloc:
+
 	s->flags |= STRCUR;
-	free_wstr(s);
 	return s;
 }
 
