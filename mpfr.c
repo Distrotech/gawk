@@ -46,8 +46,6 @@ typedef mp_exp_t mpfr_exp_t;
 #define DEFAULT_PREC		53
 #define DEFAULT_ROUNDMODE	"N"		/* round to nearest */
 
-extern NODE **fmt_list;          /* declared in eval.c */
-
 /* exported functions */
 static NODE *mpfp_make_number(AWKNUM);
 static int mpfp_compare(const NODE *, const NODE *);
@@ -99,7 +97,6 @@ static NODE *do_mpfp_srand(int);
 static NODE *do_mpfp_strtonum(int);
 static NODE *do_mpfp_xor(int);
 
-
 /* internal functions */
 static NODE *mpfp_make_node(unsigned int type);
 static int mpfp_format_ieee(mpfr_ptr, int);
@@ -107,7 +104,6 @@ static const char *mpfp_sprintf(const char *, ...);
 static int mpfp_strtoui(mpz_ptr, char *, size_t, char **, int);
 static mpfr_rnd_t mpfp_get_rounding_mode(const char rmode);
 static mpfr_ptr mpz2mpfr(mpz_ptr mpz_val, mpfr_ptr mpfr_val);
-
 
 static mpfr_rnd_t ROUND_MODE;
 static mpz_t MNR;
@@ -602,34 +598,34 @@ mpfp_force_number(NODE *n)
 static NODE *
 mpfp_format_val(const char *format, int index, NODE *s)
 {
-	NODE *dummy[2], *r;
-	unsigned int oflags;
+	struct format_spec spec;
+	struct print_fmt_buf *outb;
 
-	/* create dummy node for a sole use of format_tree */
-	dummy[1] = s;
-	oflags = s->flags;
+	if ((s->flags & STRCUR) != 0)
+		efree(s->stptr);
+	free_wstr(s);
+
+	/* XXX: format_spec copied since can be altered in the formatting routine */
 
 	if (is_mpfp_integer(s) || mpfr_integer_p(s->qnumbr)) {
 		/* integral value, use %d */
-		r = format_tree("%d", 2, dummy, 2);
+		spec = *fmt_list[INT_d_FMT_INDEX].spec;
 		s->stfmt = -1;
 	} else {
-		r = format_tree(format, fmt_list[index]->stlen, dummy, 2);
-		assert(r != NULL);
+		assert(fmt_list[index].spec != NULL);	/* or can use fmt_parse() --- XXX */
+		spec = *fmt_list[index].spec;
 		s->stfmt = (char) index;
 	}
-	s->flags = oflags;
-	s->stlen = r->stlen;
-	if ((s->flags & STRCUR) != 0)
-		efree(s->stptr);
-	s->stptr = r->stptr;
-	freenode(r);	/* Do not unref(r)! We want to keep s->stptr == r->stpr.  */
- 
-	s->flags |= STRCUR;
-	free_wstr(s);
+
+	outb = get_fmt_buf();
+	mpfp_format_printf(s, & spec, outb);
+	(void) bytes2node(outb, s);
+	free_fmt_buf(outb);
+
+	s->stptr[s->stlen] = '\0';
+ 	s->flags |= STRCUR;
 	return s;
 }
-
 
 /* mpfp_str2node --- create an arbitrary-pecision number from string */
 
@@ -968,8 +964,25 @@ mpfp_negate_num(NODE *n)
 		int tval;
 		tval = mpfr_neg(n->qnumbr, n->qnumbr, ROUND_MODE);
 		IEEE_FMT(n->qnumbr, tval);
-	} else /* if (is_mpfp_integer(n)) */
-		mpz_neg(n->qnumbr, n->qnumbr);
+	} else {
+		/* GMP integer */
+		if (mpz_sgn(MPZ_T(n->qnumbr)) == 0) {
+			/*
+			 * The result should be -0.0, a float.
+			 * XXX: atan2(0, -0) is PI not 0.
+			 */ 
+			mpz_clear(n->qnumbr);
+			efree(n->qnumbr);
+			n->flags &= ~MPZN;
+			emalloc(n->qnumbr, void *, sizeof (mpfr_t), "mpfp_negate_num");
+			mpfr_init(n->qnumbr);
+			n->flags |= MPFN;
+
+			/* XXX: assuming IEEE 754 double, or could use mpfr_set_str(op, "-0.0", ...) */
+			mpfr_set_d(n->qnumbr, -0.0, ROUND_MODE);
+		} else
+			mpz_neg(n->qnumbr, n->qnumbr);
+	}
 }
 
 /* do_mpfp_atan2 --- do the atan2 function */
@@ -1797,7 +1810,6 @@ mpfp_format_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf *ou
 	char *cp;
 	char cs1;
 	int nc;
-	/* const char *chbuf; */
 
 #	define CP		cpbuf_start(outb)
 #	define CEND		cpbuf_end(outb)
@@ -1849,56 +1861,53 @@ mpz0:
 			mpfmt_spec = spec->have_prec ? MP_INT_WITH_PREC : MP_INT_WITHOUT_PREC;
 			goto fmt0;
 
-		} else {
-			assert(is_mpfp_float(arg) == true);
-mpf0:
-			mf = arg->qnumbr;
-			if (! mpfr_number_p(mf)) {
-				/* inf or NaN */
-				cs1 = 'g';
-				mpfmt_spec = MP_FLOAT;
-				goto fmt1;
-			}
-
-			if (cs1 != 'd' && cs1 != 'i') {
-mpf1:
-				/*
-				 * The output of printf("%#.0x", 0) is 0 instead of 0x, hence <= in
-				 * the comparison below.
-				 */
-				if (mpfr_sgn(mf) <= 0) {
-					if (! mpfr_fits_intmax_p(mf, ROUND_MODE)) {
-						/* -ve number is too large */
-						cs1 = 'g';
-						mpfmt_spec = MP_FLOAT;
-						goto fmt1;
-					}
-
-					uval = (uintmax_t) mpfr_get_sj(mf, ROUND_MODE);
-					if (! spec->alt && spec->have_prec && spec->prec == 0 && uval == 0) {
-						/* printf("%.0x", 0) is no characters */
-						pr_num_tail(cp, 0, spec, outb);
-						return 0;
-					}
-
-					/* spec->fmtchar = cs1; */
-					/* spec->chbuf = chbuf; */
-					format_nondecimal(uval, spec, outb);
-					return 0;
-				}
-				spec->signchar = '\0';	/* Don't print '+' */
-			}
-
-			/* See comments above about when to fill with zeros */
-			spec->zero_flag = (! spec->lj
-					    && ((spec->zero_flag && ! spec->have_prec)
-						 || (spec->fw == 0 && spec->have_prec)));
-			
-			(void) mpfr_get_z(_mpzval, mf, MPFR_RNDZ);	/* convert to GMP integer */
-			mpfmt_spec = spec->have_prec ? MP_INT_WITH_PREC : MP_INT_WITHOUT_PREC;
-			zi = _mpzval;
-			goto fmt0;
 		}
+
+		assert(is_mpfp_float(arg) == true);
+mpf0:
+		mf = arg->qnumbr;
+		if (! mpfr_number_p(mf)) {
+			/* inf or NaN */
+			cs1 = 'g';
+			mpfmt_spec = MP_FLOAT;
+			goto fmt1;
+		}
+
+		if (cs1 != 'd' && cs1 != 'i') {
+mpf1:
+			/*
+			 * The output of printf("%#.0x", 0) is 0 instead of 0x, hence <= in
+			 * the comparison below.
+			 */
+			if (mpfr_sgn(mf) <= 0) {
+				if (! mpfr_fits_intmax_p(mf, ROUND_MODE)) {
+					/* -ve number is too large */
+					cs1 = 'g';
+					mpfmt_spec = MP_FLOAT;
+					goto fmt1;
+				}
+
+				uval = (uintmax_t) mpfr_get_sj(mf, ROUND_MODE);
+				if (! spec->alt && spec->have_prec && spec->prec == 0 && uval == 0) {
+					/* printf("%.0x", 0) is no characters */
+					pr_num_tail(cp, 0, spec, outb);
+				} else
+					format_nondecimal(uval, spec, outb);
+				return 0;
+			}
+			spec->signchar = '\0';	/* Don't print '+' */
+		}
+
+		/* See comments above about when to fill with zeros */
+		spec->zero_flag = (! spec->lj
+				    && ((spec->zero_flag && ! spec->have_prec)
+					 || (spec->fw == 0 && spec->have_prec)));
+			
+		(void) mpfr_get_z(_mpzval, mf, MPFR_RNDZ);	/* convert to GMP integer */
+		mpfmt_spec = spec->have_prec ? MP_INT_WITH_PREC : MP_INT_WITHOUT_PREC;
+		zi = _mpzval;
+		goto fmt0;
+
 
 #if 0
 out_of_range:
@@ -1960,19 +1969,19 @@ fmt0:
 		case MP_INT_WITH_PREC:
 			sprintf(cp, "*.*Z%c", cs1);
 			while ((nc = mpfr_snprintf(buf_end(outb), buf_space(outb), CPBUF,
-					(int) spec->fw, (int) spec->prec, zi)) >= buf_space(outb))
+		(int) spec->fw, (int) spec->prec, zi)) >= buf_space(outb))
 				chksize(outb, nc + 1);
 			break;
 		case MP_INT_WITHOUT_PREC:
 			sprintf(cp, "*Z%c", cs1);
 			while ((nc = mpfr_snprintf(buf_end(outb), buf_space(outb), CPBUF,
-					(int) spec->fw, zi)) >= buf_space(outb))
+		(int) spec->fw, zi)) >= buf_space(outb))
 				chksize(outb, nc + 1);
 			break;
 		case MP_FLOAT:
 			sprintf(cp, "*.*R*%c", cs1);
 			while ((nc = mpfr_snprintf(buf_end(outb), buf_space(outb), CPBUF,
-					(int) spec->fw, (int) spec->prec, ROUND_MODE, mf)) >= buf_space(outb))
+		(int) spec->fw, (int) spec->prec, ROUND_MODE, mf)) >= buf_space(outb))
 				chksize(outb, nc + 1);
 			break;
 		default:
@@ -1992,8 +2001,11 @@ fmt0:
 	}
 
 	return -1;
-}
 
+#undef CP
+#undef CEND
+#undef CPBUF
+}
 
 #else
 

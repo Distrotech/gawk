@@ -2,7 +2,7 @@
 
   [1] Remove direct calls to format_tree() in number to string (force_string)
 routines. Fix CONVFMT = "%s"/"%c" crash; present in all known gawk versions.
-Cache parsed format code in fmt_idx() ... 
+Cache parsed format code in fmt_idx() ... 	DONE
 
   [2] Try to format NaN/inf in main gawk code, and not in the individual handlers.
 
@@ -14,3 +14,27 @@ May require additional tests e.g. SIZE_MAX <= UINT_MAX. In a nutshell, don't do 
 			number => double => integer
 
 * Restore constant-folding code for numbers.
+
+* Consider special handling of integer-indexed arrays with non-double
+number handlers.
+	- Choose a reasonable range for integer indices.
+		#if SIZEOF_LONG <= 8
+		typedef gawk_int_t	long
+		#define GAWK_INT_MAX	LONG_MAX
+		#define GAWK_INT_MIN	LONG_MIN
+		#define	GAWK_INT_BIT	SIZEOF_LONG * 8	 ### may not need this
+		#else
+		typedef gawk_int_t	int
+		#define GAWK_INT_MAX	INT_MAX
+		#define GAWK_INT_MIN	INT_MIN
+		#define	GAWK_INT_BIT	SIZEOF_INT * 8
+		#endif
+	Install gaurd code in array handlers (or adjust the defs) for size
+	anything but 4 or 8 (overthinking?). Use gawk_int_t instead
+	of int32_t or int64_t.
+
+	- Use additional struct field number_fits_gawk_int()
+	(MPFR has similarly named routines, e.g. mpfr_fits_slong()),
+	and avoid checking after conversion. Note that the type is
+	gawk_int_t and NOT necessarily long.
+

@@ -26,7 +26,6 @@
 #include "awk.h"
 
 extern FILE *output_fp;
-extern NODE **fmt_list;          /* declared in eval.c */
 
 static size_t SUBSEPlen;
 static char *SUBSEP;
@@ -71,7 +70,6 @@ register_array_func(afunc_t *afunc)
 	}
 	return false;
 }
-
 
 /* array_init --- register all builtin array types */
 
@@ -677,7 +675,7 @@ value_info(NODE *n)
 		fprintf(output_fp, "][");
 		fprintf(output_fp, "stfmt=%d, ", n->stfmt);	
 		fprintf(output_fp, "CONVFMT=\"%s\"", n->stfmt <= -1 ? "%ld"
-					: fmt_list[n->stfmt]->stptr);
+					: fmt_list[n->stfmt].fmt->stptr);
 	}
 }
 

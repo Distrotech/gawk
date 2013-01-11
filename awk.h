@@ -732,7 +732,6 @@ typedef struct exp_instruction {
 #define GENSUB          0x02	/* builtin is gensub */
 #define LITERAL         0x04	/* target is a literal string */
 
-
 /* Op_K_exit */
 #define target_end      d.di
 #define target_atexit   x.xi	
@@ -896,7 +895,8 @@ typedef struct {
 	NODE *(*gawk_fmt_number)(const char *, int, NODE *);   /* stringify a numeric value
 	                                                          based on awk input/output format */
 
-	int (*gawk_format_printf)(NODE *, struct format_spec *, struct print_fmt_buf *); /* (s)printf format */
+	/* (s)printf formatting of numbers */
+	int (*gawk_format_printf)(NODE *, struct format_spec *, struct print_fmt_buf *);
 
 	/* conversion to C types */
 	double (*gawk_todouble)(const NODE *);         /* number to double */
@@ -923,6 +923,11 @@ typedef struct {
 	void (*init_numvars)(void);               /* set default values for PREC etc. */
 } numbr_handler_t;
 
+
+struct fmt_list_item {
+	NODE *fmt;                   /* format string */ 
+	struct format_spec *spec;    /* parsed format code */
+};
 
 typedef struct iobuf {
 	awk_input_buf_t public;	/* exposed to extensions */
@@ -1111,6 +1116,7 @@ extern uintmax_t (*get_number_uj)(const NODE *);
 extern int (*sgn_number)(const NODE *);
 extern int (*format_number_printf)(NODE *, struct format_spec *, struct print_fmt_buf *);
 
+extern struct fmt_list_item *fmt_list;
 
 /* built-in array types */
 extern afunc_t str_array_func[];

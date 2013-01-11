@@ -1,3 +1,28 @@
+/*
+ * format.h - (s)printf formatting related definitions.
+ */
+
+/* 
+ * Copyright (C) 2012 the Free Software Foundation, Inc.
+ * 
+ * This file is part of GAWK, the GNU implementation of the
+ * AWK Programming Language.
+ * 
+ * GAWK is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ * 
+ * GAWK is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ * 
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
+ */
+
 /* format specification */
 
 struct format_spec {
@@ -14,6 +39,10 @@ struct format_spec {
 	char signchar;
 	char fmtchar;
 };
+
+/* indices in `fmt_index' for "%d" and "%.0f" */
+
+enum { INT_d_FMT_INDEX, INT_0f_FMT_INDEX };
 
 
 /* struct to manage awk (s)printf formatted string */
@@ -97,17 +126,20 @@ buf_adjust(struct print_fmt_buf *outb, size_t len)
 	outb->room_left -= len;
 }
 
-/* buf2node --- convert bytes to string NODE */
+/* bytes2node --- convert bytes to string NODE */
 
 static inline NODE *
-buf2node(struct print_fmt_buf *outb)
+bytes2node(struct print_fmt_buf *outb, NODE *node)
 {
-	NODE *node;
-	node = make_str_node(outb->buf, outb->dataend - outb->buf, ALREADY_MALLOCED);
+	/* FIXME -- realloc buf? AFAIK, never done before or an issue at all -- JH */
+	if (node != NULL) {
+		node->stptr = outb->buf;
+		node->stlen = outb->dataend - outb->buf;
+	} else
+		node = make_str_node(outb->buf, outb->dataend - outb->buf, ALREADY_MALLOCED);
 	outb->buf = NULL;
 	return node;
 }
-
 
 /* tmpbuf_prepend --- prepend one byte to temporary buffer */
 
