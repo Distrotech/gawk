@@ -74,10 +74,10 @@ function setup_repl_math( \
 #
 # atan2(y, x) =	atan(y/x), 		x > 0
 #             =	atan(y/x) + pi,		x < 0, y >= 0
-#             = atan(y/x) - pi,		x < 0, y < 0
-#             = pi/2,			x = 0, y > 0
-#             = -pi/2,			x = 0, y < 0
-#             = ?			x = 0, y = 0
+#             =	atan(y/x) - pi,		x < 0, y < 0
+#             =	pi/2,			x = 0, y > 0
+#             =	-pi/2,			x = 0, y < 0
+#             =	?			x = 0, y = 0
 #
 
 function euler_atan2(y, x,	\
@@ -114,7 +114,7 @@ function euler_atan2(y, x,	\
 	}
 
 	if (x == plus_inf)
-		return atan2(y, x)	# use builtin, -0 or -0
+		return atan2(y, x)	# use builtin, returns +0 or -0
 	if (x == minus_inf) {
 		if (y >= 0)
 			return 4 * __PI_OVER_4__
@@ -133,7 +133,9 @@ function euler_atan2(y, x,	\
 		if (y > x)
 			return sign * (2 * __PI_OVER_4__ - euler_atan_one_over(y / x))
 		return sign * euler_atan_one_over(x / y)
-	} else if (x < 0) {
+	}
+
+	if (x < 0) {
 		if (y == 0) {
 			if (atan2(y, x) < 0)	# use builtin to detect sign
 				return - 4 * __PI_OVER_4__
@@ -154,8 +156,11 @@ function euler_atan2(y, x,	\
 		return - euler_atan_one_over(x / y) + 4 * __PI_OVER_4__
 	}
 
-	# x == +0/-0 and y == +0/-0
-	return atan2(y, x);	# use builtin
+	if (atan2(y, x) < 0)	# atan2(-0, -0)
+		return - 4.0 * __PI_OVER_4__
+	if (atan2(y, x) > 0)	# atan2(+0, -0)
+		return 4.0 * __PI_OVER_4__
+	return 0;	# atan2(+0, +0) or atan2(-0, 0)
 }
 
 
@@ -225,7 +230,7 @@ function repl_sin(x,	\
 		return "nan" + 0
 
 	if (x < 0) {
-		# sin(x) = - sin(x)
+		# sin(-x) = - sin(x)
 		sign = -1
 		x = -x
 	} else

@@ -1,3 +1,15 @@
+2013-01-11         John Haque      <j.eh@mchsi.com>
+
+	Finish format_tree() refactoring.
+
+	* awk.h (struct fmt_list_item): New definition.
+	* builtin.c (fmt_parse): New routine to parse a single format code.
+	(format_tree): Adjusted.
+	* eval.c (fmt_index): (Pre-)compile and store format codes.
+	* double.c (format_awknum_val): Reworked to use compiled
+	format codes.
+	* mpfr.c (mpfp_format_val): Ditto.
+
 2013-01-03         John Haque      <j.eh@mchsi.com>
 
 	Refactor format_tree() to seperate number formatting code.

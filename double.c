@@ -42,8 +42,6 @@ extern void srandom(unsigned long seed);
  */
 #define GAWK_RANDOM_MAX 0x7fffffffL
 
-extern NODE **fmt_list;          /* declared in eval.c */
-
 /* exported routines */
 
 static NODE *make_awknum(AWKNUM);
@@ -1005,10 +1003,18 @@ format_awknum_val(const char *format, int index, NODE *s)
 	 * < and > so that things work correctly on systems with 64 bit integers.
 	 */
 
+	if ((s->flags & STRCUR) != 0)
+		efree(s->stptr);
+	free_wstr(s);
+
+
 	/* not an integral value, or out of range */
 	if ((val = double_to_int(s->numbr)) != s->numbr
 			|| val <= LONG_MIN || val >= LONG_MAX
 	) {
+		struct format_spec spec;
+		struct print_fmt_buf *outb;
+
 		/*
 		 * Once upon a time, we just blindly did this:
 		 *	sprintf(sp, format, s->numbr);
@@ -1018,30 +1024,24 @@ format_awknum_val(const char *format, int index, NODE *s)
 		 * and just always format the value ourselves.
 		 */
 
-		NODE *dummy[2], *r;
-		unsigned int oflags;
-
-		/* create dummy node for a sole use of format_tree */
-		dummy[1] = s;
-		oflags = s->flags;
+		/* XXX: format_spec copied since can be altered in the formatting routine */
 
 		if (val == s->numbr) {
 			/* integral value, but outside range of %ld, use %.0f */
-			r = format_tree("%.0f", 4, dummy, 2);
+			spec = *fmt_list[INT_0f_FMT_INDEX].spec;
 			s->stfmt = -1;
 		} else {
-			r = format_tree(format, fmt_list[index]->stlen, dummy, 2);
-			assert(r != NULL);
-			s->stfmt = (char) index;
+			assert(fmt_list[index].spec != NULL);	/* or can use fmt_parse() --- XXX */
+			spec = *fmt_list[index].spec;
+			s->stfmt = (char) index;	
 		}
-		s->flags = oflags;
-		s->stlen = r->stlen;
-		if ((s->flags & STRCUR) != 0)
-			efree(s->stptr);
-		s->stptr = r->stptr;
-		freenode(r);	/* Do not unref(r)! We want to keep s->stptr == r->stpr.  */
 
-		goto no_malloc;
+		outb = get_fmt_buf();
+		(void) format_awknum_printf(s, & spec, outb);
+		(void) bytes2node(outb, s);
+		free_fmt_buf(outb);
+
+		s->stptr[s->stlen] = '\0';
 	} else {
 		/*
 		 * integral value; force conversion to long only once.
@@ -1060,14 +1060,12 @@ format_awknum_val(const char *format, int index, NODE *s)
 			s->flags &= ~(INTIND|NUMBER);
 			s->flags |= STRING;
 		}
+
+		emalloc(s->stptr, char *, s->stlen + 2, "format_awknum_val");
+		memcpy(s->stptr, sp, s->stlen + 1);
 	}
-	if (s->stptr != NULL)
-		efree(s->stptr);
-	emalloc(s->stptr, char *, s->stlen + 2, "format_awknum_val");
-	memcpy(s->stptr, sp, s->stlen + 1);
-no_malloc:
+	
 	s->flags |= STRCUR;
-	free_wstr(s);
 	return s;
 }
 
@@ -1507,4 +1505,7 @@ fmt1:
 	}
 
 	return -1;
+#undef CP
+#undef CEND
+#undef CPBUF
 }

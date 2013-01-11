@@ -817,7 +817,7 @@ set_ORS()
 
 /* fmt_ok --- is the conversion format a valid one? */
 
-NODE **fmt_list = NULL;
+struct fmt_list_item *fmt_list = NULL;
 static int fmt_index(NODE *n);
 
 bool
@@ -859,18 +859,53 @@ static int
 fmt_index(NODE *n)
 {
 	int ix = 0;
-	static int fmt_num = 4;
+	static int fmt_num = 6;
 	static int fmt_hiwater = 0;
+	struct format_spec *spec = NULL;
+	extern struct format_spec *fmt_parse(NODE *, const char *, size_t);
 
-	if (fmt_list == NULL)
-		emalloc(fmt_list, NODE **, fmt_num*sizeof(*fmt_list), "fmt_index");
+	/*
+	 *	BEGIN {	CONVFMT="%s"; print 1.1234567 "X" }
+	 * 	number -> force_string -> CONVFMT = %s -> force_string -> ...
+	 */
+
+	if (fmt_list == NULL) {
+		NODE *t;
+
+		emalloc(fmt_list, struct fmt_list_item *, fmt_num * sizeof(*fmt_list), "fmt_index");
+
+		/*
+		 * XXX: Insert "%d" and "%.0f" at known indices, used to convert integers.
+		 * The indices are defined using `enum { INT_d_FMT_INDEX, INT_0f_FMT_INDEX }'
+		 * in format.h;
+		 * We want to avoid calling format_tree() directly in case the current
+		 * number handler hasn't been initialized, or we need a different handler;
+		 * may also be a bit more efficient.
+		 */
+
+		t = make_string("%d", 2);
+		spec = fmt_parse(CONVFMT_node, t->stptr, t->stlen);
+		assert(spec != NULL);
+		fmt_list[fmt_hiwater].fmt = t;
+		fmt_list[fmt_hiwater].spec = spec;
+		fmt_hiwater++;
+
+		t = make_string("%.0f", 4);
+		spec = fmt_parse(CONVFMT_node, t->stptr, t->stlen);
+		assert(spec != NULL);
+		fmt_list[fmt_hiwater].fmt = t;
+		fmt_list[fmt_hiwater].spec = spec;
+		fmt_hiwater++;
+	}
+
 	n = force_string(n);
 	while (ix < fmt_hiwater) {
-		if (cmp_nodes(fmt_list[ix], n) == 0)
+		if (cmp_nodes(fmt_list[ix].fmt, n) == 0)
 			return ix;
 		ix++;
 	}
 	/* not found */
+
 	n->stptr[n->stlen] = '\0';
 	if (do_lint && ! fmt_ok(n->stptr))
 		lintwarn(_("bad `%sFMT' specification `%s'"),
@@ -878,11 +913,23 @@ fmt_index(NODE *n)
 			  : n == OFMT_node->var_value ? "O"
 			  : "", n->stptr);
 
+	if (n == CONVFMT_node->var_value) {
+		/* XXX -- %s or %c not allowed for CONVFMT */
+		spec = fmt_parse(CONVFMT_node, n->stptr, n->stlen);
+		if (spec == NULL)
+			fatal(_("invalid CONVFMT specification `%s'"), n->stptr);
+	} else if (n == OFMT_node->var_value) {
+		spec = fmt_parse(OFMT_node, n->stptr, n->stlen);
+		if (spec == NULL)
+			fatal(_("invalid OFMT specification `%s'"), n->stptr);
+	}
+
 	if (fmt_hiwater >= fmt_num) {
 		fmt_num *= 2;
-		erealloc(fmt_list, NODE **, fmt_num * sizeof(*fmt_list), "fmt_index");
+		erealloc(fmt_list, struct fmt_list_item *, fmt_num * sizeof(*fmt_list), "fmt_index");
 	}
-	fmt_list[fmt_hiwater] = dupnode(n);
+	fmt_list[fmt_hiwater].fmt = dupnode(n);
+	fmt_list[fmt_hiwater].spec = spec;
 	return fmt_hiwater++;
 }
 
@@ -892,7 +939,7 @@ void
 set_OFMT()
 {
 	OFMTidx = fmt_index(OFMT_node->var_value);
-	OFMT = fmt_list[OFMTidx]->stptr;
+	OFMT = fmt_list[OFMTidx].fmt->stptr;
 }
 
 /* set_CONVFMT --- track CONVFMT correctly */
@@ -901,7 +948,7 @@ void
 set_CONVFMT()
 {
 	CONVFMTidx = fmt_index(CONVFMT_node->var_value);
-	CONVFMT = fmt_list[CONVFMTidx]->stptr;
+	CONVFMT = fmt_list[CONVFMTidx].fmt->stptr;
 }
 
 /* set_LINT --- update LINT as appropriate */

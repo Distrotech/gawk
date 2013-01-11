@@ -23,7 +23,6 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
-
 #include "awk.h"
 #if defined(HAVE_FCNTL_H)
 #include <fcntl.h>
@@ -2135,10 +2134,22 @@ get_fmt_buf()
 	return outb;
 }
 
+/* fmt_parse --- parse a single format code */  
 
-#	define CP		cpbuf_start(outb)
-#	define CEND		cpbuf_end(outb)
-#	define CPBUF		cpbuf(outb)
+struct format_spec *
+fmt_parse(NODE *n, const char *fmt_string, size_t fmt_len)
+{
+	struct format_spec *spec = NULL;
+
+	spec = (struct format_spec *) format_tree(fmt_string, fmt_len, NULL, LONG_MIN);
+	if (spec != NULL && n == CONVFMT_node
+		&& (spec->fmtchar == 's' || spec->fmtchar == 'c')
+	) {
+		efree(spec);
+		spec = NULL;
+	}
+ 	return spec;
+}
 
 
 /* format_nondecimal --- output a nondecimal number according to a format */
@@ -2149,6 +2160,9 @@ format_nondecimal(uintmax_t val, struct format_spec *spec, struct print_fmt_buf 
 	uintmax_t uval = val;
 	int ii, jj;
 	const char *chbuf = spec->chbuf;
+
+#	define CP		cpbuf_start(outb)
+#	define CEND		cpbuf_end(outb)
 
 	/*
 	 * When to fill with zeroes is of course not simple.
@@ -2208,6 +2222,9 @@ format_nondecimal(uintmax_t val, struct format_spec *spec, struct print_fmt_buf 
 		spec->fw = spec->prec;
 	spec->prec = CEND - CP;
 	pr_num_tail(CP, spec->prec, spec, outb);
+
+#undef CP
+#undef CEND
 }
 
 
@@ -2230,7 +2247,7 @@ format_tree(
 	long num_args)
 {
 	size_t cur_arg = 0;
-	NODE *r = NULL;
+	NODE *retval = NULL;
 	bool toofew = false;
 	const char *s0, *s1;
 	int cs1;
@@ -2247,6 +2264,12 @@ format_tree(
 	struct print_fmt_buf *outb;
 	struct format_spec spec;
 
+#	define CP		cpbuf_start(outb)
+#	define CEND		cpbuf_end(outb)
+#	define CPBUF		cpbuf(outb)
+
+/* parse a single format specifier */
+#define do_parse_fmt	(num_args == LONG_MIN)
 
 	/*
 	 * Check first for use of `count$'.
@@ -2257,7 +2280,9 @@ format_tree(
 	 * Otherwise, return the current argument.
 	 */
 #define parse_next_arg() { \
-	if (argnum > 0) { \
+	if (do_parse_fmt) \
+		goto out; \
+	else if (argnum > 0) { \
 		if (cur_arg > 1) { \
 			msg(_("fatal: must use `count$' on all formats or none")); \
 			goto out; \
@@ -2384,6 +2409,8 @@ check_pos:
 				msg(_("fatal: `$' is not permitted in awk formats"));
 				goto out;
 			}
+			if (do_parse_fmt)
+				goto out;
 
 			if (cur == & spec.fw) {
 				argnum = spec.fw;
@@ -2532,6 +2559,7 @@ check_pos:
 			goto retry;
 		case 'c':
 			need_format = false;
+			spec.fmtchar = cs1;
 			parse_next_arg();
 			/* user input that looks numeric is numeric */
 			if ((arg->flags & (MAYBE_NUM|NUMBER)) == MAYBE_NUM)
@@ -2605,6 +2633,7 @@ out2:
 			goto pr_tail;
 		case 's':
 			need_format = false;
+			spec.fmtchar = cs1;
 			parse_next_arg();
 			arg = force_string(arg);
 			if (spec.fw == 0 && ! spec.have_prec)
@@ -2658,6 +2687,7 @@ out2:
 		case 'i':
 	fmt1:
 			need_format = false;
+			spec.fmtchar = cs1;
 			parse_next_arg();
 			(void) force_number(arg);
 			spec.fmtchar = cs1;
@@ -2668,8 +2698,12 @@ out2:
 			break;
 
 		default:
-			if (do_lint && isalpha(cs1))
+			if (isalpha(cs1)) {
+				if (do_lint)
 	lintwarn(_("ignoring unknown format specifier character `%c': no argument converted"), cs1);
+				if (do_parse_fmt)
+					goto out;
+			}
 			break;
 		}
 		if (toofew) {
@@ -2689,12 +2723,28 @@ out2:
 	}
 
 	bchunk(outb, s0, s1 - s0);
-	r = buf2node(outb);
+	retval = bytes2node(outb, NULL);
 out:
 	free_fmt_buf(outb);
 
-	if (r == NULL)
-		gawk_exit(EXIT_FATAL);
-	return r;
+	if (do_parse_fmt) {
+		struct format_spec *cp_spec;
+
+		assert(retval == NULL);
+		if (spec.fmtchar == (char) 0)
+			return NULL;
+		emalloc(cp_spec, struct format_spec *, sizeof (*cp_spec), "format_tree");
+		*cp_spec = spec;
+		return (NODE *) cp_spec;
+	}
+
+	if (retval == NULL)
+		gawk_exit(EXIT_FATAL);	/* debugger needs this */
+
+	return retval;
+
+#undef CP
+#undef CEND
+#undef CPBUF
 }
 
