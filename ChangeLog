@@ -1,3 +1,10 @@
+2013-01-12         John Haque      <j.eh@mchsi.com>
+
+	* format.c: New file.
+	* Makefile.am: Add format.c to the list of files.
+	* builtin.c (format_tree, format_nondecimal, fmt_parse,
+	get_fmt_buf, mbc_byte_count, mbc_char_count): Move to format.c.
+
 2013-01-11         John Haque      <j.eh@mchsi.com>
 
 	Finish format_tree() refactoring.

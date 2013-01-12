@@ -70,6 +70,12 @@ struct print_fmt_buf {
 
 extern struct print_fmt_buf *get_fmt_buf(void);
 extern void format_nondecimal(uintmax_t, struct format_spec *, struct print_fmt_buf *);
+extern NODE *format_tree(const char *, size_t, NODE **, long);
+
+extern char lchbuf[];
+extern char Uchbuf[];
+extern char space_string[];
+extern char zero_string[];
 
 #	define buf_start(ob)	((ob)->buf)
 #	define buf_end(ob)	((ob)->dataend)
@@ -78,10 +84,6 @@ extern void format_nondecimal(uintmax_t, struct format_spec *, struct print_fmt_
 #	define cpbuf_end(ob)	((ob)->cpbuf.bufend)
 #	define cpbuf(ob)	((ob)->cpbuf.buf)
 
-extern char lchbuf[];
-extern char Uchbuf[];
-extern char space_string[];
-extern char zero_string[];
 
 /* chksize --- make room for something LEN big in the output buffer */
 

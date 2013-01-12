@@ -40,6 +40,7 @@ extern FILE *output_fp;
 extern IOBUF *curfile;
 extern const char *command_file;
 extern const char *get_spec_varname(Func_ptr fptr);
+extern NODE *format_tree(const char *, size_t, NODE **, long);	/* format.c */
 extern int zzparse(void);
 #define read_command()		(void) zzparse()
 

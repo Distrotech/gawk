@@ -26,6 +26,7 @@
 
 #include "awk.h"
 
+extern NODE *format_tree(const char *, size_t, NODE **, long);	/* format.c */
 extern FILE *output_fp;
 int sourceline = 0;
 char *source = NULL;

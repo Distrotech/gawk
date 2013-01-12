@@ -24,7 +24,7 @@
  */
 
 #include "awk.h"
-#include "math.h"
+#include <math.h>
 #include "random.h"
 #include "floatmagic.h"	/* definition of isnan */
 
