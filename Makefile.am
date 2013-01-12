@@ -99,6 +99,7 @@ base_sources = \
 	field.c \
 	floatcomp.c \
 	floatmagic.h \
+	format.c \
 	format.h \
 	gawkapi.c \
 	gawkapi.h \

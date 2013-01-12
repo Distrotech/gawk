@@ -1413,7 +1413,6 @@ extern NODE *do_bindtextdomain(int nargs);
 extern int strncasecmpmbs(const unsigned char *,
 			  const unsigned char *, size_t);
 #endif
-extern NODE *format_tree(const char *, size_t, NODE **, long);
 
 /* eval.c */
 extern void PUSH_CODE(INSTRUCTION *cp);

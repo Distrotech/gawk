@@ -1790,11 +1790,6 @@ finish:
 	return mpfr_val;
 }
 
-
-extern size_t mbc_byte_count(const char *ptr, size_t numchars);
-extern size_t mbc_char_count(const char *ptr, size_t numbytes);
-
-
 /* mpfp_format_prinf --- format a number for (s)printf */
 
 static int

@@ -1,9 +1,9 @@
-# repl_math.awk --- arbitrary-precision math functions
+# ap_math.awk --- arbitrary-precision math functions
 
 #
-#	repl_sin	-- Compute sin(x)
-#	repl_cos	-- Compute cos(x)
-#	repl_atan2	-- Compute atan2(y, x)
+#	ap_sin		-- Compute sin(x)
+#	ap_cos		-- Compute cos(x)
+#	ap_atan2	-- Compute atan2(y, x)
 #
 
 #
@@ -17,33 +17,38 @@
 #	y = (x^2) / (1 + x^2) and -1 <= x <= 1
 #
 # Substituting x = 1/x, for x >= 1
-# 	atan(1/x) = (1 / (1 + x^2))    + (2/3) * (1 / (1 + x^2)^2)
-#	                               + (2*4/(3*5)) * (1 / (1 + x^2)^3)
-#	                               + (2*4*6/(3*5*7)) * (1 / (1 + x^2)^4)  + ... 
+# 	atan(1/x) = (x / (1 + x^2))    + (2/3) * (x / (1 + x^2)^2)
+#	                               + (2*4/(3*5)) * (x / (1 + x^2)^3)
+#	                               + (2*4*6/(3*5*7)) * (x / (1 + x^2)^4)  + ... 
 #
 
 function euler_atan_one_over(x,	\
-		xpow2_plus_one, term, sum, i, err)
+		xpow2_plus_one, term, sum, i, sign, err)
 {
+	sign = 1
+	if (x < 0) {
+		sign = -1
+		x = -x
+	}
+
 	xpow2_plus_one = x * x + 1
 	term = x / xpow2_plus_one
 	sum = term
 	i = 0
-	err = 1.0
 
-	while (err > __EPSILON__) {
+	do {
 		term *= (i + 2) / (i + 3)
 		err = term /= xpow2_plus_one
 		i += 2
 		sum += term
-		if (err < 0)
-			err = -err
-	}
-	return sum
+		err = term / sum
+	} while (err > __REL_ERROR__)
+
+	return sign * sum
 }
 
-function setup_repl_math( \
-		prec, digits, extra_prec)
+function setup_ap_math( \
+		prec, curr_prec, digits, extra_prec)
 {
 	switch (PREC) {
 	case "half":	prec = 11; break;
@@ -59,16 +64,21 @@ function setup_repl_math( \
 		print "PREC value not specified" > "/dev/stderr"
 		exit(1)
 	}
-	__SAVE_PREC__ = PREC
-	extra_prec = 10
-	prec += extra_prec	# temporarily raise precision
-	if (prec != __PI_PREC__) {
+
+	curr_prec = PREC
+	extra_prec = 10		# temporarily raise precision by this amount; Why 10???
+
+	# unlike PREC, `prec' is always a number 
+	PREC = prec + extra_prec
+
+	if (PREC != __PI_PREC__) {
 		# compute PI only once for a given precision
-		digits = int ((prec - extra_prec) / 3.32193)
-		__EPSILON__ = sprintf("1.0e-%d", digits + 2) + 0
+		digits = int (PREC / 3.32193)
+		__REL_ERROR__ = sprintf("5.0e-%d", digits) + 0
+		__PI_PREC__ = PREC
 		__PI_OVER_4__ = 4 * euler_atan_one_over(5) - euler_atan_one_over(239)
-		__PI_PREC__ = prec
 	}
+	return curr_prec
 }
 
 #
@@ -163,67 +173,89 @@ function euler_atan2(y, x,	\
 	return 0;	# atan2(+0, +0) or atan2(-0, 0)
 }
 
+#
+#	Collect two terms in each iteration for the Taylor series:
+#		sin(x) = (x - x^3/3!) + (x^5/5! - x^7/7!) + ...
+#
 
 function taylor_sin(x,	\
-		i, fact, xpow2, xpow_odd, sum, term, sign, err)
+		i, fact, xpow2, xpow_odd, sum, term, err)
 {
-	i = 1
-	fact = 1
-	xpow2 = x * x
-	xpow_odd = x
-	sum = x
-	sign = 1
-	err = 1.0
+	# XXX: this assumes x >= 0
 
-	while (err > __EPSILON__) {
+	if (x == 0)
+		return x
+	i = 3
+	fact = 6	# 3!
+	xpow2 = x * x
+	xpow_odd = xpow2 * x
+	sum = x - xpow_odd / fact
+
+	do {
 		fact *= (i + 1) * (i + 2)
 		i += 2
 		xpow_odd *= xpow2
-		sign *= -1
-		err = term = xpow_odd / fact  * sign
+		term = xpow_odd / fact
+
+		fact *= (i + 1) * (i + 2)
+		i += 2
+		xpow_odd *= xpow2
+		term -= xpow_odd / fact
+
 		sum += term
-		if (err < 0)
-			err = -err
-	}
+		err = term / sum
+	} while (err > __REL_ERROR__)
+
 	return sum
 }
 
-function taylor_cos(x,	\
-		i, fact, xpow2, xpow_even, sum, term, sign, err)
-{
-	i = 0
-	fact = 1
-	xpow2 = x * x
-	xpow_even = 1
-	sum = 1
-	sign = 1
-	err = 1.0
+#
+#	Collect two terms in each iteration for the Taylor series:
+#		cos(x) = (1 - x^2/2!) + (x^4/4! - x^6/6!)...
+#
 
-	while (err > __EPSILON__) {
+function taylor_cos(x,	\
+		i, fact, xpow2, xpow_even, sum, term, err)
+{
+	if (x == 0)
+		return 1
+
+	i = 2
+	fact = 2
+	xpow2 = x * x
+	xpow_even = xpow2
+	sum = 1 - xpow2 / fact
+
+	do {
 		fact *= (i + 1) * (i + 2)
 		i += 2
 		xpow_even *= xpow2
-		sign *= -1
-		err = term = xpow_even / fact * sign
+		term = xpow_even / fact
+
+		fact *= (i + 1) * (i + 2)
+		i += 2
+		xpow_even *= xpow2
+		term -= xpow_even / fact
+
 		sum += term
-		if (err < 0)
-			err = -err
-	}
+		err = term / sum
+	} while (err > __REL_ERROR__)
+
 	return sum
 }
 
 #
 # For 0 <= x <= PI/4, using Taylor series approximation for sin(x):
-#	x - x^3/5! + x^5/7! - ...
+#	x - x^3/3! + x^5/5! - ...
 #
 # for PI/4 < x <= PI/2, use identity sin(x) = cos(PI/2 - x).
 #
 #
 
-function repl_sin(x,	\
-		k, sign, y, sv)
+function ap_sin(x,	\
+		k, sign, y, sv, curr_prec)
 {
-	setup_repl_math()
+	curr_prec = setup_ap_math()
 	x = + x		# or x += 0.0 or x = x + 0.0 
 	if (x == "+inf" + 0 || x == "-inf" + 0 ||
 			x == "+nan" + 0 || x == "-nan" + 0)
@@ -248,7 +280,7 @@ function repl_sin(x,	\
 	}
 	sv *= sign
 
-	PREC = __SAVE_PREC__
+	PREC = curr_prec
 	return +sv;	# unary plus returns a number with current precision 
 }
 
@@ -259,10 +291,10 @@ function repl_sin(x,	\
 #
 
 
-function repl_cos(x,	\
-		k, sign, y, cv)
+function ap_cos(x,	\
+		k, sign, y, cv, curr_prec)
 {
-	setup_repl_math()
+	curr_prec = setup_ap_math()
 
 	x = + x		# or x += 0.0 or x = x + 0.0
 	if (x == "+inf" + 0 || x == "-inf" + 0 ||
@@ -284,16 +316,16 @@ function repl_cos(x,	\
 	}
 	cv *= sign
 
-	PREC = __SAVE_PREC__
+	PREC = curr_prec
 	return +cv	# unary plus to apply current precision
 }
 
-function repl_atan2(y, x, \
-		tv)
+function ap_atan2(y, x, \
+		tv, curr_prec)
 {
-	setup_repl_math()
+	curr_prec = setup_ap_math()
 	tv = euler_atan2(y, x)
 
-	PREC = __SAVE_PREC__
+	PREC = curr_prec
 	return +tv	# unary plus to apply current precision
 }
