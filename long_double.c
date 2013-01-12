@@ -26,19 +26,18 @@
 #include "awk.h"
 
 #ifdef USE_LONG_DOUBLE
-#include "math.h"
+#include <math.h>
 #include "random.h"
 #include "floatmagic.h"	/* definition of isnan */
 
 #include "format.h"
 
-
 #define AWKLDBL	long double
-
 
 #include "long_double.h"
 
-#define LDBL(n)	(*((AWKLDBL *) (n)->qnumbr))
+#define LDBL_VAL(n)	(*((AWKLDBL *) (n)->qnumbr))
+#define LDC(x)		x##L
 
 /* Can declare these, since we always use the random shipped with gawk */
 extern char *initstate(unsigned long seed, char *state, long n);
@@ -189,12 +188,12 @@ awkldbl_init(bltin_t **numbr_bltins)
 
 	/* set the numeric value of null string */
 	get_long_double(Nnull_string->qnumbr);
-	LDBL(Nnull_string) = 0.0;
+	LDBL_VAL(Nnull_string) = LDC(0.0);
 	Nnull_string->flags |= (NUMCUR|NUMBER);
 
 	/* initialize TRUE and FALSE nodes */
-	false_node = make_awkldbl(0.0);
-	true_node = make_awkldbl(1.0);
+	false_node = make_awkldbl(LDC(0.0));
+	true_node = make_awkldbl(LDC(1.0));
 	false_node->flags |= NUMINT;
 	true_node->flags |= NUMINT;
 
@@ -207,7 +206,7 @@ awkldbl_init(bltin_t **numbr_bltins)
 static unsigned long
 awkldbl_toulong(const NODE *n)
 {
-	return LDBL(n);
+	return LDBL_VAL(n);
 }
 
 /* awkldbl_tolong --- conversion to long */
@@ -215,7 +214,7 @@ awkldbl_toulong(const NODE *n)
 static long
 awkldbl_tolong(const NODE *n)
 {
-	return LDBL(n);
+	return LDBL_VAL(n);
 }
 
 /* awkldbl_todouble --- conversion to double */
@@ -223,7 +222,7 @@ awkldbl_tolong(const NODE *n)
 static double
 awkldbl_todouble(const NODE *n)
 {
-	return LDBL(n);
+	return LDBL_VAL(n);
 }
 
 /* awkldbl_touintmax_t --- conversion to uintmax_t */
@@ -231,7 +230,7 @@ awkldbl_todouble(const NODE *n)
 static uintmax_t
 awkldbl_touintmax_t(const NODE *n)
 {
-	return LDBL(n);
+	return LDBL_VAL(n);
 }
 
 /* awkldbl_sgn --- return 1 if number > 0, zero if number == 0, and -1 if number < 0 */
@@ -239,8 +238,8 @@ awkldbl_touintmax_t(const NODE *n)
 static int
 awkldbl_sgn(const NODE *n)
 {
-	AWKLDBL d = LDBL(n);
-	return (d < 0.0 ? -1 : d > 0.0);
+	AWKLDBL d = LDBL_VAL(n);
+	return (d < LDC(0.0) ? -1 : d > LDC(0.0));
 }
 
 /* awkldbl_isinteger --- check if a number is an integer */
@@ -248,7 +247,7 @@ awkldbl_sgn(const NODE *n)
 static bool
 awkldbl_isinteger(const NODE *n)
 {
-	AWKLDBL d = LDBL(n);
+	AWKLDBL d = LDBL_VAL(n);
 
 	if (isnan(d) || isinf(d))
 		return false;
@@ -260,7 +259,7 @@ awkldbl_isinteger(const NODE *n)
 static bool
 awkldbl_isnan(const NODE *n)
 {
-	return isnan(LDBL(n));
+	return isnan(LDBL_VAL(n));
 }
 
 /* awkldbl_isinf --- check if number is infinity */
@@ -268,7 +267,7 @@ awkldbl_isnan(const NODE *n)
 static bool
 awkldbl_isinf(const NODE *n)
 {
-	return isinf(LDBL(n));
+	return isinf(LDBL_VAL(n));
 }
 
 /* negate_awkldbl --- negate number in NODE */
@@ -276,7 +275,7 @@ awkldbl_isinf(const NODE *n)
 static void
 negate_awkldbl(NODE *n)
 {
-	LDBL(n) = - LDBL(n);
+	LDBL_VAL(n) = - LDBL_VAL(n);
 }
 
 /* awkldbl_add --- add two numbers */
@@ -284,7 +283,7 @@ negate_awkldbl(NODE *n)
 static NODE *
 awkldbl_add(const NODE *t1, const NODE *t2)
 {
-	return make_awkldbl(LDBL(t1) + LDBL(t2));
+	return make_awkldbl(LDBL_VAL(t1) + LDBL_VAL(t2));
 }
 
 /* awkldbl_sub --- subtract two numbers */
@@ -292,7 +291,7 @@ awkldbl_add(const NODE *t1, const NODE *t2)
 static NODE *
 awkldbl_sub(const NODE *t1, const NODE *t2)
 {
-	return make_awkldbl(LDBL(t1) - LDBL(t2));
+	return make_awkldbl(LDBL_VAL(t1) - LDBL_VAL(t2));
 }
 
 /* awkldbl_mul --- multiply two numbers */
@@ -300,7 +299,7 @@ awkldbl_sub(const NODE *t1, const NODE *t2)
 static NODE *
 awkldbl_mul(const NODE *t1, const NODE *t2)
 {
-	return make_awkldbl(LDBL(t1) * LDBL(t2));
+	return make_awkldbl(LDBL_VAL(t1) * LDBL_VAL(t2));
 }
 
 /* awkldbl_add --- quotient of two numbers */
@@ -308,10 +307,10 @@ awkldbl_mul(const NODE *t1, const NODE *t2)
 static NODE *
 awkldbl_div(const NODE *t1, const NODE *t2)
 {
-	AWKLDBL d = LDBL(t2);
+	AWKLDBL d = LDBL_VAL(t2);
 	if (d == 0)
 		fatal(_("division by zero attempted"));
-	return make_awkldbl(LDBL(t1) / d);
+	return make_awkldbl(LDBL_VAL(t1) / d);
 }
 
 /* awkldbl_add_long --- add long value to a number */
@@ -319,7 +318,7 @@ awkldbl_div(const NODE *t1, const NODE *t2)
 static NODE *
 awkldbl_add_long(const NODE *t1, long n)
 {
-	return make_awkldbl(LDBL(t1) + n);
+	return make_awkldbl(LDBL_VAL(t1) + (AWKLDBL) n);
 }
 
 /* awkldbl_copy --- copy a number */
@@ -327,7 +326,7 @@ awkldbl_add_long(const NODE *t1, long n)
 static NODE *
 awkldbl_copy(const NODE *t1)
 {
-	return make_awkldbl(LDBL(t1));
+	return make_awkldbl(LDBL_VAL(t1));
 }
 
 /* awkldbl_update_var --- update a special variable from internal variables */
@@ -338,14 +337,14 @@ awkldbl_update_var(NODE *var)
 	NODE *val = var->var_value;
 	AWKLDBL d;
 
-	d = LDBL(val);
+	d = LDBL_VAL(val);
 	if (var == NR_node) {
 		if (MNR == 0 && d != NR) {
 			unref(val);
-			val = NR_node->var_value = make_awkldbl(NR);
+			val = NR_node->var_value = make_awkldbl((AWKLDBL) NR);
 		} else if (MNR != 0) {
 			unref(val);
-			d = ((AWKLDBL) MNR) * LONG_MAX + NR;
+			d = ((AWKLDBL) MNR) * LONG_MAX + (AWKLDBL) NR;
 			val = var->var_value = make_awkldbl(d);
 		}
 		return val;
@@ -354,10 +353,10 @@ awkldbl_update_var(NODE *var)
 	assert(var == FNR_node);
 	if (MFNR == 0 && d != FNR) {
 		unref(val);
-		val = FNR_node->var_value = make_awkldbl(FNR);
+		val = FNR_node->var_value = make_awkldbl((AWKLDBL) FNR);
 	} else if (MFNR != 0) {
 		unref(val);
-		d = ((AWKLDBL) MFNR) * LONG_MAX + FNR;
+		d = ((AWKLDBL) MFNR) * LONG_MAX + (AWKLDBL) FNR;
 		val = var->var_value = make_awkldbl(d);
 	}
 	return val;
@@ -374,7 +373,7 @@ awkldbl_set_var(const NODE *var)
 	NODE *val = var->var_value;
 	AWKLDBL d;
 
-	d = LDBL(val);
+	d = LDBL_VAL(val);
 	if (var == NR_node) {
 		MNR = d / LONG_MAX;
 		NR = d - ((AWKLDBL) MNR) * LONG_MAX;
@@ -421,7 +420,7 @@ make_awkldbl(AWKLDBL x)
 	getnode(r);
 	r->type = Node_val;
 	get_long_double(r->qnumbr);
-	LDBL(r) = x;
+	LDBL_VAL(r) = x;
 	r->flags = MALLOC|NUMBER|NUMCUR;
 	r->valref = 1;
 	r->stptr = NULL;
@@ -442,7 +441,7 @@ make_awknum(AWKNUM x)
 	getnode(r);
 	r->type = Node_val;
 	get_long_double(r->qnumbr);
-	LDBL(r) = (AWKLDBL) x;
+	LDBL_VAL(r) = (AWKLDBL) x;
 	r->flags = MALLOC|NUMBER|NUMCUR;
 	r->valref = 1;
 	r->stptr = NULL;
@@ -494,8 +493,8 @@ do_lshift(int nargs)
 
 	(void) force_number(s1);
 	(void) force_number(s2);
-	val = LDBL(s1);
-	shift = LDBL(s2);
+	val = LDBL_VAL(s1);
+	shift = LDBL_VAL(s2);
 
 	if (do_lint) {
 		if (val < 0 || shift < 0)
@@ -536,8 +535,8 @@ do_rshift(int nargs)
 	}
 	(void) force_number(s1);
 	(void) force_number(s2);
-	val = LDBL(s1);
-	shift = LDBL(s2);
+	val = LDBL_VAL(s1);
+	shift = LDBL_VAL(s2);
 	if (do_lint) {
 		if (val < 0 || shift < 0)
 			lintwarn(_("rshift(%Lf, %Lf): negative values will give strange results"),
@@ -578,7 +577,7 @@ do_and(int nargs)
 			lintwarn(_("and: argument %d is non-numeric"), i);
 
 		(void) force_number(s1);
-		val = LDBL(s1);
+		val = LDBL_VAL(s1);
 		if (do_lint && val < 0)
 			lintwarn(_("and: argument %d negative value %Lg will give strange results"),
 					i, val);
@@ -611,7 +610,7 @@ do_or(int nargs)
 			lintwarn(_("or: argument %d is non-numeric"), i);
 
 		(void) force_number(s1);
-		val = LDBL(s1);
+		val = LDBL_VAL(s1);
 		if (do_lint && val < 0)
 			lintwarn(_("or: argument %d negative value %Lg will give strange results"),
 					i, val);
@@ -645,7 +644,7 @@ do_xor(int nargs)
 			lintwarn(_("xor: argument %d is non-numeric"), i);
 
 		(void) force_number(s1);
-		val = LDBL(s1);
+		val = LDBL_VAL(s1);
 		if (do_lint && val < 0)
 			lintwarn(_("xor: argument %d negative value %Lg will give strange results"),
 					i, val);
@@ -674,7 +673,7 @@ do_compl(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("compl: received non-numeric argument"));
 	(void) force_number(tmp);
-	d = LDBL(tmp);
+	d = LDBL_VAL(tmp);
 	DEREF(tmp);
 
 	if (do_lint) {
@@ -746,7 +745,7 @@ nondec2awkldbl(char *str, size_t len)
 			default:
 				goto done;
 			}
-			retval = (retval * 16) + val;
+			retval = (retval * LDC(16.0)) + (AWKLDBL) val;
 		}
 	} else if (*str == '0') {
 		for (; len > 0; len--) {
@@ -756,7 +755,7 @@ nondec2awkldbl(char *str, size_t len)
 				str = start;
 				goto decimal;
 			}
-			retval = (retval * 8) + (*str - '0');
+			retval = (retval * LDC(8.0)) + (AWKLDBL) (*str - '0');
 			str++;
 		}
 	} else {
@@ -820,7 +819,7 @@ do_srand(int nargs)
 		if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 			lintwarn(_("srand: received non-numeric argument"));
 		(void) force_number(tmp);
-		d = LDBL(tmp);
+		d = LDBL_VAL(tmp);
 		srandom((unsigned int) (save_seed = (long) d));
 		DEREF(tmp);
 	}
@@ -846,7 +845,7 @@ str2awkldbl(char *str, char **endptr, int base, bool is_integer ATTRIBUTE_UNUSED
 		errno = 0;
 		d = gawk_strtold(str, endptr);
 		if (errno != 0)
-			d = 0;
+			d = LDC(0.0);
 	} else {
 		if (base == 8 || base == 16)
 			d = nondec2awkldbl(str, strlen(str));
@@ -855,7 +854,7 @@ str2awkldbl(char *str, char **endptr, int base, bool is_integer ATTRIBUTE_UNUSED
 			errno = 0;
 			d = gawk_strtold(str, NULL);
 			if (errno != 0)
-				d = 0;
+				d = LDC(0.0);
 			errno = 0;
 		}
 	}
@@ -876,10 +875,10 @@ awkldbl_mod(const NODE *t1, const NODE *t2)
 {
 	AWKLDBL d2;
 
-	d2 = LDBL(t2);
-	if (d2 == 0)
+	d2 = LDBL_VAL(t2);
+	if (d2 == LDC(0.0))
 		fatal(_("division by zero attempted in `%%'"));
-	return make_awkldbl(gawk_fmodl(LDBL(t1), d2));
+	return make_awkldbl(gawk_fmodl(LDBL_VAL(t1), d2));
 }
 
 /* awkldbl_pow --- power function */
@@ -887,7 +886,7 @@ awkldbl_mod(const NODE *t1, const NODE *t2)
 static NODE *
 awkldbl_pow(const NODE *t1, const NODE *t2)
 {
-	return make_awkldbl(calc_exp(LDBL(t1), LDBL(t2)));
+	return make_awkldbl(calc_exp(LDBL_VAL(t1), LDBL_VAL(t2)));
 }
 
 
@@ -899,7 +898,7 @@ awkldbl_pow(const NODE *t1, const NODE *t2)
 static AWKLDBL
 calc_exp_posint(AWKLDBL x, long n)
 {
-	AWKLDBL mult = 1;
+	AWKLDBL mult = LDC(1.0);
 
 	while (n > 1) {
 		if ((n % 2) == 1)
@@ -915,13 +914,13 @@ calc_exp_posint(AWKLDBL x, long n)
 static AWKLDBL
 calc_exp(AWKLDBL x1, AWKLDBL x2)
 {
-	long lx;
+	long lx = x2;
 
-	if ((lx = x2) == x2) {		/* integer exponent */
+	if (((AWKLDBL) lx) == x2) {		/* integer exponent */
 		if (lx == 0)
-			return 1;
+			return LDC(1.0);
 		return (lx > 0) ? calc_exp_posint(x1, lx)
-				: 1.0 / calc_exp_posint(x1, -lx);
+				: LDC(1.0) / calc_exp_posint(x1, -lx);
 	}
 	return gawk_powl(x1, x2);
 }
@@ -939,8 +938,8 @@ cmp_awkldbls(const NODE *t1, const NODE *t2)
 	 * comparison at the awk level is a different issue, and needs to be dealt
 	 * with in the interpreter for each opcode seperately.
 	 */
-	AWKLDBL d1 = LDBL(t1);
-	AWKLDBL d2 = LDBL(t2);
+	AWKLDBL d1 = LDBL_VAL(t1);
+	AWKLDBL d2 = LDBL_VAL(t2);
 
 	if (isnan(d1))
 		return ! isnan(d2);
@@ -973,7 +972,7 @@ force_awkldbl(NODE *n)
 	/* Note: only set NUMCUR if we actually convert some digits */
 
 	get_long_double(n->qnumbr);
-	LDBL(n) = 0.0;
+	LDBL_VAL(n) = LDC(0.0);
 
 	if (n->stlen == 0) {
 		return n;
@@ -994,7 +993,7 @@ force_awkldbl(NODE *n)
 			if ((n->flags & MAYBE_NUM) != 0)
 				n->flags &= ~MAYBE_NUM;
 			n->flags |= NUMBER|NUMCUR;
-			LDBL(n) = get_ieee_magic_val(n->stptr);
+			LDBL_VAL(n) = get_ieee_magic_val(n->stptr);
 			return n;
 		}
 		/* else
@@ -1024,7 +1023,7 @@ force_awkldbl(NODE *n)
 
 	if (cpend - cp == 1) {		/* only one character */
 		if (isdigit((unsigned char) *cp)) {	/* it's a digit! */
-			LDBL(n) = (AWKLDBL)(*cp - '0');
+			LDBL_VAL(n) = (AWKLDBL)(*cp - '0');
 			n->flags |= newflags;
 			n->flags |= NUMCUR;
 			if (cp == n->stptr)		/* no leading spaces */
@@ -1036,7 +1035,7 @@ force_awkldbl(NODE *n)
 	if (do_non_decimal_data) {	/* main.c assures false if do_posix */
 		errno = 0;
 		if (! do_traditional && get_numbase(cp, true) != 10) {
-			LDBL(n) = nondec2awkldbl(cp, cpend - cp);
+			LDBL_VAL(n) = nondec2awkldbl(cp, cpend - cp);
 			n->flags |= NUMCUR;
 			ptr = cpend;
 			goto finish;
@@ -1046,7 +1045,7 @@ force_awkldbl(NODE *n)
 	errno = 0;
 	save = *cpend;
 	*cpend = '\0';
-	LDBL(n) = gawk_strtold((const char *) cp, &ptr);
+	LDBL_VAL(n) = gawk_strtold((const char *) cp, &ptr);
 
 	/* POSIX says trailing space is OK for NUMBER */
 	while (isspace((unsigned char) *ptr))
@@ -1108,7 +1107,7 @@ format_awkldbl_val(const char *format, int index, NODE *s)
 	 * < and > so that things work correctly on systems with 64 bit integers.
 	 */
 
-	d = LDBL(s);
+	d = LDBL_VAL(s);
 
 	if ((s->flags & STRCUR) != 0)
 		efree(s->stptr);
@@ -1116,7 +1115,7 @@ format_awkldbl_val(const char *format, int index, NODE *s)
 
 	/* not an integral value, or out of range */
 	if ((ival = double_to_int(d)) != d
-			|| ival <= LONG_MIN || ival >= LONG_MAX
+			|| ival <= (AWKLDBL) LONG_MIN || ival >= (AWKLDBL) LONG_MAX
 	) {
 		struct format_spec spec;
 		struct print_fmt_buf *outb;
@@ -1209,8 +1208,8 @@ get_ieee_magic_val(const char *val)
 	if (val == ptr) { /* Older strtod implementations don't support inf or nan. */
 		if (first) {
 			first = false;
-			nan = gawk_sqrtl(-1.0);
-			inf = -gawk_logl(0.0);
+			nan = gawk_sqrtl(-LDC(1.0));
+			inf = -gawk_logl(LDC(0.0));
 		}
 		v = ((val[1] == 'i' || val[1] == 'I') ? inf : nan);
 		if (val[0] == '-')
@@ -1225,7 +1224,7 @@ get_ieee_magic_val(const char *val)
 static AWKLDBL
 double_to_int(AWKLDBL d)
 {
-	if (d >= 0)
+	if (d >= LDC(0.0))
 		d = gawk_floorl(d);
 	else
 		d = gawk_ceill(d);
@@ -1244,7 +1243,7 @@ do_int(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("int: received non-numeric argument"));
 	(void) force_number(tmp);
-	d = LDBL(tmp);
+	d = LDBL_VAL(tmp);
 	DEREF(tmp);
 	return make_awkldbl(double_to_int(d));
 }
@@ -1261,8 +1260,8 @@ do_log(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("log: received non-numeric argument"));
 	(void) force_number(tmp);
-	arg = LDBL(tmp);
-	if (arg < 0.0)
+	arg = LDBL_VAL(tmp);
+	if (arg < LDC(0.0))
 		warning(_("log: received negative argument %Lg"), arg);
 	d = gawk_logl(arg);
 	DEREF(tmp);
@@ -1281,9 +1280,9 @@ do_sqrt(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("sqrt: received non-numeric argument"));
 	(void) force_number(tmp);
-	arg = LDBL(tmp);
+	arg = LDBL_VAL(tmp);
 	DEREF(tmp);
-	if (arg < 0.0)
+	if (arg < LDC(0.0))
 		warning(_("sqrt: called with negative argument %Lg"), arg);
 	return make_awkldbl(gawk_sqrtl(arg));
 }
@@ -1300,7 +1299,7 @@ do_exp(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("exp: received non-numeric argument"));
 	(void) force_number(tmp);
-	d = LDBL(tmp);
+	d = LDBL_VAL(tmp);
 	DEREF(tmp);
 	errno = 0;
 	res = gawk_expl(d);
@@ -1327,8 +1326,8 @@ do_atan2(int nargs)
 	}
 	(void) force_number(t1);
 	(void) force_number(t2);
-	d1 = LDBL(t1);
-	d2 = LDBL(t2);
+	d1 = LDBL_VAL(t1);
+	d2 = LDBL_VAL(t2);
 	DEREF(t1);
 	DEREF(t2);
 	return make_awkldbl(gawk_atan2l(d1, d2));
@@ -1347,7 +1346,7 @@ do_sin(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("sin: received non-numeric argument"));
 	(void) force_number(tmp);
-	d = gawk_sinl(LDBL(tmp));
+	d = gawk_sinl(LDBL_VAL(tmp));
 	DEREF(tmp);
 	return make_awkldbl(d);
 }
@@ -1364,7 +1363,7 @@ do_cos(int nargs)
 	if (do_lint && (tmp->flags & (NUMCUR|NUMBER)) == 0)
 		lintwarn(_("cos: received non-numeric argument"));
 	(void) force_number(tmp);
-	d = gawk_cosl(LDBL(tmp));
+	d = gawk_cosl(LDBL_VAL(tmp));
 	DEREF(tmp);
 	return make_awkldbl(d);
 }
@@ -1380,12 +1379,12 @@ do_strtonum(int nargs)
 	tmp = POP_SCALAR();
 	if ((tmp->flags & (NUMBER|NUMCUR)) != 0) {
 		(void) force_number(tmp);
-		d = LDBL(tmp);
+		d = LDBL_VAL(tmp);
 	} else if (get_numbase(tmp->stptr, use_lc_numeric) != 10)
 		d = nondec2awkldbl(tmp->stptr, tmp->stlen);
 	else {
 		(void) force_number(tmp);
-		d = LDBL(tmp);
+		d = LDBL_VAL(tmp);
 	}
 
 	DEREF(tmp);
@@ -1413,7 +1412,7 @@ format_awkldbl_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf 
 #	define CEND		cpbuf_end(outb)
 #	define CPBUF		cpbuf(outb)
 
-	tmpval = LDBL(arg);
+	tmpval = LDBL_VAL(arg);
 	spec->fill = space_string;
 	spec->chbuf = lchbuf;
 
@@ -1431,17 +1430,17 @@ format_awkldbl_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf 
 		 * ``The result of converting a zero value with a
 		 * precision of zero is no characters.''
 		 */
-		if (spec->have_prec && spec->prec == 0 && tmpval == (AWKLDBL) 0) {
+		if (spec->have_prec && spec->prec == 0 && tmpval == LDC(0.0)) {
 			pr_num_tail(cp, spec->prec, spec, outb);
 			return 0;
 		}
 
-		if (tmpval < 0) {
+		if (tmpval < LDC(0.0)) {
 			tmpval = -tmpval;
 			sgn = true;
 		} else {
-			if (tmpval == - (AWKLDBL) 0.0)	/* avoid printing -0 */
-				tmpval = (AWKLDBL) 0.0;
+			if (tmpval == - LDC(0.0))	/* avoid printing -0; XXX: does not really detect -0.0, +0.0 == -0.0 -- JH */
+				tmpval = LDC(0.0);
 			sgn = false;
 		}
 
@@ -1539,12 +1538,12 @@ format_awkldbl_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf 
 		 * prints a single 0.
 		 */
 	
-		if (! spec->alt && spec->have_prec && spec->prec == 0 && tmpval == 0) {
+		if (! spec->alt && spec->have_prec && spec->prec == 0 && tmpval == LDC(0.0)) {
 			pr_num_tail(cp, spec->prec, spec, outb);
 			return 0;
 		}
 
-		if (tmpval < 0) {
+		if (tmpval < LDC(0.0)) {
 			uval = (uintmax_t) (intmax_t) tmpval;
 			if ((AWKLDBL)(intmax_t) uval != double_to_int(tmpval))
 				goto out_of_range;
@@ -1561,8 +1560,8 @@ format_awkldbl_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf 
 out_of_range:
 		/* out of range - emergency use of %g format */
 		if (do_lint)
-			lintwarn(_("[s]printf: value %g is out of range for `%%%c' format"),
-					(double) tmpval, cs1);
+			lintwarn(_("[s]printf: value %Lg is out of range for `%%%c' format"),
+					tmpval, cs1);
 		cs1 = 'g';
 		goto fmt1;
 
@@ -1619,6 +1618,9 @@ fmt1:
 	}
 
 	return -1;
+#undef CP
+#undef CEND
+#undef CPBUF
 }
 
 #else
