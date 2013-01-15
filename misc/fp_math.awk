@@ -137,13 +137,17 @@ function fp_atan2(y, x,	\
 
 #
 #	Collect two terms in each iteration for the Taylor series:
-#		sin(x) = (x - x^3/3!) + (x^5/7! - x^9/9!) + ...
+#		sin(x) = (x - x^3/3!) + (x^5/5! - x^7/7!) + ...
 #
 
 function taylor_sin(x,	\
 		i, fact, xpow2, xpow_odd, sum, term, err)
 {
-	# XXX: this assumes x >= 0
+	# this assumes x >= 0
+	if (x < 0) {
+		print "taylor_sin: received x < 0 ! " > "/dev/stderr"
+		exit(1)
+	}
 
 	if (x == 0)
 		return x
@@ -208,7 +212,7 @@ function taylor_cos(x,	\
 
 #
 # For 0 <= x <= PI/4, using Taylor series approximation for sin(x):
-#	x - x^3/5! + x^5/7! - ...
+#	x - x^3/3! + x^5/5! - ...
 #
 # for PI/4 < x <= PI/2, use identity sin(x) = cos(PI/2 - x).
 #
@@ -277,11 +281,6 @@ function fp_cos(x,	\
 	}
 	cv *= sign
 	return cv
-}
-
-function fp_atan2(y, x)
-{
-	return euler_atan2(y, x)
 }
 
 function isinf(x)
