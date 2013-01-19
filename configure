@@ -633,6 +633,7 @@ GAWKLIBEXT
 LIBMPFR
 LIBREADLINE
 SOCKET_LIBS
+PRINTF_HAS_LF_FORMAT
 USE_LONG_DOUBLE
 LIBSIGSEGV_PREFIX
 LTLIBSIGSEGV
@@ -10302,9 +10303,7 @@ fi
 fi
 { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gawk_cv_has_L_format" >&5
 $as_echo "$gawk_cv_has_L_format" >&6; }
-      if test $gawk_cv_has_L_format = yes; then
-        gawk_has_long_double=yes
-      fi
+       gawk_has_long_double=yes
     fi
   fi
 
@@ -10312,6 +10311,11 @@ $as_echo "$gawk_cv_has_L_format" >&6; }
 
 $as_echo "#define USE_LONG_DOUBLE 1" >>confdefs.h
 
+    if test $gawk_cv_has_L_format = yes; then
+
+$as_echo "#define PRINTF_HAS_LF_FORMAT 1" >>confdefs.h
+
+    fi
 
     ac_fn_c_check_func "$LINENO" "strtold" "ac_cv_func_strtold"
 if test "x$ac_cv_func_strtold" = xyes; then :
@@ -10825,6 +10829,7 @@ $as_echo "#define HAVE_SQRTL 1" >>confdefs.h
 
     fi
   fi
+
 
 
 

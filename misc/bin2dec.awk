@@ -1,8 +1,8 @@
-#	bcd.awk --- Calculate the magic numbers in: 
+#	bin2dec.awk --- Calculate the magic numbers in: 
 #		Binary to Decimal Conversion in Limited Precision - Douglas B. Jones
 # 		URL: homepage.cs.uiowa.edu/~jones/bcd/decimal.html
 #
-#	Usage: ./gawk -M -f bin2dec.awk
+#	Usage: ./gawk -M -f misc/bin2dec.awk
 #
 
 BEGIN {
@@ -22,7 +22,7 @@ BEGIN {
 #	128-bit integers
 	CHUNK_SIZE = 32
 	CHUNK3_SIZE = 17        # the useful size of the first (MSB) chunk <= CHUNK_SIZE
-	                        # 17 + 32 + 32 + 32 = 113, precision of 128-bit double
+	                        # 17 + 32 + 32 + 32 = 113, precision of real 128-bit double
 	DEC_BASE = 10000000	# 7 decimal digits per chunk, 35 total
 
 ######################################################

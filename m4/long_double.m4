@@ -49,15 +49,17 @@ AC_DEFUN([GAWK_USE_LONG_DOUBLE],
          [gawk_cv_has_L_format=yes],
 	 [gawk_cv_has_L_format=no])
        ])
-      if test $gawk_cv_has_L_format = yes; then
-        gawk_has_long_double=yes
-      fi
+       gawk_has_long_double=yes
     fi
   fi
 
   if test $gawk_has_long_double = yes; then
     AC_DEFINE([USE_LONG_DOUBLE], [1],
            [Define to 1 if can use 'long double'.])
+    if test $gawk_cv_has_L_format = yes; then
+      AC_DEFINE([PRINTF_HAS_LF_FORMAT], [1],
+           [Define to 1 if printf supports %Lf format.])
+    fi
 
     AC_CHECK_FUNC(strtold)
     if test $ac_cv_func_strtold = yes; then
@@ -107,4 +109,5 @@ AC_DEFUN([GAWK_USE_LONG_DOUBLE],
   fi
 
   AC_SUBST(USE_LONG_DOUBLE)
+  AC_SUBST(PRINTF_HAS_LF_FORMAT)
 ])

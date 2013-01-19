@@ -12,5 +12,6 @@ for long doubles, these can't even get 64 bit integers!
 
 * Don't use adjust_uint(uintmax_t n) from floatcomp.c, it is for AWKNUM. What is the point
 of floor() and ceil() wrappers? Don't have a clue.
-
-
+	-- DONE. Not sure if it is necessary for any long double and uintmax_t
+	combination found in the wild. Looks like ceil() and floor() wrappers
+	are for VMS; one probably should update comments in floatcomp.c.

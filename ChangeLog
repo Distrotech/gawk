@@ -1,3 +1,22 @@
+2013-01-19         John Haque      <j.eh@mchsi.com>
+
+	For C long double and without "%Lf" in printf, provide "%.0Lf" to
+	format 64-bit wide (and wider with a 128-bit long double) integers
+	correctly; "%Lf" format support in printf is now optional. 
+
+	* awk.h (gawk_int_t, gawk_uint_t): New types.
+	* long_double.c: Restructured. Swap code with long_double.h. 
+	* long_double.h: Move all header includes and defines to long_double.c;
+	It is a template to be included in a *.c file.
+	(gawk_floorl_finite_p, format_uint_finite_p,
+	format_float_1, init_pow2d_table): New routines.
+	(double_to_int): Provide replacement routine definition.  
+
+	Unrelated:
+
+	* long_double.h (make_integer): Remove call to adjust_uint().
+	Install similar code suitable for a long double.
+
 2013-01-12         John Haque      <j.eh@mchsi.com>
 
 	* format.c: New file.
