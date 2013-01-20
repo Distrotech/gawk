@@ -220,3 +220,15 @@ awkldbl_init(bltin_t **bltins)
 	return false;
 }
 #endif
+
+
+numbr_handler_t *
+get_ldbl_handler(char *arg)
+{
+#if defined(LDBLTEST) && LDBLTEST == 1
+	extern numbr_handler_t float128_hndlr;
+	if (arg != NULL && arg[0] == '1')
+		return & float128_hndlr;
+#endif
+	return  & awkldbl_hndlr;
+}

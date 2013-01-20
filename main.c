@@ -62,6 +62,8 @@ static void print_numbr_hndlr_versions(void);
 extern int debug_prog(INSTRUCTION *pc); /* debug.c */
 extern int init_debug(void);	/* debug.c */
 extern void init_parser(const bltin_t *);	/* awkgram.c */
+extern numbr_handler_t *get_ldbl_handler(char *arg);
+
 
 /* These nodes store all the special variables AWK uses */
 NODE *ARGC_node, *ARGIND_node, *ARGV_node, *BINMODE_node, *CONVFMT_node;
@@ -204,7 +206,7 @@ main(int argc, char **argv)
 	/*
 	 * The + on the front tells GNU getopt not to rearrange argv.
 	 */
-	const char *optlist = "+F:f:v:W;m:bcCd::D::e:E:gh:i:l:L:nNo::Op::BMPrStVY";
+	const char *optlist = "+F:f:v:W;m:bcCd::D::e:E:gh:i:l:L:nNo::Op::B::MPrStVY";
 	bool stopped_early = false;
 	int old_optind;
 	int i;
@@ -368,7 +370,7 @@ main(int argc, char **argv)
 			break;
 
 		case 'B':
-			numbr_hndlr = & awkldbl_hndlr;
+			numbr_hndlr = get_ldbl_handler(optarg);
 			break;
 			
 		case 'c':

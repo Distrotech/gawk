@@ -861,8 +861,6 @@ typedef struct exp_instruction {
 /* Op_store_var */
 #define initval         x.xn
 
-
-#if ! (defined(TEST_NUMBR) && TEST_NUMBR == 1)
 #if SIZEOF_UNSIGNED_LONG == 8
 typedef long gawk_int_t;
 typedef unsigned long gawk_uint_t;
@@ -887,15 +885,6 @@ typedef unsigned int gawk_uint_t;
 #define	GAWK_UINT_MAX	UINT_MAX
 #endif
 #endif
-#else /* TEST_NUMBR */
-/* XXX: think twice before using these for any other purpose. */
-typedef long long gawk_int_t;
-typedef unsigned long long gawk_uint_t;
-#define SIZEOF_GAWK_INT	8
-#define	GAWK_INT_MAX	LLONG_MAX
-#define	GAWK_INT_MIN	LLONG_MIN
-#define	GAWK_UINT_MAX	ULLONG_MAX
-#endif /* TEST_NUMBR */
 
 
 typedef struct {

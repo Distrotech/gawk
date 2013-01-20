@@ -115,7 +115,7 @@ am__objects_1 = array.$(OBJEXT) awkgram.$(OBJEXT) builtin.$(OBJEXT) \
 	random.$(OBJEXT) re.$(OBJEXT) regex.$(OBJEXT) \
 	replace.$(OBJEXT) str_array.$(OBJEXT) symbol.$(OBJEXT) \
 	version.$(OBJEXT)
-am_gawk_OBJECTS = $(am__objects_1)
+am_gawk_OBJECTS = $(am__objects_1) float128.$(OBJEXT)
 gawk_OBJECTS = $(am_gawk_OBJECTS)
 gawk_LDADD = $(LDADD)
 am__DEPENDENCIES_1 =
@@ -465,7 +465,7 @@ base_sources = \
 	version.c \
 	xalloc.h
 
-gawk_SOURCES = $(base_sources)
+gawk_SOURCES = $(base_sources) float128.c
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
 LDADD = $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
@@ -598,6 +598,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ext.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/field.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/float128.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/floatcomp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/format.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gawkapi.Po@am__quote@

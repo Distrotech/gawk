@@ -132,7 +132,7 @@ base_sources = \
 	version.c \
 	xalloc.h
 
-gawk_SOURCES = $(base_sources)
+gawk_SOURCES = $(base_sources) float128.c
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
 LDADD = $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
