@@ -50,7 +50,7 @@ gawk_logl(AWKLDBL x)
 static AWKLDBL
 gawk_expl(AWKLDBL x)
 {
-#ifdef HAVE_LOGL
+#ifdef HAVE_EXPL
 	return expl( (long double) x);
 #else
 	return exp( (double) x);

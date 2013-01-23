@@ -1,3 +1,9 @@
+2013-01-23         John Haque      <j.eh@mchsi.com>
+
+	* long_double.c (format_uint_1): New inline routines to format integers.
+	* long_double.h (format_float_1): Remove integer formatting code.
+	(format_awkldbl_printf): Use format_uint_1() to format integers.
+	
 2013-01-19         John Haque      <j.eh@mchsi.com>
 
 	For C long double and without "%Lf" in printf, provide "%.0Lf" to

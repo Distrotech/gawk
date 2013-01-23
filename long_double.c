@@ -181,9 +181,40 @@ gawk_sqrtl(AWKLDBL x)
 #endif	/* PRINTF_HAS_LF_FORMAT */
 
 #if ! defined(PRINTF_HAS_LF_FORMAT)
-static int format_float_1(char *str, size_t size, const char *format, ...);
+static int format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x);
+static int format_uint_finite_p(char *str, size_t size, AWKLDBL x);
+
+/*
+ * format_uint_finite_p --- format a long double as an unsigned integer. The double value
+ *	must be finite and >= 0.
+ */
+
+static inline int
+format_uint_1(char *str, size_t size, AWKLDBL x)
+{
+	int ret;
+	if ((ret = format_uint_finite_p(str, size, x)) < 0)
+		return snprintf(str, size, "%.0f", (double) x);
+	return ret;
+}
 #else
-#define format_float_1	snprintf
+
+/*
+ * format_float_1 --- format a single AWKLDBL value according to FORMAT.
+ *	The value must be finite.	
+ */
+
+static inline int
+format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
+{
+	return snprintf(str, size, format, fw, prec, x);
+}
+
+static inline int
+format_uint_1(char *str, size_t size, AWKLDBL x)
+{
+	return snprintf(str, size, "%.0Lf", x);
+}
 #endif
 
 #if ! (defined(HAVE_FLOORL) && defined(HAVE_CEILL))

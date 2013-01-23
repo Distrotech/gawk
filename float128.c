@@ -34,28 +34,42 @@
 
 /* end of Macros from quadmath.h */
 
+
 #define LDBL_FRAC_BITS	FLT128_MANT_DIG
+#define	LDBL_INT_BITS	128
 
 #define AWKLDBL	__float128
 #define LDBL_VAL(n)	(*((AWKLDBL *) (n)->qnumbr))
 #define LDC(x)		x##Q
 
-#define	LDBL_INT_BITS	128
-
 #define get_long_double(d)	emalloc(d, void *, sizeof(AWKLDBL), "float128")
 #define free_long_double(d)	efree(d)
 
-static int format_float_1(char *str, size_t size, const char *format, ...);
+static int format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x);
+static int format_uint_finite_p(char *str, size_t size, AWKLDBL x);
+
+/*
+ * format_uint_1 --- format a AWKLDBL as an unsigned integer. The double value
+ *	must be finite and >= 0.
+ */
+
+static inline int
+format_uint_1(char *str, size_t size, AWKLDBL x)
+{
+	int ret;
+	if ((ret = format_uint_finite_p(str, size, x)) < 0)
+		return snprintf(str, size, "%.0f", (double) x);
+	return ret;
+}
+
 static AWKLDBL double_to_int(AWKLDBL);
+
+/* if have __float128, also have strtold. No ? */
 
 static inline AWKLDBL
 gawk_strtold(const char *str, char **endptr)
 {
-#ifdef HAVE_STRTOLD
 	return strtold(str, endptr);
-#else
-	return strtod(str, endptr);
-#endif
 }
 
 /* Define isnan() and isinf() before including the two files */
@@ -73,8 +87,10 @@ static inline int isinf_awkldbl(AWKLDBL x) { return isnan(x - x); }
 #define isinf isinf_awkldbl
 
 #define GAWK_INFINITY	HUGE_VALQ
-#define GAWK_NAN	(LDC(0.0Q) / LDC(0.0Q))
+#define GAWK_NAN	(LDC(0.0) / LDC(0.0))
 
+
+/* XXX: Don't want floorl() or ceill() */ 
 
 #ifdef HAVE_FLOORL
 #undef HAVE_FLOORL

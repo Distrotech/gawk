@@ -2,7 +2,9 @@
 
 #
 #	TODO:	* finish fmod().
-#		* replace all usages of %, and int() or any other math builtin; and() is ok!
+#		* replace all usages of %, and int() or any other math builtin; and() is ok!.
+#		  implement double_to_int() and remove floor/ceil.
+#		* fix sqrt(x) for x > DBL_MAX or x < -DBL_MIN.
 #
 
 
@@ -370,9 +372,17 @@ function __log2( \
 	return 2 * sum
 }
 
+function pow2(n, k)
+{
+	if (n <= 64)
+		return __POW2__[n]
+	for (k = 1; n > 64; n -= 64)
+		k *= __POW2__[64]
+	return k * __POW2__[n]
+}
 
 function fp_log(x,	\
-		k, i, y, ypow2, ypow_odd, sum, err, term, sqrt_2, sign)
+		k, i, y, ypow2, ypow_odd, sum, err, term, sign, high, low, mid)
 {
 	#
 	#	ln(x) = 2 * arctanh(y)
@@ -392,17 +402,33 @@ function fp_log(x,	\
 		return __LOG2__
 	k = 0
 	if (x > 2) {
-		# FIXME -- use power2 table
-		while (x > 2) {
-			x /= 2
-			k++
+		low = 0
+		high = LDBL_MAX_EXP - 1		# XXX: should be 4 * LDBL_MAX_EXP - 1 if FLT_RADIX = 16
+		while (low <= high) {
+			mid = int ((low + high) / 2)
+			y = x / pow2(mid)
+			if (y > 2)
+				low = mid + 1
+			else
+				high = mid - 1
 		}
+		x /= pow2(low)
+		k = low
+#		printf("x = %0.18e, k = %d\n", x / pow2(low), low)
+
 	} else if (x < 1) {
-		# FIXME -- use power2 table
-		while (x < 1) {
-			x *= 2
-			k--
+		low = 0
+		high = LDBL_MAX_EXP - 1		# could be -LDBL_MIN_EXP, but no harm in using LDBL_MAX_EXP
+		while (low <= high) {
+			mid = int ((low + high) / 2)
+			y =  x * pow2(mid)
+			if (y < 1)
+				low = mid + 1
+			else
+				high = mid - 1
 		}
+		x *= pow2(low)
+		k = -low
 	}
 
 	# arctanh(x) series has faster convergence when x is close to 1
@@ -724,7 +750,7 @@ function fixprec(str, numdigs, \
 	if (str ~ /^[-+]?(nan|inf)/)
 		return str
 	if (! numdigs)
-		numdigs = __DIGITS__
+		numdigs = LDBL_DIG
 	if (str ~ /^[-+]?0[\.]/)
 		return str
 	sign = ""
@@ -760,9 +786,24 @@ function fixprec(str, numdigs, \
 BEGIN {
 	# define some constants
 
-	# reltive error < 5 X 10^-k for rounding to k significant digits
-	__DIGITS__ = 34
-	__REL_ERROR__ = 5.0e-34
+	LDBL_DIG = 33
+	# relative error < 5 X 10^-k for rounding to k significant digits
+	__REL_ERROR__ = 5.0e-35
+	LDBL_MAX_EXP = 16384
+	LDBL_MANT_DIG = 113
+
+	# We can read hex/octal numbers without using strtod/strtodl
+	if (0x10000000000000000 == 0x10000000000000001) {
+		# x86 long double
+		LDBL_MANT_DIG = 64
+		LDBL_DIG = 18
+		__REL_ERROR__ = 5.0e-20
+	} else if (0x400000000000000000000000000 == 0x400000000000000000000000001) {
+		# double-double
+		LDBL_MANT_DIG = 106
+		LDBL_DIG = 31
+		LDBL_MAX_EXP = 309
+	}
 
 	__PLUS_INF__ = "+inf" + 0
 	__MINUS_INF__ = "-inf" + 0
@@ -774,15 +815,7 @@ BEGIN {
 	__LOG2__ = __log2()	# cannot use fp_log()
 	__PI_OVER_4__ = 4 * euler_atan_one_over(5) - euler_atan_one_over(239)
 
-
-##if LDBL_MANT_DIG == 64
-#       80 bit long double .. 18 or 34 digits?
-#	use 2^64 power 2 table
-##elif LDBL_MANT_DIG == 113
-#       128 bit long double .. 34 digits
-#	use 2^112 power 2 table
-##endif
-
+	# pre-calculate 2^0 - 2^64
 	__POW2__[0] = 1
 	for (i = 1; i <= 64; i++)
 		__POW2__[i] = __POW2__[i - 1] * 2

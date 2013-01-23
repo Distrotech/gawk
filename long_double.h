@@ -1202,8 +1202,8 @@ get_ieee_magic_val(const char *val)
 	if (val == ptr) { /* Older strtod implementations don't support inf or nan. */
 		if (first) {
 			first = false;
-			nan = gawk_sqrtl(-LDC(1.0));
-			inf = -gawk_logl(LDC(0.0));
+			nan = gawk_sqrtl(-LDC(1.0));	/* FIXME -- this isn't right */
+			inf = -gawk_logl(LDC(0.0));	/* Ditto */
 		}
 		v = ((val[1] == 'i' || val[1] == 'I') ? inf : nan);
 		if (val[0] == '-')
@@ -1429,7 +1429,7 @@ format_awkldbl_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf 
 		 * Use snprintf return value to tell if there
 		 * is enough room in the buffer or not.
 		 */
-		while ((i = format_float_1(intbuf, intbuf_size, "%.0Lf", tmpval)) >= intbuf_size) {
+		while ((i = format_uint_1(intbuf, intbuf_size, tmpval)) >= intbuf_size) {
 			if (intbuf == stackbuf)
 				intbuf = NULL;
 			intbuf_size = i + 1;
@@ -1725,8 +1725,8 @@ double_to_int(AWKLDBL x)
 #if ! defined(PRINTF_HAS_LF_FORMAT)
 
 /*
- * format_uint_finite_p --- format a double as an unsigned integer. The double value
- *	must be finite and >= 0.
+ * format_uint_finite_p --- format a AWKLDBL as an unsigned integer. The AWKLDBL value
+ *	must be finite and in the range 0 <= x < 2^LDBL_FRAC_BITS.
  */
 
 static int
@@ -1772,12 +1772,9 @@ format_uint_finite_p(char *str, size_t size, AWKLDBL x)
 	gawk_uint_t d0, d1, d2, d3, d4, q;
 	gawk_uint_t chunk[4];
 
-	assert(!!isnan(x) == 0);
-	assert(!!isinf(x) == 0);
 	assert(x >= LDC(0.0));
 
-	if (size <= 35)		/* maximum size ever needed excluding terminating null */
-		return 35;
+	assert(size > 35);	/* maximum size ever needed excluding terminating null */
 
 	if (gawk_floorl_finite_p(x, chunk) < LDC(0.0))	/* outside range */
 		return -1;
@@ -1814,46 +1811,24 @@ format_uint_finite_p(char *str, size_t size, AWKLDBL x)
 }
 
 /*
- * format_float_1 --- format a single double value according to FORMAT.
- *	The value must be finite and >= 0.	
+ * format_float_1 --- format a single AWKLDBL value according to FORMAT.
+ *	The value must be finite.	
  */
 
 static int
-format_float_1(char *str, size_t size, const char *format, ...)
+format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
 {
-        va_list argp;
 	char alt_format[16];
 	size_t len;
-	int ret = -1;
-	AWKLDBL x;
-
-        va_start(argp, format);
 
 	len = strlen(format);
 
 	/* expect %Lf, %LF, %Le, %LE, %Lg or %LG */
 	assert(len >= 2 && format[len - 2] == 'L');
-	
+
 	memcpy(alt_format, format, len - 2);
 	alt_format[len - 2] = format[len - 1];	/* skip the `L' */ 
 	alt_format[len - 1] = '\0';
-
-	if (strcmp(format, "%.0Lf") == 0) {
-		/* format as integer */
-		x = va_arg(argp, AWKLDBL);
-		va_end(argp);
-		if ((ret = format_uint_finite_p(str, size, x)) < 0)
-			ret = snprintf(str, size, alt_format, (double) x);
-	} else {
-		int fw, prec;
-
-		fw = va_arg(argp, int);
-		prec = va_arg(argp, int);
-		x = va_arg(argp, AWKLDBL);
-		ret = snprintf(str, size, alt_format, fw, prec, (double) x);
-	}
-
-	va_end(argp);
-	return ret;
+	return snprintf(str, size, alt_format, fw, prec, (double) x);
 }
 #endif
