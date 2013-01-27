@@ -1,3 +1,10 @@
+2013-01-27         John Haque      <j.eh@mchsi.com>
+
+	* long_double.c (GAWK_FORMAT_INT): New define.
+	(format_float_1, format_uint_1, double_to_int): Move definitions here
+	from long_double.h.
+	* long_double.h	(format_float_1, format_uint_1, double_to_int): Adjust.
+
 2013-01-23         John Haque      <j.eh@mchsi.com>
 
 	* long_double.c (format_uint_1): New inline routines to format integers.

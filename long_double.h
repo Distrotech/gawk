@@ -30,11 +30,15 @@
  */
 
 
-static AWKLDBL *pow2d_table;	/* 2^n table for 0 <= n <= LDBL_INT_BITS */
-static AWKLDBL init_pow2d_table(unsigned int);
+static AWKLDBL *pow2d_table;	/* 2^n table for 0 <= n <= 128 */
+static void init_pow2d_table(void);
+static AWKLDBL pow2ld__p(int n);
 
-#define POW2LD(n)	(pow2d_table != NULL ? pow2d_table[n] : init_pow2d_table(n))
-
+static inline AWKLDBL
+pow2ld(unsigned int n)
+{
+	return n <= 128 ? pow2d_table[n] : pow2ld__p(n);
+}
 
 /* Can declare these, since we always use the random shipped with gawk */
 extern char *initstate(unsigned long seed, char *state, long n);
@@ -176,6 +180,8 @@ awkldbl_init(bltin_t **numbr_bltins)
 	true_node = make_awkldbl(LDC(1.0));
 	false_node->flags |= NUMINT;
 	true_node->flags |= NUMINT;
+
+	init_pow2d_table();	/* FIXME -- initialize only if needed ? */
 
 	*numbr_bltins = awkldbl_bltins;
 	return true;
@@ -1609,19 +1615,28 @@ fmt1:
 
 /* init_pow2d_table --- populate powers of 2 table */
 
-static AWKLDBL
-init_pow2d_table(unsigned int n)
+static void
+init_pow2d_table()
 {
 	unsigned i;
 	emalloc(pow2d_table, AWKLDBL *, 129 * sizeof (AWKLDBL), "init_pow2d_table");
 	pow2d_table[0] = LDC(1.0);
 	for (i = 1; i <= 128; i++)
 		pow2d_table[i] = pow2d_table[i - 1] * LDC(2.0);
-	return pow2d_table[n];
 }
 
+/* pow2ld__p --- return 2^n for some integer n >= 0 */
 
-#if ! (defined(HAVE_FLOORL) && defined(HAVE_CEILL) && defined(PRINTF_HAS_LF_FORMAT))
+static inline AWKLDBL
+pow2ld__p(int n)
+{
+	AWKLDBL dval = LDC(1.0);
+        for (; n > 128; n -= 128)
+		dval *= pow2d_table[128];
+        return dval * pow2d_table[n];
+}
+
+#if defined(GAWK_FMT_INT)
 
 /*
  * gawk_floorl_finite_p --- provide floor() for long double. The double value
@@ -1636,9 +1651,9 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 	AWKLDBL intval = LDC(0.0);
 
 #if	LDBL_INT_BITS == 128
-	if (x >= POW2LD(113))
+	if (x >= pow2ld(113))
 #else
-	if (x >= POW2LD(64))
+	if (x >= pow2ld(64))
 #endif
 		return -LDC(1.0);
 
@@ -1651,15 +1666,15 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 		low = 0;
 		while (low <= high) {
 			mid = (low + high) / 2;
-			if (x < POW2LD(mid))
+			if (x < pow2ld(mid))
 				high = mid - 1;
 			else
 				low = mid + 1;
 		}
 
-		if (x < POW2LD(low)) {
-			x -= POW2LD(low - 1);
-			intval += POW2LD(low - 1);
+		if (x < pow2ld(low)) {
+			x -= pow2ld(low - 1);
+			intval += pow2ld(low - 1);
 
 			if (chunk != NULL) {
 				/*
@@ -1669,15 +1684,15 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 				 */
 
 #if	LDBL_INT_BITS == 128
-				if (low <= 32) chunk[0] += (gawk_uint_t) POW2LD(low - 1);
-				else if (low <= 64) chunk[1] += (gawk_uint_t) POW2LD(low - 33);
-				else if (low <= 96) chunk[2] += (gawk_uint_t) POW2LD(low - 65);
-				else chunk[3] += (gawk_uint_t) POW2LD(low - 97);
+				if (low <= 32) chunk[0] += (gawk_uint_t) pow2ld(low - 1);
+				else if (low <= 64) chunk[1] += (gawk_uint_t) pow2ld(low - 33);
+				else if (low <= 96) chunk[2] += (gawk_uint_t) pow2ld(low - 65);
+				else chunk[3] += (gawk_uint_t) pow2ld(low - 97);
 #else
-				if (low <= 16) chunk[0] += (gawk_uint_t) POW2LD(low - 1);
-				else if (low <= 32) chunk[1] += (gawk_uint_t) POW2LD(low - 17);
-				else if (low <= 48) chunk[2] += (gawk_uint_t) POW2LD(low - 33);
-				else chunk[3] += (gawk_uint_t) POW2LD(low - 49);
+				if (low <= 16) chunk[0] += (gawk_uint_t) pow2ld(low - 1);
+				else if (low <= 32) chunk[1] += (gawk_uint_t) pow2ld(low - 17);
+				else if (low <= 48) chunk[2] += (gawk_uint_t) pow2ld(low - 33);
+				else chunk[3] += (gawk_uint_t) pow2ld(low - 49);
 #endif
 			}
 		}
@@ -1693,36 +1708,6 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 	}
 	return intval;	/* >= 0.0 */
 }
-#endif
-
-
-#if ! (defined(HAVE_FLOORL) && defined(HAVE_CEILL))
-
-/* double_to_int --- convert double to int, used in several places */
-
-static AWKLDBL
-double_to_int(AWKLDBL x)
-{
-	AWKLDBL intval;
-	int sign = 1;
-
-	if (isnan(x) || isinf(x) || x == LDC(0.0))
-		return x;
-
-	if (x < LDC(0.0)) {
-		sign = -1;
-		x = -x;
-	}
-
-	if ((intval = gawk_floorl_finite_p(x, NULL)) < LDC(0.0))
-		intval = (AWKLDBL) Floor((double) x);	/* outside range, use floor() for C double */
-	return intval * ((AWKLDBL) sign);
-}
-
-#endif
-
-
-#if ! defined(PRINTF_HAS_LF_FORMAT)
 
 /*
  * format_uint_finite_p --- format a AWKLDBL as an unsigned integer. The AWKLDBL value
@@ -1810,25 +1795,4 @@ format_uint_finite_p(char *str, size_t size, AWKLDBL x)
 	return len;
 }
 
-/*
- * format_float_1 --- format a single AWKLDBL value according to FORMAT.
- *	The value must be finite.	
- */
-
-static int
-format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
-{
-	char alt_format[16];
-	size_t len;
-
-	len = strlen(format);
-
-	/* expect %Lf, %LF, %Le, %LE, %Lg or %LG */
-	assert(len >= 2 && format[len - 2] == 'L');
-
-	memcpy(alt_format, format, len - 2);
-	alt_format[len - 2] = format[len - 1];	/* skip the `L' */ 
-	alt_format[len - 1] = '\0';
-	return snprintf(str, size, alt_format, fw, prec, (double) x);
-}
 #endif

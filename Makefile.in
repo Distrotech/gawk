@@ -115,12 +115,12 @@ am__objects_1 = array.$(OBJEXT) awkgram.$(OBJEXT) builtin.$(OBJEXT) \
 	random.$(OBJEXT) re.$(OBJEXT) regex.$(OBJEXT) \
 	replace.$(OBJEXT) str_array.$(OBJEXT) symbol.$(OBJEXT) \
 	version.$(OBJEXT)
-am_gawk_OBJECTS = $(am__objects_1) float128.$(OBJEXT)
+am_gawk_OBJECTS = $(am__objects_1)
 gawk_OBJECTS = $(am_gawk_OBJECTS)
 gawk_LDADD = $(LDADD)
 am__DEPENDENCIES_1 =
-gawk_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_1)
+gawk_DEPENDENCIES = $(EXTRA_LIBS) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -403,7 +403,8 @@ distcleancheck_listfiles = \
 # The order to do things in.
 # Build explicitly in "." in order to build gawk first, so
 # that `make check' without a prior `make' works.
-SUBDIRS = \
+EXTRADIRS = misc
+BASEDIRS = \
 	. \
 	awklib \
 	doc \
@@ -411,6 +412,7 @@ SUBDIRS = \
 	extension \
 	test
 
+SUBDIRS = $(EXTRADIRS) $(BASEDIRS)
 include_HEADERS = gawkapi.h
 
 # sources for both gawk and dgawk
@@ -465,10 +467,11 @@ base_sources = \
 	version.c \
 	xalloc.h
 
-gawk_SOURCES = $(base_sources) float128.c
+gawk_SOURCES = $(base_sources)
+EXTRA_LIBS = misc/libmisc.a
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
-LDADD = $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
+LDADD = $(EXTRA_LIBS) $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
 
 # stuff for compiling gawk/pgawk
 DEFPATH = '".$(PATH_SEPARATOR)$(pkgdatadir)"'
@@ -598,7 +601,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eval.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ext.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/field.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/float128.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/floatcomp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/format.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/gawkapi.Po@am__quote@

@@ -4,7 +4,6 @@
 #	TODO:	* finish fmod().
 #		* replace all usages of %, and int() or any other math builtin; and() is ok!.
 #		  implement double_to_int() and remove floor/ceil.
-#		* fix sqrt(x) for x > DBL_MAX or x < -DBL_MIN.
 #
 
 
@@ -337,19 +336,37 @@ function fp_sqrt(x,	\
 	if (x == 0)
 		return x	# return +0 or -0
 
-	yn = sqrt(x) 	# double-precision sqrt
+	if (x >= DBL_MIN && x <= DBL_MAX)
+		yn = sqrt(x) 	# double-precision sqrt
+	else {
+		frac = frexpl(x, e);	# in [1, 2)
+		exponent = e[0]
+		if (and(exponent, 1) != 0) {
+			frac /= 2
+			exponent++
+		}
+		yn = sqrt(frac)
+		exponent /= 2
+		if (exponent >= 0)
+			yn *= pow2(exponent)
+		else
+			yn /= pow2(-exponent)
+	}
+
 	do {
 		last = yn
 		yn = (yn + x / yn) \
 				/ 2
 		err = (yn - last) / yn
+		if (err < 0)
+			err = -err
 	} while (err > __REL_ERROR__)
 	return yn
 }
 
-# __log2 -- compute log(2)
+# klog2 -- compute k * log2 without loss of precision 
 
-function __log2( \
+function klog2(k, \
 		i, three_pow, sum, err, term)
 {
 	#
@@ -360,17 +377,17 @@ function __log2( \
 	# y = (x - 1) / (x + 1) => y = 1 / 3
 	i = 1
 	three_pow = 3
-	sum = 1 / 3
-
+	sum = (2 * k) / 3
 	do {
 		three_pow *= 9
 		i += 2
-		term = 1 / (three_pow * i)
+		term = (2 * k) / (three_pow * i)
 		sum += term
 		err = term / sum
 	} while (err > __REL_ERROR__)
-	return 2 * sum
+	return sum
 }
+
 
 function pow2(n, k)
 {
@@ -381,8 +398,65 @@ function pow2(n, k)
 	return k * __POW2__[n]
 }
 
+
+# the returned fraction is normalized in [1, 2) and NOT [0.5, 1)  
+# exponent is in e[0]
+
+function frexpl(x, e, \
+		y, low, high, mid)
+{
+	# XXX -- (isnormal(x) && x > 0) is assumed to be true
+
+	low = 0
+	if (x > 2) {
+		high = LDBL_MAX_EXP - 1		# XXX: should be 4 * LDBL_MAX_EXP - 1 if FLT_RADIX = 16
+		while (low <= high) {
+			mid = int ((low + high) / 2)
+			y = x / pow2(mid)
+			if (y > 2)
+				low = mid + 1
+			else
+				high = mid - 1
+		}
+		x /= pow2(low)
+		e[0] = low
+	} else if (x < 1) {
+		high = LDBL_MAX_EXP - 1		# could be -LDBL_MIN_EXP, but no harm in using LDBL_MAX_EXP
+		while (low <= high) {
+			mid = int ((low + high) / 2)
+			y =  x * pow2(mid)
+			if (y < 1)
+				low = mid + 1
+			else
+				high = mid - 1
+		}
+		x *= pow2(low)
+		e[0] = -low
+	} else
+		e[0] = 0
+
+	if (x == 2) {
+		x = 1
+		e[0]++
+	}
+	return x	# x in [1, 2)
+}
+
+
+#
+# $ ./gawk 'BEGIN { printf("%.18e\n", log(7.12111e900))}'
+# inf
+# $ ./gawk -B 'BEGIN { printf("%.18e\n", log(7.12111e900))}'           # with logl(), without it inf
+# 2.074289647306790437e+03
+# $ ./gawk -B -f misc/fp_math.awk -e 'BEGIN { printf("%.18e\n", fp_log(7.12111e900))}'
+# 2.074289647306790437e+03
+# $ ./gawk -M -vPREC=quad 'BEGIN { printf("%.18e\n", log(7.12111e900))}'
+# 2.074289647306790438e+03
+#
+
+
 function fp_log(x,	\
-		k, i, y, ypow2, ypow_odd, sum, err, term, sign, high, low, mid)
+		e, exponent, i, ypow2, ypow_odd, sum, err, term, sign)
 {
 	#
 	#	ln(x) = 2 * arctanh(y)
@@ -400,45 +474,21 @@ function fp_log(x,	\
 		return 0
 	if (x == 2)	# special case
 		return __LOG2__
-	k = 0
-	if (x > 2) {
-		low = 0
-		high = LDBL_MAX_EXP - 1		# XXX: should be 4 * LDBL_MAX_EXP - 1 if FLT_RADIX = 16
-		while (low <= high) {
-			mid = int ((low + high) / 2)
-			y = x / pow2(mid)
-			if (y > 2)
-				low = mid + 1
-			else
-				high = mid - 1
-		}
-		x /= pow2(low)
-		k = low
-#		printf("x = %0.18e, k = %d\n", x / pow2(low), low)
 
-	} else if (x < 1) {
-		low = 0
-		high = LDBL_MAX_EXP - 1		# could be -LDBL_MIN_EXP, but no harm in using LDBL_MAX_EXP
-		while (low <= high) {
-			mid = int ((low + high) / 2)
-			y =  x * pow2(mid)
-			if (y < 1)
-				low = mid + 1
-			else
-				high = mid - 1
-		}
-		x *= pow2(low)
-		k = -low
-	}
+	x = frexpl(x, e)
+	exponent = e[0]
 
 	# arctanh(x) series has faster convergence when x is close to 1
 	# range reduction -- 1/sqrt(2) <= x <= sqrt(2)
 	if (x > __SQRT_2__ || x < __1_OVER_SQRT_2__) {
 		x *= __1_OVER_SQRT_2__
-		k += 0.5
+		exponent += 0.5
 	}
 
 	y = (x - 1) / (x + 1)
+	if (y == 0)	# tricky special case 
+		return exponent * __LOG2__;
+
 	sign = 1
 	if (y < 0) {
 		sign = -1
@@ -458,7 +508,7 @@ function fp_log(x,	\
 		err = term / sum
 	} while (err > __REL_ERROR__)
 
-	return sign * (sum = 2 * sum + k * __LOG2__)
+	return sign * (sum = 2 * sum + exponent * __LOG2__)
 }
 
 
@@ -470,6 +520,8 @@ function taylor_exp(x,	\
 	# sinh(x) = sqrt(cosh(x) * cosh(x) - 1)
 	# exp(x) = cosh(x) + sinh(x)
 
+	if (x == 0)
+		return 1;
 	xpow2 = x * x
 	xpow_even = 1
 	i = 0
@@ -485,12 +537,15 @@ function taylor_exp(x,	\
 		err  = term / cosh
 	} while (err > __REL_ERROR__)
 
-	sinh = fp_sqrt(cosh * cosh - 1)	# sqrt is cheap
+#	sinh = fp_sqrt(cosh * cosh - 1)	# sqrt is cheap
+	z = cosh - 1.0
+	sinh = z * fp_sqrt(1 + 2 / z)	
 	return (sinh + cosh)
 }
 
+
 function fp_exp(x,	\
-		exp_val, k, sign)
+		y, exp_val, k, sign)
 {
 	x = +x
 	if (isnan(x) || x == __PLUS_INF__)
@@ -505,19 +560,18 @@ function fp_exp(x,	\
 		sign = -1
 		x = -x
 	}
+
 	k = fp_floor(x / __LOG2__)
 
 	# range reduction -- 0 < x < log(2) (0.693...)
 	if (k == 0)
 		exp_val = taylor_exp(x)
 	else {
-		exp_val = taylor_exp(x - k * __LOG2__)
-		while (k >= 64) {
-			exp_val *= __POW2__[64]
-			k -= 64
-		}
-		exp_val *= __POW2__[k]
+		y = x - klog2(k)
+		exp_val = taylor_exp(y)
+		exp_val *= pow2(k)
 	}
+
 	return sign < 0 ? (1 / exp_val) : exp_val
 }
 
@@ -791,6 +845,8 @@ BEGIN {
 	__REL_ERROR__ = 5.0e-35
 	LDBL_MAX_EXP = 16384
 	LDBL_MANT_DIG = 113
+	DBL_MAX = 1.7976931348623157e+308
+	DBL_MIN = 2.2250738585072014E-308
 
 	# We can read hex/octal numbers without using strtod/strtodl
 	if (0x10000000000000000 == 0x10000000000000001) {
@@ -812,7 +868,7 @@ BEGIN {
 
 	__SQRT_2__ = fp_sqrt(2)
 	__1_OVER_SQRT_2__ = 1 / __SQRT_2__
-	__LOG2__ = __log2()	# cannot use fp_log()
+	__LOG2__ = klog2(1)	# cannot use fp_log()
 	__PI_OVER_4__ = 4 * euler_atan_one_over(5) - euler_atan_one_over(239)
 
 	# pre-calculate 2^0 - 2^64

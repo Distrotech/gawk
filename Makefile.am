@@ -68,13 +68,18 @@ distcleancheck_listfiles = \
 # The order to do things in.
 # Build explicitly in "." in order to build gawk first, so
 # that `make check' without a prior `make' works.
-SUBDIRS = \
+
+EXTRADIRS = misc
+
+BASEDIRS = \
 	. \
 	awklib \
 	doc \
 	po \
 	extension \
 	test
+
+SUBDIRS = $(EXTRADIRS) $(BASEDIRS)
 
 # what to make and install
 bin_PROGRAMS = gawk
@@ -132,10 +137,12 @@ base_sources = \
 	version.c \
 	xalloc.h
 
-gawk_SOURCES = $(base_sources) float128.c
+gawk_SOURCES = $(base_sources)
+
+EXTRA_LIBS = misc/libmisc.a
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
-LDADD = $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
+LDADD = $(EXTRA_LIBS) $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
 
 # Directory for gawk's data files. Automake supplies datadir.
 pkgdatadir = $(datadir)/awk

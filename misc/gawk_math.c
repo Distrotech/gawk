@@ -1,5 +1,5 @@
 /*
- * gawk_math.h - replacement AWKLDBL math functions.
+ * gawk_math.c - routines for replacement AWKLDBL math functions.
  */
 
 /* 
@@ -23,12 +23,50 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
-static AWKLDBL gawk_sinl(AWKLDBL x);
-static AWKLDBL gawk_cosl(AWKLDBL x);
-static AWKLDBL gawk_atan2l(AWKLDBL y, AWKLDBL x);
-static AWKLDBL gawk_logl(AWKLDBL x);
-static AWKLDBL gawk_expl(AWKLDBL x);
-static AWKLDBL gawk_fmodl(AWKLDBL x, AWKLDBL y);
-static AWKLDBL gawk_powl(AWKLDBL x, AWKLDBL y);
-static AWKLDBL gawk_sqrtl(AWKLDBL x);
+static AWKLDBL
+gawk_sinl(AWKLDBL x)
+{
+	return sin( (double) x);
+}
 
+static AWKLDBL
+gawk_cosl(AWKLDBL x)
+{
+	return cos( (double) x);
+}
+
+static AWKLDBL
+gawk_atan2l(AWKLDBL y, AWKLDBL x)
+{
+	return atan2( (double) y, (double) x);
+}
+
+static AWKLDBL
+gawk_logl(AWKLDBL x)
+{
+	return log( (double) x);
+}
+
+static AWKLDBL
+gawk_expl(AWKLDBL x)
+{
+	return exp( (double) x);
+}
+
+static AWKLDBL
+gawk_fmodl(AWKLDBL x, AWKLDBL y)
+{
+	return fmod( (double) x, (double) y);
+}
+
+static AWKLDBL
+gawk_powl(AWKLDBL x, AWKLDBL y)
+{
+	return pow( (double) x, (double) y);
+}
+
+static AWKLDBL
+gawk_sqrtl(AWKLDBL x)
+{
+	return sqrt( (double) x);
+}

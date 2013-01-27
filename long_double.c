@@ -156,36 +156,53 @@ gawk_sqrtl(AWKLDBL x)
 #endif
 
 
+/* N.B: if floorl() or ceill() or "%Lf" is missing format integers ourself */
+
+#if ! (defined(HAVE_FLOORL) && defined(HAVE_CEILL) && defined(PRINTF_HAS_LF_FORMAT)) 
+#define GAWK_FMT_INT 1
+#endif
+
+
 #if ! defined(PRINTF_HAS_LF_FORMAT)
-#ifdef HAVE_FLOORL
-#undef HAVE_FLOORL
-#endif
-#ifdef HAVE_CEILL
-#undef HAVE_CEILL
-#endif
-#else	/* PRINTF_HAS_LF_FORMAT */
 
 /*
- * XXX: have "%Lf" but no floorl() and/or ceill(). ceill() (or ceil() for
- * double) isn't really needed.
+ * format_float_1 --- format a single AWKLDBL value according to FORMAT.
+ *	The value must be finite.	
  */
 
-#if ! (defined(HAVE_FLOORL) && defined(HAVE_CEILL))
-#ifdef HAVE_FLOORL
-#undef HAVE_FLOORL
-#endif
-#ifdef HAVE_CEILL
-#undef HAVE_CEILL
-#endif
-#endif	/* ! (HAVE_FLOORL && HAVE_CEILL) */ 
-#endif	/* PRINTF_HAS_LF_FORMAT */
+static int
+format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
+{
+	char alt_format[16];
+	size_t len;
 
-#if ! defined(PRINTF_HAS_LF_FORMAT)
-static int format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x);
+	len = strlen(format);
+
+	/* expect %Lf, %LF, %Le, %LE, %Lg or %LG */
+	assert(len >= 2 && format[len - 2] == 'L');
+
+	memcpy(alt_format, format, len - 2);
+	alt_format[len - 2] = format[len - 1];	/* skip the `L' */ 
+	alt_format[len - 1] = '\0';
+	return snprintf(str, size, alt_format, fw, prec, (double) x);
+}
+#else
+
+static inline int
+format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
+{
+	return snprintf(str, size, format, fw, prec, x);
+}
+#endif
+
+
+#if	defined(GAWK_FMT_INT)
+
 static int format_uint_finite_p(char *str, size_t size, AWKLDBL x);
+static AWKLDBL gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk);
 
 /*
- * format_uint_finite_p --- format a long double as an unsigned integer. The double value
+ * format_uint_1 --- format a long double as an unsigned integer. The double value
  *	must be finite and >= 0.
  */
 
@@ -193,33 +210,41 @@ static inline int
 format_uint_1(char *str, size_t size, AWKLDBL x)
 {
 	int ret;
-	if ((ret = format_uint_finite_p(str, size, x)) < 0)
+	if ((ret = format_uint_finite_p(str, size, x)) < 0) {
+		/* outside useful range */
 		return snprintf(str, size, "%.0f", (double) x);
+	}
 	return ret;
 }
-#else
 
-/*
- * format_float_1 --- format a single AWKLDBL value according to FORMAT.
- *	The value must be finite.	
- */
+/* double_to_int --- convert double to int, used in several places */
 
-static inline int
-format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
+static AWKLDBL
+double_to_int(AWKLDBL x)
 {
-	return snprintf(str, size, format, fw, prec, x);
+	AWKLDBL intval;
+	int sign = 1;
+
+	if (isnan(x) || isinf(x) || x == LDC(0.0))
+		return x;
+	if (x < LDC(0.0)) {
+		sign = -1;
+		x = -x;
+	}
+	if ((intval = gawk_floorl_finite_p(x, NULL)) < LDC(0.0)) {
+		/* outside range, use floor() for C double */
+		intval = (AWKLDBL) Floor((double) x);
+	}
+	return intval * ((AWKLDBL) sign);
 }
+
+#else
 
 static inline int
 format_uint_1(char *str, size_t size, AWKLDBL x)
 {
 	return snprintf(str, size, "%.0Lf", x);
 }
-#endif
-
-#if ! (defined(HAVE_FLOORL) && defined(HAVE_CEILL))
-static AWKLDBL double_to_int(AWKLDBL);
-#else
 
 /* double_to_int --- convert double to int, used in several places */
 
@@ -229,6 +254,7 @@ double_to_int(AWKLDBL x)
 	return (x >= LDC(0.0)) ? floorl(x) : ceill(x);
 }
 #endif
+
 
 #include "long_double.h"
 

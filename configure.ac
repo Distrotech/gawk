@@ -98,8 +98,6 @@ else
 	if test -f $srcdir/.dev
 	then
 		CFLAGS="$CFLAGS -DLDBLTEST=1"	# DO NOT TURN OFF ASSERTIONS
-#		cp $srcdir/misc/float128.c $srcdir/
-#		sed -i 's/^gawk_SOURCES = $(base_sources)$/& float128.c/' $srcdir/Makefile.am
 	else
 		CFLAGS="$CFLAGS -DNDEBUG"	# turn off assertions
 	fi
