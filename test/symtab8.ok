@@ -17,9 +17,9 @@ NR: 1
 OFMT: "%.6g"
 OFS: " "
 ORS: "\n"
-PREC: 0
+PREC: 53
 RLENGTH: 0
-ROUNDMODE: ""
+ROUNDMODE: "N"
 RS: "\n"
 RSTART: 0
 RT: "\n"

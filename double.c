@@ -331,8 +331,12 @@ awknum_set_var(const NODE *var)
 		NR = val->numbr;
 	else if (var == FNR_node)
 		FNR = val->numbr;
-
-	/* N.B: PREC and ROUNMODE -- not relevant */
+	else {
+		/* PREC and ROUNMODE */
+		if (do_lint)
+			lintwarn(_("setting `%s' has no effect"),
+				var == PREC_node ? "PREC" : "ROUNDMODE");
+	}
 }
 
 /* awknum_increment_var --- increment NR or FNR */
@@ -349,7 +353,11 @@ awknum_increment_var(const NODE *var ATTRIBUTE_UNUSED, long nr)
 static void
 awknum_init_vars()
 {
-	/* dummy function */
+	unref(PREC_node->var_value);
+        PREC_node->var_value = make_awknum(DBL_MANT_DIG);
+	PREC_node->var_value->flags |= NUMINT;
+        unref(ROUNDMODE_node->var_value);
+        ROUNDMODE_node->var_value = make_string("N", 1);
 }
 
 /* make_awknum --- allocate a node with defined number */
