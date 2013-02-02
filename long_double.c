@@ -232,8 +232,11 @@ double_to_int(AWKLDBL x)
 		x = -x;
 	}
 	if ((intval = gawk_floorl_finite_p(x, NULL)) < LDC(0.0)) {
-		/* outside range, use floor() for C double */
+#ifdef HAVE_FLOORL
+		intval = floorl(x);
+#else
 		intval = (AWKLDBL) Floor((double) x);
+#endif
 	}
 	return intval * ((AWKLDBL) sign);
 }
@@ -282,10 +285,14 @@ awkldbl_init(bltin_t **bltins)
 numbr_handler_t *
 get_ldbl_handler(char *arg)
 {
-#if defined(LDBLTEST) && LDBLTEST == 1
+#ifdef NUMDEBUG
 	extern numbr_handler_t float128_hndlr;
+	extern numbr_handler_t float80_hndlr;
 	if (arg != NULL && arg[0] == '1')
 		return & float128_hndlr;
+	if (arg != NULL && arg[0] == '0')
+		return & float80_hndlr;
 #endif
+
 	return  & awkldbl_hndlr;
 }

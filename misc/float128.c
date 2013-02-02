@@ -25,7 +25,7 @@
 
 #include "awk.h"
 
-#if defined(LDBLTEST) && LDBLTEST == 1
+#ifdef NUMDEBUG
 #include <math.h>
 #include "random.h"
 #if 0
@@ -134,6 +134,15 @@ static inline int isinf_awkldbl(AWKLDBL x) { return isnan(x - x); }
 #undef isinf
 #endif
 #define isinf isinf_awkldbl
+
+/*
+ * The relative error need to be less than 5 X 10^-k for rounding to
+ * k significant digits. Note tht FLT128_DIG is 33. If we add 2 extra
+ * digits for rounding error, the allowable maximum relative error
+ * is 5.0e-35.
+ */
+
+#define	REL_ERROR	LDC(5.0e-35)
 
 numbr_handler_t float128_hndlr;
 
@@ -415,11 +424,28 @@ double_to_int(AWKLDBL x)
 		sign = -1;
 		x = -x;
 	}
+
 	if ((intval = gawk_floorl_finite_p(x, NULL)) < LDC(0.0)) {
-		/* outside range */
-		/* FIXME -- use format_float_1 with "%.0Lf" (MPFR) */
+#if 0
 		intval = (AWKLDBL) floorl((long double) x);
+#endif
+		const char *str1;
+		char str2[64];
+		mpfr_t ap_floatval, ap_intval;
+
+		str1 = float128_to_hex(x);
+		mpfr_init2(ap_floatval, 113);
+		mpfr_init2(ap_intval, 113);
+		mpfr_set_str(ap_floatval, str1, 16, MPFR_RNDN);
+		mpfr_trunc(ap_intval, ap_floatval);
+
+		/* get back a hexadecimal string representation */
+		(void) mpfr_snprintf(str2, 64, "%RNa", ap_intval);
+		mpfr_clear(ap_floatval);
+		mpfr_clear(ap_intval);
+		intval = hex_to_float128(str2);
 	}
+
 	return intval * ((AWKLDBL) sign);
 }
 
@@ -444,4 +470,4 @@ strtofloat128(const char *str, char **endptr)
 	return hex_to_float128(hexstr);	
 }
 
-#endif	/* LDBLTEST == 1 */
+#endif	/* NUMDEBUG */

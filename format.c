@@ -723,7 +723,14 @@ out2:
 
 			s0 = s1;
 			break;
-
+#ifdef NUMDEBUG
+		case 'a':	/* hexadecimal */
+		case 'b':	/* MPFR binary format */
+			if (numbr_hndlr ==  & awknum_hndlr || numbr_hndlr == & awkldbl_hndlr)
+				;	/* fall through -- make sure the stupid test will pass */
+			else
+				goto fmt1;
+#endif
 		default:
 			if (isalpha(cs1)) {
 				if (do_lint)

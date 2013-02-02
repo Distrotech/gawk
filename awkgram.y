@@ -58,6 +58,9 @@ static int load_library(INSTRUCTION *file);
 static void next_sourcefile(void);
 static char *tokexpand(void);
 static bool is_deferred_variable(const char *name);
+#ifdef NUMDEBUG
+static NODE *do_default(int nargs);
+#endif
 
 #define instruction(t)	bcalloc(t, 1, 0)
 
@@ -1859,6 +1862,9 @@ static struct token tokentab[] = {
 {"match",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), do_match },
 {"mktime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_mktime },
 {"next",	Op_K_next,	 LEX_NEXT,	0,		0 },
+#ifdef NUMDEBUG
+{"next_down",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_default },
+#endif
 {"nextfile",	Op_K_nextfile, LEX_NEXTFILE,	0,		0 },
 {"or",		Op_builtin,    LEX_BUILTIN,	GAWKX,		0 },
 {"patsplit",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2)|A(3)|A(4), do_patsplit },
@@ -5445,4 +5451,11 @@ one_line_close(int fd)
 	return ret;
 }
 
-
+#ifdef NUMDEBUG
+static NODE *
+do_default(int nargs)
+{
+	fatal(_("not implemented"));
+	return NULL;
+}
+#endif

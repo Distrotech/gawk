@@ -96,6 +96,9 @@ static NODE *do_mpfp_sqrt(int);
 static NODE *do_mpfp_srand(int);
 static NODE *do_mpfp_strtonum(int);
 static NODE *do_mpfp_xor(int);
+#ifdef NUMDEBUG
+static NODE *do_mpfp_next_down(int);
+#endif
 
 /* internal functions */
 static NODE *mpfp_make_node(unsigned int type);
@@ -207,12 +210,15 @@ mpfp_init(bltin_t **numbr_bltins)
 		{ "srand",	do_mpfp_srand },
 		{ "strtonum",	do_mpfp_strtonum },
 		{ "xor",	do_mpfp_xor },
+#ifdef NUMDEBUG
+		{ "next_down",	do_mpfp_next_down },
+#endif
 		{ NULL, NULL },
 	};
 	const char *rndmode = DEFAULT_ROUNDMODE;
 
 	mpfr_set_default_prec(DEFAULT_PREC);
-	ROUND_MODE = mpfp_get_rounding_mode(rndmode[0]); 
+	ROUND_MODE = mpfp_get_rounding_mode(rndmode[0]);
 	mpfr_set_default_rounding_mode(ROUND_MODE);
 
 	mpz_init(MNR);
@@ -1503,6 +1509,44 @@ do_mpfp_srand(int nargs)
 }
 
 
+#ifdef NUMDEBUG
+
+/* do_mpfp_next_down --- return the greatest representable float that’s strictly less than x. */
+
+static NODE *
+do_mpfp_next_down(int nargs)
+{
+	NODE *tmp, *r;
+
+	tmp = POP_SCALAR();
+	tmp = force_number(tmp);
+
+	if (is_mpfp_integer(tmp)) {
+		/* XXX: have no use. */  
+		fatal(_("next_down: not implemented for an integer"));
+	} else {
+		if (mpfr_nan_p(MPFR_T(tmp->qnumbr)))	/* NaN */
+			return tmp;
+
+		/*
+		 * apply current precision (which can be different from the precision of the
+		 * input number if changed with an assignment to PREC prior to the call),
+		 * and round toward minus infinity.
+		 */
+		r = mpfp_float();
+		(void) mpfr_set(r->qnumbr, MPFR_T(tmp->qnumbr), MPFR_RNDD);
+
+		/* representable float that’s strictly less than x */
+		mpfr_nextbelow(MPFR_T(r->qnumbr));
+	}
+
+	DEREF(tmp);
+	return r;
+}
+
+#endif
+
+
 /* mpfp_add --- add arbitrary-precision numbers */ 
 
 static NODE *
@@ -1925,6 +1969,10 @@ out_of_range:
 	case 'e':
 	case 'f':
 	case 'E':
+#ifdef NUMDEBUG
+	case 'a':	/* hexadecimal */
+	case 'b':	/* MPFR binary format */
+#endif
 		if (is_mpfp_float(arg)) {
 			mf = arg->qnumbr;
 			mpfmt_spec = MP_FLOAT;

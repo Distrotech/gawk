@@ -349,7 +349,7 @@ awkldbl_update_var(NODE *var)
 }
 
 /*
- * awkldbl_set_vars --- update internal variables for assignment
+ * awkldbl_set_var --- update internal variables for assignment
  *	to a special variable.
  */
 
@@ -358,16 +358,21 @@ awkldbl_set_var(const NODE *var)
 {
 	NODE *val = var->var_value;
 	AWKLDBL d;
-
-	d = LDBL_VAL(val);
+	
 	if (var == NR_node) {
+		d = LDBL_VAL(val);
 		MNR = d / LONG_MAX;
 		NR = d - ((AWKLDBL) MNR) * LONG_MAX;
 	} else if (var == FNR_node) {
+		d = LDBL_VAL(val);
 		MFNR = d / LONG_MAX;
 		FNR = d - ((AWKLDBL) MFNR) * LONG_MAX;
+	} else {
+		/* PREC and ROUNMODE */
+		if (do_lint)
+			lintwarn(_("setting `%s' has no effect"),
+				var == PREC_node ? "PREC" : "ROUNDMODE");
 	}
-	/* N.B: PREC and ROUNMODE -- not relevant */
 }
 
 /* awkldbl_increment_var --- increment NR or FNR */
@@ -391,7 +396,11 @@ awkldbl_increment_var(const NODE *var, long nr)
 static void
 awkldbl_init_vars()
 {
-	/* dummy function */
+	unref(PREC_node->var_value);
+        PREC_node->var_value = make_awknum(LDBL_FRAC_BITS);
+	PREC_node->var_value->flags |= NUMINT;
+        unref(ROUNDMODE_node->var_value);
+        ROUNDMODE_node->var_value = make_string("N", 1);
 }
 
 /*
@@ -1561,6 +1570,10 @@ out_of_range:
 	case 'e':
 	case 'f':
 	case 'E':
+#ifdef NUMDEBUG
+	case 'a':	/* hexadecimal */
+	case 'b':	/* MPFR binary format */
+#endif
 fmt1:
 		if (! spec->have_prec)
 			spec->prec = DEFAULT_G_PRECISION;

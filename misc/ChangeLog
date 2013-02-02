@@ -1,0 +1,11 @@
+2013-02-02         John Haque            <j.eh@mchsi.com>
+
+	* float80.c: New file. Provides 80-bit long-double support
+	without any math routines etc. for tests.
+	* floatcmp.awk: New file. Alternative to cmp for floating-point numbers.
+	* gawk_math.c (gawk_sqrtl, gawk_logl, gawk_expl, gawk_powl):
+	Replacement long double math functions.
+	* ldbl-tests/*.awk: Tests for the math functions.
+	* ldblin.awk: Generate input for the tests.
+	* splitlog2.awk: Split log2 into high and low parts.
+	* splitpi4.awk: Split pi/4 into 3 parts.

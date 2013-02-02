@@ -97,7 +97,7 @@ else
 	AC_MSG_RESULT([no])
 	if test -f $srcdir/.dev
 	then
-		CFLAGS="$CFLAGS -DLDBLTEST=1"	# DO NOT TURN OFF ASSERTIONS
+		CFLAGS="$CFLAGS -DNUMDEBUG"	# DO NOT TURN OFF ASSERTIONS
 	else
 		CFLAGS="$CFLAGS -DNDEBUG"	# turn off assertions
 	fi
