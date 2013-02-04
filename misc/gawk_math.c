@@ -27,39 +27,249 @@
 #define _0L	LDC(0.0)
 #define _1L	LDC(1.0)
 #define _2L	LDC(2.0)
+#define _3L	LDC(3.0)
+#define _4L	LDC(4.0)
 
 /*
  * Constants for computation using long doubles with enough digits for the 128-bit quad.
  */
 
-#define GAWK_LOG2	LDC(0.693147180559945309417232121458176568)  /* log 2 (base e) */
+#define	GAWK_LOG2	LDC(0.693147180559945309417232121458176568)  /* log 2 (base e) */
 #define	GAWK_LOG2_HIGH	LDC(0.6931471801362931728363037109375)       /* high 32 bits (exact representation) */
-#define GAWK_LOG2_LOW	LDC(4.236521365809284105206765680755001344e-10)	/* variable precision low bits */
+#define	GAWK_LOG2_LOW	LDC(4.236521365809284105206765680755001344e-10)	/* variable precision low bits */
 
-#define GAWK_SQRT2	LDC(1.414213562373095048801688724209698079)	/* sqrt(2) */
-#define GAWK_SQRT1_2	LDC(0.707106781186547524400844362104849039)	/* 1/sqrt(2) */
+#define	GAWK_SQRT2	LDC(1.414213562373095048801688724209698079)	/* sqrt(2) */
+#define	GAWK_SQRT1_2	LDC(0.707106781186547524400844362104849039)	/* 1/sqrt(2) */
 
+#define	GAWK_PI		LDC(3.141592653589793238462643383279502884)	/* pi */
+#define	GAWK_PI_2	LDC(1.570796326794896619231321691639751442)	/* pi/2 */
+#define	GAWK_PI_4	LDC(0.785398163397448309615660845819875721)	/* pi/4 */
+#define	GAWK_PI_4_HIGH	LDC(0.78539816313423216342926025390625)		/* 32-bit 1st part */
+#define	GAWK_PI_4_MED	LDC(2.632161460363116600724708860070677474e-10)	/* 32-bit 2nd part */
+#define	GAWK_PI_4_LOW	LDC(1.500889318411548350422246024296643642e-19)	/* variable precision 3rd part */
 
 static AWKLDBL taylor_exp(AWKLDBL x);
+static AWKLDBL taylor_cos(AWKLDBL x);
+static AWKLDBL taylor_sin(AWKLDBL x);
+static AWKLDBL euler_atan_1(AWKLDBL x);
 static AWKLDBL gawk_frexpl(AWKLDBL x, int *exponent);
+
+/* gawk_sinl --- Compute sin(x) */
 
 static AWKLDBL
 gawk_sinl(AWKLDBL x)
 {
-	return sin( (double) x);
+	AWKLDBL sinval, dq;
+	int sign = 1;
+
+	if (isinf(x) || isnan(x))
+		return GAWK_NAN;
+
+	if (x == _0L)	/* XXX: sin(-0.0) = -0.0 */
+		return x;
+
+	if (x < _0L) {
+		/* sin(-x) = - sin(x) */
+		sign = -1;
+		x = -x;
+	}
+
+	/* range reduction -- 0 <= x < pi / 4 */
+
+	dq = double_to_int(x / GAWK_PI_4);
+
+	if (dq < pow2ld(32)) {
+		gawk_uint_t q = (gawk_uint_t) dq; 
+
+		sign *= ( (q / 4) % 2 ? -1 : 1 );
+		switch (q % 4) {
+		case 0:
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			sinval = taylor_sin(x);
+			break;
+		case 1:
+			q++;
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			sinval = taylor_cos(-x);
+			break;
+		case 2:
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			sinval = taylor_cos(x);
+			break;
+		case 3:
+			q++;
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			sinval = taylor_sin(-x);
+			break;
+		default:
+			break;
+		}
+	} else {
+		/* FIXME -- Payne and Hanek Reduction Algorithm ? */
+
+		sinval = (AWKLDBL) sin( (double) x);
+	}
+
+	return sign > 0 ? sinval : -sinval;
 }
+
+/* gawk_cosl --- Compute cos(x) */
 
 static AWKLDBL
 gawk_cosl(AWKLDBL x)
 {
-	return cos( (double) x);
+	AWKLDBL cosval, dq;
+	int sign = 1;
+
+	if (isinf(x) || isnan(x))
+		return GAWK_NAN;
+	if (x < _0L) {
+		/* cos(-x) = cos(x) */
+		x = -x;
+	}
+	if (x == _0L)
+		return _1L;
+
+	/* range reduction -- 0 <= x < pi / 4 */
+
+	dq = double_to_int(x / GAWK_PI_4);
+
+	if (dq < pow2ld(32)) {
+		gawk_uint_t q = (gawk_uint_t) dq; 
+
+		sign *= ( (q / 4) % 2 ? -1 : 1 );
+		switch (q % 4) {
+		case 0:
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			cosval = taylor_cos(x);
+			break;
+		case 1:
+			q++;
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			cosval = taylor_sin(-x);
+			break;
+		case 2:
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			cosval = -taylor_sin(x);
+			break;
+		case 3:
+			q++;
+			x -= q * GAWK_PI_4_HIGH;
+			x -= q * GAWK_PI_4_MED;
+			x -= q * GAWK_PI_4_LOW;
+			cosval = -taylor_cos(-x);
+			break;
+		default:
+			break;
+		}
+	} else {
+		/* FIXME Payne and Hanek Reduction Algorithm ? */
+
+		cosval = (AWKLDBL) cos( (double) x);
+	}
+
+	return sign > 0 ? cosval : -cosval;
 }
+
+
+/* gawk_atan2l(x) --- Compute atan2(y, x) */
 
 static AWKLDBL
 gawk_atan2l(AWKLDBL y, AWKLDBL x)
 {
-	return atan2( (double) y, (double) x);
+	int sign;
+
+	/*
+	 * Using Euler atan(1/x) and the identity:
+	 * 	atan(x) = - pi / 2 - atan(1/x),		x < 0
+	 *       	= pi / 2 - atan(1/x),		x > 0
+	 */
+
+	if (isnan(x) || isnan(y))
+		return GAWK_NAN;
+
+	if (isinf(y)) {
+		if (y > _0L) {
+			if (isinf(x))
+				return x < _0L ? _3L * GAWK_PI_4 : GAWK_PI_4;
+			return GAWK_PI_2;
+		}
+		if (isinf(x))
+			return x < _0L ? -_3L * GAWK_PI_4 : -GAWK_PI_4;
+		return -GAWK_PI_2;
+	}
+
+	if (isinf(x)) {
+		if (x > _0L)
+			return y < _0L ? -_0L : _0L;
+		/* x = -Infinity */
+		return (y >= _0L) ? GAWK_PI : -GAWK_PI;
+	}
+
+	if (x > _0L) {
+		if (y == _0L)
+			return y;	/* +0 or -0 */
+		sign = 1;
+		if (y < _0L) {
+			sign = -1;
+			y = -y;
+		}
+		if (y > x)
+			return sign * (GAWK_PI_2 - euler_atan_1(y / x));
+		return sign * euler_atan_1(x / y);
+	}
+
+	if (x < _0L) {
+		if (y == _0L)
+			return atan2( (double) y, -_1L) < 0.0 ? -GAWK_PI : GAWK_PI;
+
+		x = -x;
+		if (y < _0L) {
+			y = -y;
+			if (y > x)
+				return -GAWK_PI_2 - euler_atan_1(y / x);
+			return euler_atan_1(x / y) - GAWK_PI;
+		}
+		/* y > 0 */
+		if (y > x)
+			return GAWK_PI_2 + euler_atan_1(y / x);
+		return - euler_atan_1(x / y) + GAWK_PI;
+	}
+
+	/*
+	 * XXX -- using atan2 instead of trying to detect +0 or -0. No need for signbit(x)!
+	 * We need to make sure the value of y is in the double range;
+	 * Replace positive (negative) y with 1 (-1), the actual value isn't important.
+	 */
+
+	if ( y > _0L)
+		y = _1L;
+	else if (y < _0L)
+		y = -_1L;
+
+	/* x = +0 or -0 */
+	if (atan2( (double) y, (double) x) < 0.0)
+		return -GAWK_PI;
+	if (atan2( (double) y, (double) x) > 0.0)
+		return GAWK_PI;
+	/* x = +0 and y = +0 or -0 */
+	return _0L;
 }
+
 
 /* gawk_logl --- Compute log(x) */
 
@@ -459,7 +669,7 @@ taylor_exp(AWKLDBL x)
 		return _1L;
 
 	k = 1;
-	while (x > 0.001) {
+	while (x > LDC(0.001)) {
 		/* XXX: For x <= 0.001, max(k) = 10, and max # of terms 6 (80-bit) / 10 (128-bit) */
 		
 		x /= _2L; 
@@ -481,4 +691,118 @@ taylor_exp(AWKLDBL x)
 	while (--k > 0)
 		y = 2 * y + y * y;
 	return y + _1L;
+}
+
+/* taylor_sin --- Compute sin(x) using Taylor series */
+
+static AWKLDBL
+taylor_sin(AWKLDBL x)
+{
+	AWKLDBL xpow, xpow_odd, sinval;
+	AWKLDBL err, term, fact;
+	unsigned int i;
+
+	assert(x >= _0L);
+
+	if (x == _0L)
+		return x;
+
+	i = 3;
+	fact = LDC(6.0);	/* 3! */
+	xpow = x * x;
+	xpow_odd = xpow * x;
+	sinval = x - xpow_odd / fact;
+
+	do {
+		fact *= (AWKLDBL) ((i + 1) * (i + 2));
+		i += 2;
+		xpow_odd *= xpow;
+		term = xpow_odd / fact;
+
+		fact *= (AWKLDBL) ((i + 1) * (i + 2));
+		i += 2;
+		xpow_odd *= xpow;
+		term -= xpow_odd / fact;
+
+		sinval += term;
+		err = term / sinval;
+	} while (err > REL_ERROR);
+	return sinval;
+}
+
+/* taylor_cos --- Compute cos(x) using Taylor series */
+
+static AWKLDBL
+taylor_cos(AWKLDBL x)
+{
+	AWKLDBL xpow, xpow_even, cosval;
+	AWKLDBL err, term, fact;
+	unsigned int i;
+
+	if (x == _0L)
+		return _1L;
+
+	i = 2;
+	fact = _2L;	/* 2! */
+	xpow = x * x;
+	xpow_even = xpow;
+	cosval = _1L - xpow / fact;
+
+	do {
+		fact *= (AWKLDBL) ((i + 1) * (i + 2));
+		i += 2;
+		xpow_even *= xpow;
+		term = xpow_even / fact;
+
+		fact *= (AWKLDBL) ((i + 1) * (i + 2));
+		i += 2;
+		xpow_even *= xpow;
+		term -= xpow_even / fact;
+
+		cosval += term;
+		err = term / cosval;
+	} while (err > REL_ERROR);
+	return cosval;
+}
+
+/* euler_atan_1 --- Compute Euler arctan(1/x) approximation */ 
+
+static AWKLDBL
+euler_atan_1(AWKLDBL x)
+{
+	AWKLDBL xpow2_plus_one, term, sum, err;
+	int sign = 1;
+	unsigned int i;
+
+	/*
+	 * Euler atan formula (http://mathworld.wolfram.com/InverseTangent.html):
+ 	 *	atan(x) = (y/x) (1 + 2/3 y + (2·4)/(3·5) y^2 + (2·4·6)/(3·5·7) y^3 + ...)
+	 *  where
+	 *	y = (x^2) / (1 + x^2) and -1 <= x <= 1
+	 *
+	 * Substituting x = 1/x, for x >= 1
+	 * 	atan(1/x) = (x / (1 + x^2))    + (2/3) * (x / (1 + x^2)^2)
+	 *	                               + (2*4/(3*5)) * (x / (1 + x^2)^3)
+	 *	                               + (2*4*6/(3*5*7)) * (x / (1 + x^2)^4) + ...
+	 */
+
+	if (x < _0L) {
+		sign = -1;
+		x = -x;
+	}
+
+	xpow2_plus_one = x * x + _1L;
+	term = x / xpow2_plus_one;
+	sum = term;
+	i = 0;
+
+	do {
+		term *= (AWKLDBL) (i + 2);
+		term /= ((AWKLDBL) (i + 3)) * xpow2_plus_one;
+		i += 2;
+		sum += term;
+		err = term / sum;
+	} while (err > REL_ERROR);
+
+	return sign > 0 ? sum : -sum;
 }

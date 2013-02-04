@@ -16,14 +16,8 @@ BEGIN {
 	PREC = "quad"
 	y1 += 0; y2 += 0; y3 += 0
 
-	if (y1 <= 1.0e750) {
-		printf("%*.*e\n", 0, DIG, y1)
-	}
-	if (y2 <= 1.0e750) {
-		printf("%*.*e\n", 0, DIG, y2)
-	}
-	if (y3 <= 1.0e750) {
-		printf("%*.*e\n", 0, DIG, y3)
-	}
+	printf("%*.*e\n", 0, DIG, y1)
+	printf("%*.*e\n", 0, DIG, y2)
+	printf("%*.*e\n", 0, DIG, y3)
 	PREC = save_PREC
 }

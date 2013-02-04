@@ -1,3 +1,10 @@
+2013-02-04         John Haque            <j.eh@mchsi.com>
+
+	* gawk_math.c (gawk_sinl, gawk_cosl, gawk_atan2l):
+	Replacement long double math functions.
+	* ldbl-tests/*.awk: Tests for the math functions.
+	* floatcmp.awk: Added diff mode.
+
 2013-02-02         John Haque            <j.eh@mchsi.com>
 
 	* float80.c: New file. Provides 80-bit long-double support

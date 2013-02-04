@@ -1,9 +1,14 @@
-# floatcmp.awk --- check floating-point numbers for differences in
-#	 sig digs.
+# floatcmp.awk --- check floating-point numbers for differences in sig digs.
+#	-vMODE=[diff|plot] -- diff mode or output data suitable fro plotting
+#	-vTOL=tol	-- ignore sig dig difference <= tol
 
 BEGIN {
+	if (! ("mpfr_version" in PROCINFO)) {
+		print "floatcmp.awk: requires -M option" > "/dev/stderr"
+		exit(1)
+	} 
 	if (ARGC < 3) {
-		printf("Usage: gawk -M [-vTOL=1] -f floatcmp.awk file1 file2\n")
+		print "Usage: gawk -M [-vTOL=tol] [-vMODE=diff|plot] -f floatcmp.awk file1 file2" > "/dev/stderr"
 		exit(1)
 	}
 
@@ -20,10 +25,11 @@ BEGIN {
 		ret1 = (getline v1 < file1) 
 		ret2 = (getline v2 < file2) 
 
+		f1 = v1; f2 = v2;	# save originals for diff mode
 		if (ret1 > 0 && ret2 > 0) {
 			line++
 			if ((v1 "") == (v2 ""))
-				continue;
+				continue
 			e1 = index(v1, "e")
 			e2 = index(v2, "e")
 			if (e1 > 0 && e2 > 0 &&		# exclude nans and infinities
@@ -41,8 +47,17 @@ BEGIN {
 					continue
 			}
 
-			printf("%s %s differ: byte ?, line %d\n", file1, file2, line)
-			exit(1)
+			if (! MODE) {
+				printf("%s %s differ: byte ?, line %d\n", file1, file2, line)
+				exit(1)
+			}
+			if (MODE == "plot")
+				printf("%d\t%d\n", line, diff)
+			else {
+				dig = length(v1)
+				printf("%-*.*s %-*.*s %+*.*d\n", dig+7, dig+7, f1, dig+7, dig+7, f2, dig, dig, diff)
+			}
+       			continue
 		}
 
 		if (ret1 == 0 && ret2 == 0)

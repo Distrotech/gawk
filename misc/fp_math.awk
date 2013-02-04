@@ -39,7 +39,7 @@ function euler_atan_one_over(x,	\
 
 	do {
 		term *= (i + 2) / (i + 3)
-		err = term /= xpow2_plus_one
+		term /= xpow2_plus_one
 		i += 2
 		sum += term
 		err = term / sum
