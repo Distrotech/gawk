@@ -3,10 +3,13 @@ LIBSTATIC = libmisc.a
 CC = gcc
 LD = gcc
 AR = ar
-AWKPROG = ../gawk
 CMP = cmp
 
-AWK = LC_ALL=$${GAWKLOCALE:-C} LANG=$${GAWKLOCALE:-C} $(AWKPROG)
+srcdir = .
+top_srcdir = ..
+
+AWKPROG = $(top_srcdir)/gawk
+AWK = LC_ALL=C LANG=C $(AWKPROG)
 
 ALL_CFLAGS = $(CFLAGS) -fPIC -DGAWK -DHAVE_CONFIG_H -c -I.. -I.
 
@@ -18,9 +21,9 @@ $(LIBSTATIC): $(OBJS)
 	$(AR) rc $(LIBSTATIC) $(OBJS)
 	ranlib $(LIBSTATIC)
 
-float128.o: float128.c ../awk.h ../long_double.h ./gawk_math.h ./gawk_math.c
+float128.o: float128.c $(top_srcdir)/awk.h $(top_srcdir)/long_double.h $(srcdir)/gawk_math.h $(srcdir)/gawk_math.c $(srcdir)/rem_pio2.c
 
-float80.o: float80.c ../awk.h ../long_double.h ./gawk_math.h ./gawk_math.c
+float80.o: float80.c $(top_srcdir)/awk.h $(top_srcdir)/long_double.h $(srcdir)/gawk_math.h $(srcdir)/gawk_math.c $(srcdir)/rem_pio2.c
 
 .c.o:
 	$(CC) $(ALL_CFLAGS) $< -o $@
@@ -46,10 +49,13 @@ LDBL_TESTS = \
 	sin64 \
 	sin113 \
 	cos64 \
-	cos113
+	cos113 \
+	atan64 \
+	atan113 \
+	fmod64 \
+	fmod113
 
 INFILE = ldbl-tests/data.in
-INFILE32 = ldbl-tests/sincos.in
 
 # An attempt to print something that can be grepped for in build logs
 pass-fail:
@@ -65,10 +71,6 @@ ldbl-tests: $(LDBL_TESTS)
 
 $(INFILE):
 	@$(AWK) -M -vPREC=quad -f ldblin.awk > $(INFILE) 2>&1
-
-$(INFILE32): $(INFILE)
-	@$(AWK) -M -vPREC=quad -f ldblin.awk | \
-$(AWK) -M -vPREC=quad '($$1 > -2^32 && $$1 < 2^32){ print $$0 }' > $(INFILE32) 2>&1
 
 ldblint64:
 	@echo $@
@@ -128,26 +130,51 @@ pow113: $(INFILE)
 	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/pow.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
 	@-$(AWK) -M -vTOL=20 -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
 
-sin64:
+sin64: $(INFILE)
 	@echo $@
-	@$(AWK) -B0 -vDIG=17 -f ldbl-tests/sin.awk $(INFILE32) > ldbl-tests/_$@ 2>&1
-	@$(AWK) -M -vDIG=17 -vPREC=64 -f ldbl-tests/sin.awk $(INFILE32) > ldbl-tests/$@.ok 2>&1
+	@$(AWK) -B0 -vDIG=17 -f ldbl-tests/sin.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=17 -vPREC=64 -f ldbl-tests/sin.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
 	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
 
-sin113: $(INFILE32)
+sin113: $(INFILE)
 	@echo $@
-	@$(AWK) -B1 -vDIG=32 -f ldbl-tests/sin.awk $(INFILE32) > ldbl-tests/_$@ 2>&1
-	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/sin.awk $(INFILE32) > ldbl-tests/$@.ok 2>&1
+	@$(AWK) -B1 -vDIG=32 -f ldbl-tests/sin.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/sin.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
 	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
 
-cos64:
+cos64: $(INFILE)
 	@echo $@
-	@$(AWK) -B0 -vDIG=17 -f ldbl-tests/cos.awk $(INFILE32) > ldbl-tests/_$@ 2>&1
-	@$(AWK) -M -vDIG=17 -vPREC=64 -f ldbl-tests/cos.awk $(INFILE32) > ldbl-tests/$@.ok 2>&1
+	@$(AWK) -B0 -vDIG=17 -f ldbl-tests/cos.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=17 -vPREC=64 -f ldbl-tests/cos.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
 	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
 
-cos113: $(INFILE32)
+cos113: $(INFILE)
 	@echo $@
-	@$(AWK) -B1 -vDIG=32 -f ldbl-tests/cos.awk $(INFILE32) > ldbl-tests/_$@ 2>&1
-	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/cos.awk $(INFILE32) > ldbl-tests/$@.ok 2>&1
+	@$(AWK) -B1 -vDIG=32 -f ldbl-tests/cos.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/cos.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
+	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
+
+atan64: $(INFILE)
+	@echo $@
+	@$(AWK) -B0 -vDIG=17 -f ldbl-tests/atan2.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=17 -vPREC=64 -f ldbl-tests/atan2.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
+	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
+
+atan113: $(INFILE)
+	@echo $@
+	@$(AWK) -B1 -vDIG=32 -f ldbl-tests/atan2.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/atan2.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
+	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
+
+fmod64: $(INFILE)
+	@echo $@
+	@$(AWK) -B0 -vDIG=17 -f ldbl-tests/fmod.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=17 -vPREC=64 -f ldbl-tests/fmod.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
+	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@
+
+fmod113: $(INFILE)
+	@echo $@
+	@echo 'This may take a while.'
+	@$(AWK) -B1 -vDIG=32 -f ldbl-tests/fmod.awk $(INFILE) > ldbl-tests/_$@ 2>&1
+	@$(AWK) -M -vDIG=32 -vPREC=113 -f ldbl-tests/fmod.awk $(INFILE) > ldbl-tests/$@.ok 2>&1
 	@-$(AWK) -M -f floatcmp.awk ldbl-tests/_$@ ldbl-tests/$@.ok && rm ldbl-tests/_$@

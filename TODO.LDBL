@@ -1,17 +1,27 @@
-* Don't trust compiler with type promotion:
-	**** If an operation involves two operands, and one of them is of type long double,
-	**** the other one is converted to long double. 
-The latest version of GCC I have (4.4.3) seems to have different ideas. Start using cast
-to long double even when it seems unnecessary $#@~%!@#
-
-Also, append suffix L to all long double constants.
-
-* Convert gawk math routines to C for platforms lacking any. Without ceil() and floor()
-for long doubles, these can't even get 64 bit integers!
-	-- finish fp_fmod() in misc/fp_math.awk.
-
-* Don't use adjust_uint(uintmax_t n) from floatcomp.c, it is for AWKNUM. What is the point
-of floor() and ceil() wrappers? Don't have a clue.
-	-- DONE. Not sure if it is necessary for any long double and uintmax_t
-	combination found in the wild. Looks like ceil() and floor() wrappers
-	are for VMS; one probably should update comments in floatcomp.c.
+* Replacement math routines. - DONE.
+   Update awk version fp_math.awk for the changes in C code ?
+   FUTURE: Improvemnet/Optimization.
+     [1] Use truncated Taylor series and/or approximating polynomials.
+         It would require at least two versions (80-bit and 128-bit).
+     [2] Horner's rule to evaluate truncated series.
+     [3] Payne and Hanek Reduction Algorithm to provide more sig digs
+         for sin and cos with large arguments. It most likely involves more
+         than just extending the PI table to few thousand entries.
+         Pay particular attention to the case when x is almost an integer
+         multiple of PI/2. For a clean-room implementation, consider the
+         feasibility of using (64-bit) integer arithmetic.
+         References:
+         * Elementary Functions: Algorithms and Implementation. Jean-Michel Muller,
+           Birkhäuser Boston.
+	 * Handbook of Floating-Point Arithmetic. Jean-Michel Muller et. el.,
+           Birkhäuser Boston.
+         * Argument Reduction for Huge Arguments: Good to the Last Bit. K. C. Ng,
+           SunPro, Sun Microsystems, Inc. Business.
+           Original fdmlib implementation copied by most libm.
+	
+*  Don't use adjust_uint(uintmax_t n) from floatcomp.c, it is for AWKNUM.
+   What is the point of floor() and ceil() wrappers? Don't have a clue.
+   - DONE. Not sure if it is necessary for any long double and uintmax_t
+	   combination found in the wild. Looks like ceil() and floor()
+           wrappers are for VMS; One probably should update comments
+           in floatcomp.c.

@@ -397,7 +397,7 @@ static void
 awkldbl_init_vars()
 {
 	unref(PREC_node->var_value);
-        PREC_node->var_value = make_awknum(LDBL_FRAC_BITS);
+        PREC_node->var_value = make_awknum(GAWK_LDBL_FRAC_BITS);
 	PREC_node->var_value->flags |= NUMINT;
         unref(ROUNDMODE_node->var_value);
         ROUNDMODE_node->var_value = make_string("N", 1);
@@ -468,8 +468,8 @@ make_integer(uintmax_t n)
 
 	/* XXX: is this really needed in this case ??? */
 	
-	if (LDBL_FRAC_BITS < CHAR_BIT * sizeof (n)) {
-		int i = CHAR_BIT * sizeof (n) - LDBL_FRAC_BITS;
+	if (GAWK_LDBL_FRAC_BITS < CHAR_BIT * sizeof (n)) {
+		int i = CHAR_BIT * sizeof (n) - GAWK_LDBL_FRAC_BITS;
 
 		/* strip leading `i' bits */
 
@@ -802,7 +802,7 @@ do_rand(int nargs ATTRIBUTE_UNUSED)
 	 *
 	 * 	0 <= n < 1
 	 */
-	return make_awkldbl((random() % GAWK_RANDOM_MAX) / GAWK_RANDOM_MAX);
+	return make_awkldbl((AWKLDBL) (random() % GAWK_RANDOM_MAX) / GAWK_RANDOM_MAX);
 }
 
 /* do_srand --- seed the random number generator */
@@ -1663,7 +1663,7 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 	int high, low, mid;
 	AWKLDBL intval = LDC(0.0);
 
-#if	LDBL_INT_BITS == 128
+#if	GAWK_LDBL_INT_BITS == 128
 	if (x >= pow2ld(113))
 #else
 	if (x >= pow2ld(64))
@@ -1674,7 +1674,7 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 		memset(chunk, '\0', 4 * sizeof (gawk_uint_t));
 
 	/* binary search */
-	high = LDBL_INT_BITS - 1;
+	high = GAWK_LDBL_INT_BITS - 1;
 	while (x >= LDC(2.0)) {
 		low = 0;
 		while (low <= high) {
@@ -1696,7 +1696,7 @@ gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk)
 				 *	|<------- x (64/128 bits) ----->|
 				 */
 
-#if	LDBL_INT_BITS == 128
+#if	GAWK_LDBL_INT_BITS == 128
 				if (low <= 32) chunk[0] += (gawk_uint_t) pow2ld(low - 1);
 				else if (low <= 64) chunk[1] += (gawk_uint_t) pow2ld(low - 33);
 				else if (low <= 96) chunk[2] += (gawk_uint_t) pow2ld(low - 65);
@@ -1741,10 +1741,10 @@ format_uint_finite_p(char *str, size_t size, AWKLDBL x)
 	 *  URL: homepage.cs.uiowa.edu/~jones/bcd/decimal.html
 	 */
 
-#if	LDBL_INT_BITS == 128
+#if	GAWK_LDBL_INT_BITS == 128
 	static gawk_uint_t coeff[] = { 
 		1, 4967296, 9551616,
-#if defined(TEST_NUMBR) && TEST_NUMBR == 1
+#ifdef	GAWK_INT_IS_LONG_LONG
 		3585223950336ULL,
 #else
 		3585223950336UL,

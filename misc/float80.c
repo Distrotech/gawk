@@ -40,8 +40,9 @@
 #define FLT_RADIX 2
 #endif
 
-#define LDBL_FRAC_BITS LDBL_MANT_DIG
-#define	LDBL_INT_BITS	64
+#define GAWK_LDBL_FRAC_BITS	LDBL_MANT_DIG
+#define GAWK_LDBL_MAX_EXP	LDBL_MAX_EXP
+#define	GAWK_LDBL_INT_BITS	64
 
 #define get_long_double(d)	emalloc(d, void *, sizeof(AWKLDBL), "float80")
 #define free_long_double(d)	efree(d)

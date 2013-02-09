@@ -44,22 +44,24 @@
  * XXX: LDBL_MANT_DIG is defined if we are here. Assume FLT_RADIX = 2 or 16.
  */
 #if FLT_RADIX == 2
-#define LDBL_FRAC_BITS LDBL_MANT_DIG
+#define GAWK_LDBL_FRAC_BITS	LDBL_MANT_DIG
 #else
-#define LDBL_FRAC_BITS (4 * LDBL_MANT_DIG)
+#define GAWK_LDBL_FRAC_BITS	(4 * LDBL_MANT_DIG)
 #endif
+
+#define GAWK_LDBL_MAX_EXP	LDBL_MAX_EXP
 
 /*
  * N.B: If printf does not have "%Lf" format and the long double type is capable of
  * supporting integers wider than 64 bits, must have 64-bit long type.
  *
- * We actually use a maximum of 113 bits when LDBL_INT_BITS is 128.
+ * We actually use a maximum of 113 bits when GAWK_LDBL_INT_BITS is 128.
  */
 
-#if SIZEOF_GAWK_INT == 8 && LDBL_FRAC_BITS > 64
-#define	LDBL_INT_BITS	128
+#if SIZEOF_GAWK_INT == 8 && GAWK_LDBL_FRAC_BITS > 64
+#define	GAWK_LDBL_INT_BITS	128
 #else
-#define	LDBL_INT_BITS	64
+#define	GAWK_LDBL_INT_BITS	64
 #endif
 
 #define get_long_double(d) 	getblock(d, BLOCK_LDBL, AWKLDBL *)

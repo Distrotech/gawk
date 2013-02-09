@@ -1,3 +1,10 @@
+013-02-08         John Haque            <j.eh@mchsi.com>
+
+	* gawk_math.c (gawk_fmodl): Add new routine.
+	(gawk_sinl, gawk_cosl): Update to handle huge arguments.
+	* rem_pio2.c: New file.
+	* ldbl-tests/atan2.awk, ldbl-tests/fmod.awk: New tests for the math functions.
+
 2013-02-04         John Haque            <j.eh@mchsi.com>
 
 	* gawk_math.c (gawk_sinl, gawk_cosl, gawk_atan2l):

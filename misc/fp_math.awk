@@ -1,8 +1,7 @@
 # fp_math.awk --- finite precision math functions
 
 #
-#	TODO:	* finish fmod().
-#		* replace all usages of %, and int() or any other math builtin; and() is ok!.
+#	TODO:	* replace all usages of %, and int() or any other math builtin; and() is ok!.
 #		  implement double_to_int() and remove floor/ceil.
 #
 
@@ -409,7 +408,7 @@ function frexpl(x, e, \
 
 	low = 0
 	if (x > 2) {
-		high = LDBL_MAX_EXP - 1		# XXX: should be 4 * LDBL_MAX_EXP - 1 if FLT_RADIX = 16
+		high = LDBL_MAX_EXP - 1
 		while (low <= high) {
 			mid = int ((low + high) / 2)
 			y = x / pow2(mid)
@@ -421,7 +420,7 @@ function frexpl(x, e, \
 		x /= pow2(low)
 		e[0] = low
 	} else if (x < 1) {
-		high = LDBL_MAX_EXP - 1		# could be -LDBL_MIN_EXP, but no harm in using LDBL_MAX_EXP
+		high = LDBL_MAX_EXP - 1
 		while (low <= high) {
 			mid = int ((low + high) / 2)
 			y =  x * pow2(mid)
@@ -441,18 +440,6 @@ function frexpl(x, e, \
 	}
 	return x	# x in [1, 2)
 }
-
-
-#
-# $ ./gawk 'BEGIN { printf("%.18e\n", log(7.12111e900))}'
-# inf
-# $ ./gawk -B 'BEGIN { printf("%.18e\n", log(7.12111e900))}'           # with logl(), without it inf
-# 2.074289647306790437e+03
-# $ ./gawk -B -f misc/fp_math.awk -e 'BEGIN { printf("%.18e\n", fp_log(7.12111e900))}'
-# 2.074289647306790437e+03
-# $ ./gawk -M -vPREC=quad 'BEGIN { printf("%.18e\n", log(7.12111e900))}'
-# 2.074289647306790438e+03
-#
 
 
 function fp_log(x,	\
@@ -713,60 +700,8 @@ function fp_ceil(x,	d)
 	return d + 1
 }
 
-#
-#	Calculating fmod with correctly rounded output isn't easy:
-#
-# BEGIN {
-#	POW2[0] = 1
-#	for (i = 1; i <= 64; i++) {
-#		POW2[i] = POW2[i - 1] * 2
-#	}
-#	x = 343.4341
-#	y = 1.324355
-#	printf("builtin: %0.18f\n", x % y)
-#
-#	q = int(x / y)	# floor
-#	printf("simple : %0.18f\n", x - q * y)
-#
-#	r = calc_fmod(x, y)
-#	printf("pow2   : %0.18f\n", r)
-# }
-#
-# function calc_fmod(x, y,	q, j)
-# {
-#	# x > 0, y > 0
-#	q = int(x / y)	# floor, q < 2^64
-#	while (q > 2) {
-#		# XXX: use binary search?
-#		for (j = 1; j <= 64; j++) {
-#			if (q <= POW2[j]) {
-#				x -= POW2[j - 1] * y
-#				q -= POW2[j - 1]
-#				break
-#			}
-#		}
-#	}
-#	x -= q * y
-#	return x
-# }
-#
-# We can only get correctly rounded 16 digits (with 80 bit long double),
-# using math library or not:
-#
-# $ ./gawk -B -f fmod.awk 
-# builtin: 0.426155000000000019
-# simple : 0.426155000000000006
-# pow2   : 0.426155000000000019
-#
-# For comparison, MPFR quad precision output:
-#
-# $ ./gawk -M -vPREC=quad 'BEGIN { printf("%0.18f\n",  343.4341 % 1.324355) }'
-# 0.426155000000000000
-#
-
-
 function fp_fmod(x, y, \
-		z, sign)
+		zx, ex, zy, ey, exy, signx, txy, ty)
 {
 	x = +x
 	y = +y
@@ -778,22 +713,60 @@ function fp_fmod(x, y, \
 	if (isinf(y))
 		return x
 
-	sign = 1
+	signx = 1
 	if (x < 0) {
-		sign = -1
+		signx = -1
 		x = -x
 	}
+
 	if (y < 0)
 		y = -y
 
-	if (x < y) # nothing to do
-		return sign * x
+	# x > 0, y > 0
 
-	q = fp_floor(x / y)
+	zy = frexpl(y, e)
+	ey = e[0]
 
-	# FIXME -- see above, and also consider integer overflow (q >= 2^LDBL_MANT_DIG)
-	return sign * (x - q * y)
+	zx = frexpl(x, e)
+	ex = e[0]
+
+	exy = ex - ey
+	while (exy > 1) {
+		while (zx < z1 && exy > 0) {
+			zx *= 2;
+			ex--;
+		}
+		if (exy < 0)
+			break
+		zx -=  zy
+
+		if (exy >= 1024) {
+			# avoid overflow in 2^n computation
+			txy = exy
+			ty = y  
+			while (txy >= 1024) {
+				ty *= pow2ld(1024)
+				txy -= 1024
+			}
+			x -= pow2ld(txy) * ty
+		} else	
+			x -= pow2ld(exy) * y
+	}
+
+	while (x > y)
+		x -= y
+
+	if (signx > 0) {
+		if (x < 0)
+			x += y
+	} else {
+		x = -x
+		if (x > 0)
+			x -= y
+	}
+	return x
 }
+
 
 
 # fixprec -- fixes "0.18e" output

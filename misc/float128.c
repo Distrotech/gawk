@@ -51,53 +51,55 @@
  * 	https://github.com/mirrors/gcc/blob/master/libquadmath/quadmath.h
  */
 
-#define FLT128_MAX 1.18973149535723176508575932662800702e4932Q
-#define FLT128_MIN 3.36210314311209350626267781732175260e-4932Q
-#define FLT128_EPSILON 1.92592994438723585305597794258492732e-34Q
-#define FLT128_DENORM_MIN 6.475175119438025110924438958227646552e-4966Q
-#define FLT128_MANT_DIG 113
-#define FLT128_MIN_EXP (-16381)
-#define FLT128_MAX_EXP 16384
-#define FLT128_DIG 33
-#define FLT128_MIN_10_EXP (-4931)
-#define FLT128_MAX_10_EXP 4932
+#define	FLT128_MAX	1.18973149535723176508575932662800702e4932Q
+#define	FLT128_MIN	3.36210314311209350626267781732175260e-4932Q
+#define	FLT128_EPSILON	1.92592994438723585305597794258492732e-34Q
+#define	FLT128_DENORM_MIN	6.475175119438025110924438958227646552e-4966Q
+#define	FLT128_MANT_DIG	113
+#define	FLT128_MIN_EXP	(-16381)
+#define	FLT128_MAX_EXP	16384
+#define	FLT128_DIG	33
+#define	FLT128_MIN_10_EXP	(-4931)
+#define	FLT128_MAX_10_EXP	4932
 
 /* #define HUGE_VALQ __builtin_huge_valq() */
 /* The following alternative is valid, but brings the warning:
    (floating constant exceeds range of ‘__float128’)  */
-#define HUGE_VALQ (__extension__ 0x1.0p32767Q)
+#define	HUGE_VALQ (__extension__ 0x1.0p32767Q)
 
-#define IEEE_FLOAT128_BIAS 0x3fff
+#define	IEEE_FLOAT128_BIAS 0x3fff
 
 /* end of Macros from quadmath.h */
 
 
-#define LDBL_FRAC_BITS	FLT128_MANT_DIG
-#define	LDBL_INT_BITS	128
+#define	GAWK_LDBL_FRAC_BITS	FLT128_MANT_DIG
+#define	GAWK_LDBL_MAX_EXP	FLT128_MAX_EXP
+#define	GAWK_LDBL_INT_BITS	128
 
 #define AWKLDBL	__float128
-#define LDBL_VAL(n)	(*((AWKLDBL *) (n)->qnumbr))
-#define LDC(x)		x##Q
+#define	LDBL_VAL(n)	(*((AWKLDBL *) (n)->qnumbr))
+#define	LDC(x)		x##Q
 
-#define get_long_double(d)	emalloc(d, void *, sizeof(AWKLDBL), "float128")
-#define free_long_double(d)	efree(d)
+#define	get_long_double(d)	emalloc(d, void *, sizeof(AWKLDBL), "float128")
+#define	free_long_double(d)	efree(d)
 
 /* we want to format integers ourself */
-#define GAWK_FMT_INT 1
+#define	GAWK_FMT_INT 1
 
-#define gawk_int_t long long
-#define gawk_uint_t unsigned long long
-#ifdef SIZEOF_GAWK_INT
-#undef SIZEOF_GAWK_INT
-#undef GAWK_INT_MAX
-#undef GAWK_INT_MIN
-#undef GAWK_UINT_MAX
+#define	gawk_int_t long long
+#define	gawk_uint_t unsigned long long
+#ifdef	SIZEOF_GAWK_INT
+#undef	SIZEOF_GAWK_INT
+#undef	GAWK_INT_MAX
+#undef	GAWK_INT_MIN
+#undef	GAWK_UINT_MAX
 #endif
 
 #define SIZEOF_GAWK_INT	8
 #define	GAWK_INT_MAX	LLONG_MAX
 #define	GAWK_INT_MIN	LLONG_MIN
 #define	GAWK_UINT_MAX	ULLONG_MAX
+#define GAWK_INT_IS_LONG_LONG	1
 
 static int format_uint_finite_p(char *str, size_t size, AWKLDBL x);
 static AWKLDBL gawk_floorl_finite_p(AWKLDBL x, gawk_uint_t *chunk);
@@ -147,8 +149,6 @@ static inline int isinf_awkldbl(AWKLDBL x) { return isnan(x - x); }
 numbr_handler_t float128_hndlr;
 
 #define awkldbl_hndlr float128_hndlr
-
-#define TEST_NUMBR 1
 
 #include "misc/gawk_math.h"
 #include "long_double.h"
@@ -344,10 +344,8 @@ float128_to_hex(__float128 x)
 	return buf;
 }
 
-/*
- * format_float_1 --- format a single AWKLDBL value according to FORMAT.
- *	The value must be finite.
- */
+
+/* format_float_1 --- format a single AWKLDBL value according to FORMAT. */
 
 static int
 format_float_1(char *str, size_t size, const char *format, int fw, int prec, AWKLDBL x)
