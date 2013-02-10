@@ -1,4 +1,10 @@
-013-02-08         John Haque            <j.eh@mchsi.com>
+2013-02-09         John Haque            <j.eh@mchsi.com>
+
+	* ldbl-tests: Renamed directory to gawk_libm_tests.
+	* ldbl_tests/(Makefile.am, Makefile.in, Gentests, Maketests): New files.
+	* Makefile: Updated.
+
+2013-02-08         John Haque            <j.eh@mchsi.com>
 
 	* gawk_math.c (gawk_fmodl): Add new routine.
 	(gawk_sinl, gawk_cosl): Update to handle huge arguments.

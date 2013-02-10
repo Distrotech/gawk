@@ -1,27 +1,48 @@
 * Replacement math routines. - DONE.
    Update awk version fp_math.awk for the changes in C code ?
-   FUTURE: Improvemnet/Optimization.
+   FUTURE: Improvements/Optimizations.
      [1] Use truncated Taylor series and/or approximating polynomials.
          It would require at least two versions (80-bit and 128-bit).
      [2] Horner's rule to evaluate truncated series.
      [3] Payne and Hanek Reduction Algorithm to provide more sig digs
          for sin and cos with large arguments. It most likely involves more
-         than just extending the PI table to few thousand entries.
+         than just extending the 2/PI table to few thousand entries.
          Pay particular attention to the case when x is almost an integer
          multiple of PI/2. For a clean-room implementation, consider the
          feasibility of using (64-bit) integer arithmetic.
+
+	 Also, will need to incorporate the "tail" part of an argument in
+	 series approxmations: 
+	       sin(x + dx) ~ sin(x) + cos(x) * dx
+	                   ~ sin(x) + (1 - x * x/2) * dx
+         Similarly,
+	       cos(x + dx) ~ cos(x) - sin(x)* dx
+                           ~ cos(x) - x * dx
+
+	 Actual implementation may involve rearrangements of the terms, e.g.
+	 combining the low part of the series expansion with the contribution
+         from the tail part of the argument.
+
+	 This is mostly an academic exercise; One can often get the few extra
+	 digits for free on the platform with 80-bit long doubles.
+
          References:
          * Elementary Functions: Algorithms and Implementation. Jean-Michel Muller,
            Birkhäuser Boston.
-	 * Handbook of Floating-Point Arithmetic. Jean-Michel Muller et. el.,
+         * Handbook of Floating-Point Arithmetic. Jean-Michel Muller et. el.,
            Birkhäuser Boston.
          * Argument Reduction for Huge Arguments: Good to the Last Bit. K. C. Ng,
            SunPro, Sun Microsystems, Inc. Business.
            Original fdmlib implementation copied by most libm.
-	
+
+     [4] fmod computation with 128-bit floats is currently very slow.
+ 	
 *  Don't use adjust_uint(uintmax_t n) from floatcomp.c, it is for AWKNUM.
-   What is the point of floor() and ceil() wrappers? Don't have a clue.
-   - DONE. Not sure if it is necessary for any long double and uintmax_t
+          - DONE. Not sure if it is necessary for any long double and uintmax_t
 	   combination found in the wild. Looks like ceil() and floor()
            wrappers are for VMS; One probably should update comments
            in floatcomp.c.
+
+* NUMINT flag not used in the long double (and also arbitrary-precision float)
+code? The (future) changes needed to use integer-indexed awk arrays may
+have some implications?

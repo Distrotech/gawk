@@ -1,3 +1,7 @@
+2013-02-09         John Haque      <j.eh@mchsi.com>
+
+	* long_double.m4: Reworked.
+
 2013-01-19         John Haque      <j.eh@mchsi.com>
 
 	* long_double.m4: Make "%Lf" support in printf optional.

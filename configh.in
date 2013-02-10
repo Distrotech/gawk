@@ -20,9 +20,6 @@
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
-/* Define to 1 if you have 'atan2l' function. */
-#undef HAVE_ATAN2L
-
 /* Define to 1 if you have the `atexit' function. */
 #undef HAVE_ATEXIT
 
@@ -40,9 +37,6 @@
    the CoreFoundation framework. */
 #undef HAVE_CFPREFERENCESCOPYAPPVALUE
 
-/* Define to 1 if you have 'cosl' function. */
-#undef HAVE_COSL
-
 /* Define if the GNU dcgettext() function is already present or preinstalled.
    */
 #undef HAVE_DCGETTEXT
@@ -53,9 +47,6 @@
 
 /* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
 #undef HAVE_DOPRNT
-
-/* Define to 1 if you have 'expl' function. */
-#undef HAVE_EXPL
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
@@ -129,9 +120,6 @@
 /* Define to 1 if you have the <locale.h> header file. */
 #undef HAVE_LOCALE_H
 
-/* Define to 1 if you have 'logl' function. */
-#undef HAVE_LOGL
-
 /* Define to 1 if the system has the type `long double'. */
 #undef HAVE_LONG_DOUBLE
 
@@ -186,9 +174,6 @@
 /* Define to 1 if you have the `posix_openpt' function. */
 #undef HAVE_POSIX_OPENPT
 
-/* Define to 1 if you have 'powl' function. */
-#undef HAVE_POWL
-
 /* Define to 1 if you have the `setenv' function. */
 #undef HAVE_SETENV
 
@@ -198,9 +183,6 @@
 /* Define to 1 if you have the `setsid' function. */
 #undef HAVE_SETSID
 
-/* Define to 1 if you have 'sinl' function. */
-#undef HAVE_SINL
-
 /* Define to 1 if you have the `snprintf' function. */
 #undef HAVE_SNPRINTF
 
@@ -209,9 +191,6 @@
 
 /* we have sockets on this system */
 #undef HAVE_SOCKETS
-
-/* Define to 1 if you have 'sqrtl' function. */
-#undef HAVE_SQRTL
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #undef HAVE_STDARG_H
@@ -410,6 +389,9 @@
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
+
+/* Define to 1 if you need our math functions. */
+#undef USE_INCLUDED_MATH_FUNCS
 
 /* force use of our version of strftime */
 #undef USE_INCLUDED_STRFTIME

@@ -1,0 +1,114 @@
+#!/usr/bin/gawk -f
+
+# This program should generate Maketests
+
+BEGIN {
+	if (VMSTESTS) vmsargvfixup()
+
+	# read the list of files
+	for (i = 2; i < ARGC; i++)
+		files[ARGV[i]]
+
+	# throw it away
+	ARGC = 2
+
+	ntests = 0
+}
+
+# process the file Makefile.am:
+
+/^[[:upper:]_]*_TESTS *=/,/[^\\]$/ {
+	gsub(/(^[[:upper:]_]*_TESTS *=|\\$)/,"")
+	for (i = 1; i <= NF; i++)
+		tests[++ntests] = $i
+	next
+}
+
+/^NEED_LINT *=/,/[^\\]$/ {
+	gsub(/(^NEED_LINT *=|\\$)/,"")
+	for (i = 1; i <= NF; i++)
+		lint[$i]
+	next
+}
+
+/^NEED_LINT_OLD *=/,/[^\\]$/ {
+	gsub(/(^NEED_LINT_OLD *=|\\$)/,"")
+	for (i = 1; i <= NF; i++)
+		lint_old[$i]
+	next
+}
+
+/^GENTESTS_UNUSED *=/,/[^\\]$/ {
+	gsub(/(^GENTESTS_UNUSED *=|\\$)/,"")
+	for (i = 1; i <= NF; i++)
+		unused[$i]
+	next
+}
+
+/^CHECK_MPFR *=/,/[^\\]$/ {
+	gsub(/(^CHECK_MPFR *=|\\$)/,"")
+	for (i = 1; i <= NF; i++)
+		mpfr[$i]
+	next
+}
+
+/^[[:alpha:]_][[:alnum:]_]*:/ {
+	# remember all targets from Makefile.am
+	sub(/:.*/,"")
+	targets[$0]
+}
+
+# Now write the output file:
+END {
+	# this line tells automake to keep the comment with the rules:
+	print "Gt-dummy:"
+	print "# file Maketests, generated from Makefile.am by the Gentests program"
+
+	for (i = 1; i <= ntests; i++) {
+		x = tests[i]
+		if (!(x in targets))
+			generate(x)
+	}
+
+	print "# end of file Maketests"
+}
+
+function generate(x,	s)
+{
+	if (!(x".awk" in files))
+		printf "WARNING: file `%s.awk' not found.\n", x > "/dev/stderr"
+	else
+		delete files[x".awk"]
+
+	if (VMSTESTS) return vmsgenerate(x)
+
+	print x ":"
+
+	s = ""
+	if (x in lint) {
+		s = s " --lint"
+		delete lint[x]
+	}
+	if (x in lint_old) {
+		s = s " --lint-old"
+		delete lint_old[x]
+	}
+	if (x".in" in files) {
+		s = s " < $(TESTDIR)/$@.in"
+		delete files[x".in"]
+	}
+
+	printf "\t@echo $@\n"
+	printf "\t@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk %s >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@\n", s
+
+	if (x in mpfr) {
+		delete mpfr[x]
+		printf "\t@-if test -z \"$$AWKFLAGS\" ; then $(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@ ; else \\\n"
+		printf "\t$(CMP) $(TESTDIR)/$@-mpfr.ok _$@ && rm -f _$@ ; \\\n"
+		printf "\tfi\n\n"
+	} else {
+		printf "\t@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@\n\n"
+	}
+}
+# VMSTESTS: generate test template in vms format
+# gawk -v "VMSTESTS=1" -f Gentests -f Gentests.vms Makefile.am *.awk *.in >Maketests.vms

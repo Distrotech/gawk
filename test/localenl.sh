@@ -33,7 +33,11 @@
 # 
 #! /bin/sh
 
-AWK=${AWK:-../gawk}
+if [ "$AWK" = "" ]
+then
+	echo $0: You must set AWK >&2
+	exit 1
+fi
 
 # April 2010: Remove UNKNOWN, causes spurious failures on some systems
 for LC_ALL in C POSIX en_US.ISO-8859-1 en_US.UTF-8 #UNKNOWN 

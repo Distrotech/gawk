@@ -48,13 +48,144 @@
 #define	GAWK_PI_4_MED	LDC(2.632161460363116600724708860070677474e-10)	/* 32-bit 2nd part */
 #define	GAWK_PI_4_LOW	LDC(1.500889318411548350422246024296643642e-19)	/* variable precision 3rd part */
 
+
+#if ! defined(HAVE_FMODL) || defined(USE_INCLUDED_MATH_FUNCS) 
+/*
+ * gawk_frexpl --- split the number x into a normalized fraction and an exponent.
+ *	The fraction is in the range [1, 2) (and NOT [0.5, 1)).
+ */
+
+static AWKLDBL
+gawk_frexpl(AWKLDBL x, int *exponent)
+{
+	AWKLDBL y;
+	unsigned low, high, mid;
+
+	/* (isnormal(x) && x > 0) is assumed to be true */
+
+	assert(exponent != NULL);
+	*exponent = 0;
+
+	low = 0;
+	if (x > _2L) {
+		high = GAWK_LDBL_MAX_EXP - 1;
+		while (low <= high) {
+			mid = (low + high) / 2;
+			y = x / pow2ld(mid);
+			if (y > _2L)
+				low = mid + 1;
+			else
+				high = mid - 1;
+		}
+		x /= pow2ld(low);
+		*exponent = low;
+	} else if (x < _1L) {
+		high = GAWK_LDBL_MAX_EXP - 1;	/* could be -LDBL_MIN_EXP, but no harm in using LDBL_MAX_EXP */
+		while (low <= high) {
+			mid = (low + high) / 2;
+			y =  x * pow2ld(mid);
+			if (y < _1L)
+				low = mid + 1;
+			else
+				high = mid - 1;
+		}
+		x *= pow2ld(low);
+		*exponent = -low;
+	}
+	if (x == _2L) {
+		x = _1L;
+		++*exponent;
+	}
+	return x;
+}
+#endif
+
+#ifndef HAVE_FMODL
+/*
+ * gawk_fmodl --- Compute the floating-point remainder of dividing x by y
+ *	Method: shift and subtract.
+ */
+
+static AWKLDBL
+gawk_fmodl(AWKLDBL x, AWKLDBL y)
+{
+	AWKLDBL zx, zy, q;
+	int ex, ey, exy;
+	int signx = 1;
+	unsigned low, high, mid;
+
+	if (isnan(x) || isnan(y) 
+		|| isinf(x) || y == _0L		/* XXX: set errno = EDOM ? */
+	)
+		return GAWK_NAN;
+
+	if (x == _0L)
+		return x;	/* +0 or -0 */
+	if (isinf(y))
+		return x;
+	
+	if (x < _0L) {
+		signx = -1;
+		x = -x;
+	}
+	if (y < _0L)
+		y = -y;
+
+	/* x > 0, y > 0 */
+	zy = gawk_frexpl(y, & ey);
+	zx = gawk_frexpl(x, & ex);
+	exy = ex - ey;
+	while (exy > 1) {
+		if (zx == _0L)
+			return signx * _0L;
+
+		while (zx < zy && exy > 0) {
+			zx *= 2;
+			exy--;
+		}
+		if (exy < 0)
+			break;
+
+		zx -= zy;
+
+#define	GAWK_LDBL_MAX_10_EXP	((GAWK_LDBL_MAX_EXP + 1) / 4)
+		if (exy >= GAWK_LDBL_MAX_10_EXP) {
+			/* Avoid possible overflow in 2^n computation */
+ 
+			AWKLDBL tmp_exy, tmp_y;
+			tmp_exy = exy;
+			tmp_y = y;
+			while (tmp_exy >= GAWK_LDBL_MAX_10_EXP) {
+				tmp_y *= pow2ld(GAWK_LDBL_MAX_10_EXP);
+				tmp_exy -= GAWK_LDBL_MAX_10_EXP;
+			}
+			x -= pow2ld(tmp_exy) * tmp_y;
+ 		} else
+			x -= pow2ld(exy) * y;
+	}
+#undef	GAWK_LDBL_MAX_10_EXP
+
+	while (x >= y)
+		x -= y;
+	if (signx > 0) {
+		if (x < _0L)
+			x += y;
+	} else {
+		x = -x;
+		if (x > _0L)
+			x -= y;
+	}
+	return x;
+}
+#endif
+
+
+#ifdef USE_INCLUDED_MATH_FUNCS
 static AWKLDBL taylor_exp(AWKLDBL x);
 static AWKLDBL taylor_cos(AWKLDBL x);
 static AWKLDBL taylor_sin(AWKLDBL x);
 static AWKLDBL arctan__p(AWKLDBL y, AWKLDBL x);
-static AWKLDBL gawk_frexpl(AWKLDBL x, int *exponent);
 static int gawk_rem_pio2l(AWKLDBL x, AWKLDBL *y);
-
 
 /* gawk_sinl --- Compute sin(x) */
 
@@ -639,133 +770,6 @@ gawk_sqrtl(AWKLDBL x)
 	return yn;
 }
 
-/*
- * gawk_fmodl --- Compute the floating-point remainder of dividing x by y
- *	Method: shift and subtract.
- */
-
-static AWKLDBL
-gawk_fmodl(AWKLDBL x, AWKLDBL y)
-{
-	AWKLDBL zx, zy, q;
-	int ex, ey, exy;
-	int signx = 1;
-	unsigned low, high, mid;
-
-	if (isnan(x) || isnan(y) 
-		|| isinf(x) || y == _0L		/* XXX: set errno = EDOM ? */
-	)
-		return GAWK_NAN;
-
-	if (x == _0L)
-		return x;	/* +0 or -0 */
-	if (isinf(y))
-		return x;
-	
-	if (x < _0L) {
-		signx = -1;
-		x = -x;
-	}
-	if (y < _0L)
-		y = -y;
-
-	/* x > 0, y > 0 */
-	zy = gawk_frexpl(y, & ey);
-	zx = gawk_frexpl(x, & ex);
-	exy = ex - ey;
-	while (exy > 1) {
-		if (zx == _0L)
-			return signx * _0L;
-
-		while (zx < zy && exy > 0) {
-			zx *= 2;
-			exy--;
-		}
-		if (exy < 0)
-			break;
-
-		zx -= zy;
-
-#define	GAWK_LDBL_MAX_10_EXP	((GAWK_LDBL_MAX_EXP + 1) / 4)
-		if (exy >= GAWK_LDBL_MAX_10_EXP) {
-			/* Avoid possible overflow in 2^n computation */
- 
-			AWKLDBL tmp_exy, tmp_y;
-			tmp_exy = exy;
-			tmp_y = y;
-			while (tmp_exy >= GAWK_LDBL_MAX_10_EXP) {
-				tmp_y *= pow2ld(GAWK_LDBL_MAX_10_EXP);
-				tmp_exy -= GAWK_LDBL_MAX_10_EXP;
-			}
-			x -= pow2ld(tmp_exy) * tmp_y;
- 		} else
-			x -= pow2ld(exy) * y;
-	}
-#undef	GAWK_LDBL_MAX_10_EXP
-
-	while (x >= y)
-		x -= y;
-	if (signx > 0) {
-		if (x < _0L)
-			x += y;
-	} else {
-		x = -x;
-		if (x > _0L)
-			x -= y;
-	}
-	return x;
-}
-
-
-/*
- * gawk_frexpl --- split the number x into a normalized fraction and an exponent.
- *	The fraction is in the range [1, 2) (and NOT [0.5, 1)).
- */
-
-static AWKLDBL
-gawk_frexpl(AWKLDBL x, int *exponent)
-{
-	AWKLDBL y;
-	unsigned low, high, mid;
-
-	/* (isnormal(x) && x > 0) is assumed to be true */
-
-	assert(exponent != NULL);
-	*exponent = 0;
-
-	low = 0;
-	if (x > _2L) {
-		high = GAWK_LDBL_MAX_EXP - 1;
-		while (low <= high) {
-			mid = (low + high) / 2;
-			y = x / pow2ld(mid);
-			if (y > _2L)
-				low = mid + 1;
-			else
-				high = mid - 1;
-		}
-		x /= pow2ld(low);
-		*exponent = low;
-	} else if (x < _1L) {
-		high = GAWK_LDBL_MAX_EXP - 1;	/* could be -LDBL_MIN_EXP, but no harm in using LDBL_MAX_EXP */
-		while (low <= high) {
-			mid = (low + high) / 2;
-			y =  x * pow2ld(mid);
-			if (y < _1L)
-				low = mid + 1;
-			else
-				high = mid - 1;
-		}
-		x *= pow2ld(low);
-		*exponent = -low;
-	}
-	if (x == _2L) {
-		x = _1L;
-		++*exponent;
-	}
-	return x;
-}
-
 /* taylor_exp --- Compute exp(x) using Taylor series and modified squaring reduction */
 
 static AWKLDBL
@@ -983,7 +987,7 @@ arctan__p(AWKLDBL y, AWKLDBL x)
 		sign = -1;
 		z = -z;
 	}
-	assert(z > _1L);
+	assert(z >= _1L);
 
 	if (z <= LDC(20.0)) {
 		/* For y / x  >= 0.05, Euler atan is slow! */
@@ -1076,3 +1080,4 @@ gawk_rem_pio2l(AWKLDBL x, AWKLDBL *y)
 	y[1] = t - (y[0] - w);
 	return n;
 }
+#endif	/* USE_INCLUDED_MATH_FUNCS */

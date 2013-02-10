@@ -86,6 +86,14 @@ numbr_handler_t float80_hndlr;
 
 #define awkldbl_hndlr float80_hndlr
 
+#ifndef USE_INCLUDED_MATH_FUNCS
+#define USE_INCLUDED_MATH_FUNCS
+#endif
+#ifdef HAVE_FMODL
+#undef HAVE_FMODL
+static AWKLDBL gawk_fmodl(AWKLDBL x, AWKLDBL y);
+#endif
+
 #include "misc/gawk_math.h"
 #include "long_double.h"
 #include "misc/gawk_math.c"

@@ -67,64 +67,22 @@
 #define get_long_double(d) 	getblock(d, BLOCK_LDBL, AWKLDBL *)
 #define free_long_double(d)	freeblock(d, BLOCK_LDBL)
 
-#ifdef HAVE_SINL
+#ifdef USE_INCLUDED_MATH_FUNCS
+#include "misc/gawk_math.h"
+#else
 #define gawk_sinl	sinl
-#else
-static inline AWKLDBL
-gawk_sinl(AWKLDBL x)
-{
-	return sin( (double) x);
-}
-#endif
-
-#ifdef HAVE_COSL 
 #define gawk_cosl	cosl
-#else
-static inline AWKLDBL
-gawk_cosl(AWKLDBL x)
-{
-	return cos( (double) x);
-}
-#endif
-
-#ifdef HAVE_ATAN2L
 #define gawk_atan2l	atan2l
-#else
-static inline AWKLDBL
-gawk_atan2l(AWKLDBL y, AWKLDBL x)
-{
-	return atan2( (double) y, (double) x);
-}
-#endif
-
-#ifdef HAVE_LOGL
 #define gawk_logl	logl
-#else
-static inline AWKLDBL
-gawk_logl(AWKLDBL x)
-{
-	return log( (double) x);
-}
-#endif
-
-#ifdef HAVE_EXPL
 #define gawk_expl	expl
-#else
-static inline AWKLDBL
-gawk_expl(AWKLDBL x)
-{
-	return exp( (double) x);
-}
+#define gawk_powl	powl
+#define gawk_sqrtl	sqrtl
 #endif
 
 #ifdef HAVE_FMODL
 #define gawk_fmodl	fmodl
 #else
-static inline AWKLDBL
-gawk_fmodl(AWKLDBL x, AWKLDBL y)
-{
-	return fmod( (double) x, (double) y);
-}
+static AWKLDBL gawk_fmodl(AWKLDBL x, AWKLDBL y);
 #endif
 
 #ifdef HAVE_STRTOLD
@@ -137,26 +95,15 @@ gawk_strtold(const char *str, char **endptr)
 }
 #endif
 
-#ifdef HAVE_POWL
-#define gawk_powl	powl
+#if defined(USE_INCLUDED_MATH_FUNCS) || ! defined(HAVE_FMODL) 
+#define GAWK_INFINITY	HUGE_VALL
+#define GAWK_NAN	(LDC(0.0) / LDC(0.0))
+#if GAWK_LDBL_FRAC_BITS > 64 
+#define REL_ERROR	LDC(1.0e-35)
 #else
-static inline AWKLDBL
-gawk_powl(AWKLDBL x, AWKLDBL y)
-{
-	return pow( (double) x, (double) y);
-}
+#define REL_ERROR	LDC(1.0e-20)
 #endif
-
-#ifdef HAVE_SQRTL
-#define gawk_sqrtl	sqrtl
-#else
-static inline AWKLDBL
-gawk_sqrtl(AWKLDBL x)
-{
-	return sqrt( (double) x);
-}
 #endif
-
 
 /* N.B: if floorl() or ceill() or "%Lf" is missing format integers ourself */
 
@@ -262,6 +209,7 @@ double_to_int(AWKLDBL x)
 
 
 #include "long_double.h"
+#include "misc/gawk_math.c"
 
 #else	/* ! USE_LONG_DOUBLE */
 
@@ -295,6 +243,5 @@ get_ldbl_handler(char *arg)
 	if (arg != NULL && arg[0] == '0')
 		return & float80_hndlr;
 #endif
-
 	return  & awkldbl_hndlr;
 }

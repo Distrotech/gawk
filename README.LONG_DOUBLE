@@ -1,0 +1,241 @@
+Compiling and running the tests in `test' directory
+===================================================
+
+$ ./configure
+$ grep USE_LONG_DOUBLE config.h
+#define USE_LONG_DOUBLE 1
+
+Usable long double found!
+
+$ make
+
+A single invocation of `make check' will run the test suite
+using long double first, and then double:
+
+$ make check
+ ...
+ ...
+double tests: ALL TESTS PASSED
+long double tests: ALL TESTS PASSED
+
+The Makefile etc. used for the long double tests are in the
+misc/ldbl_tests directory. The _foo files for any failed tests
+using long double numbers will also be in that directory.
+Currently, `make diffout' does not work for the long double tests.
+
+There are no additional tests for long doubles (yet).
+
+Running scripts
+===============
+
+1) Using command line option:
+$ ./gawk -B -f xx.awk
+$ ./gawk -B '...'
+
+2) Using environment variable GAWK_FLOAT.
+
+$ export GAWK_FLOAT=LDBL
+
+All scripts can then use long double for numbers without
+needing the -B option:
+
+$ ./gawk -f xx.awk
+$ ./gawk '...'
+
+unset GAWK_FLOAT to use the C-double type.
+
+
+Informational
+=============
+
+[1] Requirements for usable long double type (see m4/long_double.m4):
+
+     USE_LONG_DOUBLE = false
+     if have_long_double
+          if LDBL_MANT_DIG > DBL_MANT_DIG
+                  && LDBL_MAX_EXP >= DBL_MAX_EXP
+                  && LDBL_MIN_EXP <= DBL_MIN_EXP
+               USE_LONG_DOUBLE = true
+          end if
+     end if
+
+     if USE_LONG_DOUBLE = true
+          * check for %Lf support in printf; if not present format
+	    integers ourself, and use %f for floats.
+          * check for strtold; if not found, use strtod.
+          * if not found ANY of cosl, sinl, atan2l, logl, expl, powl, sqrtl,
+            use our math functions, and NOT the double versions in libm.
+          * check for fmodl seperately; if not found, use our's and NOT fmod.
+          * check for floorl and ceill; if not found, use our integer
+            formatting code to provide equivalent functionalities.
+     end if
+
+In addition to providing a precision more than that for a double, we
+require support for the four basic math operators +, -, * and /
+for the range of floats acceptable for gawk. This minimum requirement
+may or may not be met by some double-double implementations like the
+ones found in various versions of AIX.
+
+[2] Failed tests or unexpected results can be either due to bugs in
+gawk code or somewhere else. Bug(s) in glibc 2.11.1 causes the test
+ofmta.awk to fail:
+
+$ ./gawk -B -vOFMT=%.3f 'BEGIN { x=1.2345; print x }'
+1.235
+
+The expected result is 1.234.
+
+---------------------------------------------------------------------
+From: "Nelson H. F. Beebe"
+
+You commented on this autoconf fragment:
+
+  AC_REQUIRE([AC_TYPE_LONG_DOUBLE])
+  if test $ac_cv_type_long_double = yes; then
+    AC_CACHE_CHECK([whether long double and double are the same],
+     [gl_cv_long_double_equals_double],
+     [AC_COMPILE_IFELSE(
+       [AC_LANG_PROGRAM([[#include <float.h>]],
+         [[typedef int check[sizeof (long double) == sizeof (double)
+                           && LDBL_MANT_DIG == DBL_MANT_DIG
+                           && LDBL_MAX_EXP == DBL_MAX_EXP
+                           && LDBL_MIN_EXP == DBL_MIN_EXP
+                              ? 1 : -1];
+         ]])],
+       [gl_cv_long_double_equals_double=yes],
+       [gl_cv_long_double_equals_double=no])
+     ])
+
+...
+
+Indeed, the code is gcc-dependent, but it is on the right track.  The
+problem is that, while long double has been widely implemented on many
+systems for a long time (even pre-1990), on others it is badly
+botched.  Apple gets a failing grade for NEVER EVER having provided a
+Fortran compiler on Mac OS (now almost 30 years old), and for never
+providing long double support, even on processors like x86 that have
+had it in hardware since 1980.  The BSD people are also guilty; none
+of {Free,Mir,Net,Open}BSD have ever provided long double, and worse,
+some of them have the long double parameters in their header files,
+like <float.h>, but the compilers don't support the data type.
+
+The autoconf code could be rewritten to use a run-time, rather than
+compile-timne, test, reporting whether any of the four equalities fail
+to hold. 
+
+Here is what I wrote in hoc's configure.in script (feel free to
+re-use, and revise as needed for your gawk work; no credits or
+licenses are necessary):
+
+dnl Old: (checks that long double recognized by compiler, even if synonym for double)
+dnl AC_CHECK_TYPES(long double)
+dnl New and improved: (checks that long double has greater range and precision)
+dnl The autoconf-2.59 (and earlier) AC_C_LONG_DOUBLE produces a
+dnl nonstandard C program that fails to compile on most systems: bug
+dnl reported on [02-Jun-2004].  Redefine it with my proposed replacement:
+
+AC_DEFUN([AC_C_LONG_DOUBLE],
+	[AC_CACHE_CHECK(for usable long double,
+		ac_cv_c_long_double,
+		[AC_RUN_IFELSE(
+[
+#include <stdio.h>
+#include <float.h>
+
+int
+main()
+{
+#if defined(__NetBSD__)
+	return (1);	/* hack for NetBSD, which has compiler support, but no long double library support */
+#endif
+    return (!((DBL_MAX < LDBL_MAX) &&
+	      (DBL_MAX > 0.5 * DBL_MAX) &&
+	      (LDBL_MAX > 0.5L * LDBL_MAX) &&
+	      (LDBL_EPSILON < DBL_EPSILON) &&
+	      (LDBL_MIN < DBL_MIN) &&
+	      (DBL_MIN > 0.0) &&
+	      (LDBL_MIN > 0.0L) &&
+	      (DBL_MAX_EXP < LDBL_MAX_EXP) &&
+	      (DBL_MANT_DIG < LDBL_MANT_DIG)));
+}
+],
+		ac_cv_c_long_double=yes,
+		ac_cv_c_long_double=no,
+		ac_cv_c_long_double=no)])
+	if test ${ac_cv_c_long_double} = yes
+	then
+		AC_DEFINE(HAVE_LONG_DOUBLE, 1, [Define if the `long double' type works.])
+	fi
+	]) # end AC_C_LONG_DOUBLE
+
+AC_C_LONG_DOUBLE
+
+if test -n "$HAVE_FP_T_QUADRUPLE"
+then
+	if test ${ac_cv_c_long_double} = "no"
+	then
+		AC_MSG_WARN(**************************************************)
+		AC_MSG_WARN(reverting to --with-double on this system       **)
+		AC_MSG_WARN(because long double is a synonym for double, or **)
+		AC_MSG_WARN(is unsupported by the selected compiler         **)
+		AC_MSG_WARN(**************************************************)
+		AC_DEFINE(HAVE_FP_T_DOUBLE)
+		HAVE_FP_T_DOUBLE=1
+		unset HAVE_FP_T_QUADRUPLE
+		HOCSUFFIX=64
+		TESTFP=test64
+	else
+		case "`uname -m || true`" in
+		i386 | i486 | i586 | i686 | i86pc | ia64 | x86_64)
+			AC_DEFINE(HAVE_FP_T_QUADRUPLE)
+			HAVE_FP_T_QUADRUPLE=1
+			HOCSUFFIX=80
+			TESTFP=test80
+			;;
+		ppc | ppc64 )
+			AC_MSG_WARN(**************************************************)
+			AC_MSG_WARN(reverting to --with-double on this system       **)
+			AC_MSG_WARN(because long double is a synonym for double     **)
+			AC_MSG_WARN(**************************************************)
+			AC_DEFINE(HAVE_FP_T_DOUBLE)
+			HAVE_FP_T_DOUBLE=1
+			unset HAVE_FP_T_QUADRUPLE
+			HOCSUFFIX=64
+			TESTFP=test64
+			;;
+		*)	case "`uname -s || true`" in
+			AIX | IRIX* )
+				AC_MSG_WARN(**************************************************)
+				AC_MSG_WARN(reverting to --with-double on this system       **)
+				AC_MSG_WARN(because long double is a broken implementation  **)
+				AC_MSG_WARN(using paired doubles                            **)
+				AC_MSG_WARN(**************************************************)
+				AC_DEFINE(HAVE_FP_T_DOUBLE)
+				HAVE_FP_T_DOUBLE=1
+				unset HAVE_FP_T_QUADRUPLE
+				HOCSUFFIX=64
+				TESTFP=test64
+				;;
+			Darwin* | Rhapsody* )
+				AC_MSG_WARN(**************************************************)
+				AC_MSG_WARN(reverting to --with-double on this system       **)
+				AC_MSG_WARN(because long double is a synonym for double, or **)
+				AC_MSG_WARN(is unsupported by the selected compiler         **)
+				AC_MSG_WARN(**************************************************)
+				AC_DEFINE(HAVE_FP_T_DOUBLE)
+				HAVE_FP_T_DOUBLE=1
+				unset HAVE_FP_T_QUADRUPLE
+				HOCSUFFIX=64
+				TESTFP=test64
+				;;
+			*)
+				AC_DEFINE(HAVE_FP_T_QUADRUPLE)
+				HAVE_FP_T_QUADRUPLE=1
+				HOCSUFFIX=128
+				TESTFP=test128
+				;;
+			esac
+			;;
+		esac
+	fi
+fi

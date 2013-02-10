@@ -1035,8 +1035,6 @@ EXTRA_DIST = \
 	synerr2.awk \
 	synerr2.ok \
 	testext.ok \
-	time.awk \
-	time.ok \
 	tradanch.awk \
 	tradanch.in \
 	tradanch.ok \
@@ -1164,7 +1162,7 @@ LOCALE_CHARSET_TESTS = \
 
 SHLIB_TESTS = \
 	fnmatch filefuncs fork fork2 fts ordchr ordchr2 \
-	readdir readfile revout revtwoway rwarray testext time
+	readdir readfile revout revtwoway rwarray testext
 
 
 # List of the tests which should be run with --lint option:
@@ -1388,7 +1386,10 @@ check:	msg \
 	extend-msg-start gawk-extensions extend-msg-end \
 	machine-msg-start machine-tests machine-msg-end \
 	charset-msg-start charset-tests charset-msg-end \
-	shlib-msg-start  shlib-tests     shlib-msg-end
+	shlib-msg-start  shlib-tests     shlib-msg-end \
+	pass-fail-all
+
+pass-fail-all:
 	@$(MAKE) pass-fail
 
 basic:	$(BASIC_TESTS)
@@ -1576,7 +1577,7 @@ devfd::
 
 fflush::
 	@echo $@
-	@$(srcdir)/fflush.sh >_$@
+	@-AWK="$(AWKPROG)" $(srcdir)/$@.sh > _$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
 tweakfld::
@@ -1799,18 +1800,18 @@ rsstart3::
 
 rtlen::
 	@echo $@
-	@$(srcdir)/$@.sh >_$@ || echo EXIT CODE: $$? >>_$@
+	@-AWK="$(AWKPROG)" $(srcdir)/$@.sh >_$@ || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
 rtlen01::
 	@echo $@
-	@$(srcdir)/$@.sh >_$@ || echo EXIT CODE: $$? >>_$@
+	@-AWK="$(AWKPROG)" $(srcdir)/$@.sh >_$@ || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
 rtlenmb::
 	@echo $@
 	@GAWKLOCALE=en_US.UTF-8 ; export GAWKLOCALE ; \
-	$(srcdir)/rtlen.sh >_$@ || echo EXIT CODE: $$? >>_$@
+	AWK=$(AWKPROG) $(srcdir)/rtlen.sh >_$@ || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/rtlen.ok _$@ && rm -f _$@
 
 nondec2::
@@ -1868,7 +1869,7 @@ reint2::
 
 localenl::
 	@echo $@
-	@$(srcdir)/$@.sh >_$@ 2>/dev/null
+	@-AWK="$(AWKPROG)" $(srcdir)/$@.sh >_$@ 2>/dev/null
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
 mbprintf1::
@@ -3416,11 +3417,6 @@ rwarray:
 	@AWKPATH=$(srcdir) $(AWK) -f $@.awk  < $(srcdir)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
-time:
-	@echo $@
-	@AWKPATH=$(srcdir) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
-	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
-
 # end of file Maketests
 
 # Targets generated for other tests:
@@ -3436,9 +3432,17 @@ clean:
 pass-fail:
 	@COUNT=`ls _* 2>/dev/null | wc -l` ; \
 	if test $$COUNT = 0 ; \
-	then	echo ALL TESTS PASSED ; \
-	else	echo $$COUNT TESTS FAILED ; \
-	fi
+	then	echo double tests: ALL TESTS PASSED ; \
+	else	echo double tests: $$COUNT TESTS FAILED ; \
+	fi ; \
+	if grep 'USE_LONG_DOUBLE 1' $(top_builddir)/config.h > /dev/null ; then \
+	   COUNT_LDBL=`ls ../misc/ldbl_tests/_* 2>/dev/null | wc -l` ; \
+	   if test $$COUNT_LDBL = 0 ; \
+	      then echo long double tests: ALL TESTS PASSED ; \
+	   else	echo long double tests: $$COUNT_LDBL TESTS FAILED ; \
+	   fi ; \
+	else echo long double is not supported on this system ; \
+	fi ;
 
 # This target for my convenience to look at all the results
 diffout:

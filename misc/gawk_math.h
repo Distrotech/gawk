@@ -28,7 +28,5 @@ static AWKLDBL gawk_cosl(AWKLDBL x);
 static AWKLDBL gawk_atan2l(AWKLDBL y, AWKLDBL x);
 static AWKLDBL gawk_logl(AWKLDBL x);
 static AWKLDBL gawk_expl(AWKLDBL x);
-static AWKLDBL gawk_fmodl(AWKLDBL x, AWKLDBL y);
 static AWKLDBL gawk_powl(AWKLDBL x, AWKLDBL y);
 static AWKLDBL gawk_sqrtl(AWKLDBL x);
-

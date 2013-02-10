@@ -216,9 +216,21 @@ main(int argc, char **argv)
 	int have_srcfile = 0;
 	SRCFILE *s;
 	bltin_t *numbr_bltins;
+	const char *float_type;
 
 	/* default number handler */
 	numbr_hndlr = & awknum_hndlr;
+	if ((float_type = getenv("GAWK_FLOAT")) != NULL) {
+		/*
+		 * XXX: This is needed to run the test suite.
+		 * Should be ifdef'ed out, but not on NUMEBUG or GAWKDEBUG.
+		 */
+
+		if (strcmp(float_type, "LDBL") == 0)
+			numbr_hndlr = & awkldbl_hndlr;
+		else if (strcmp(float_type, "MPFR") == 0)
+			numbr_hndlr = & mpfp_hndlr;
+	}
 
 	/* do these checks early */
 	if (getenv("TIDYMEM") != NULL)

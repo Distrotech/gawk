@@ -10238,8 +10238,14 @@ $as_echo "$has_f_format" >&6; }
   if test $ac_cv_type_long_double = yes; then
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether long double and double are the same" >&5
 $as_echo_n "checking whether long double and double are the same... " >&6; }
-if ${gl_cv_long_double_equals_double+:} false; then :
+if ${gawk_cv_long_double_equals_double+:} false; then :
   $as_echo_n "(cached) " >&6
+else
+  if test "$cross_compiling" = yes; then :
+  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
+$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
+as_fn_error $? "cannot run test program while cross compiling
+See \`config.log' for more details" "$LINENO" 5; }
 else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -10247,27 +10253,29 @@ else
 int
 main ()
 {
-typedef int check[sizeof (long double) == sizeof (double)
-                           && LDBL_MANT_DIG == DBL_MANT_DIG
-                           && LDBL_MAX_EXP == DBL_MAX_EXP
-                           && LDBL_MIN_EXP == DBL_MIN_EXP
-                              ? 1 : -1];
+
+            return ! (LDBL_MANT_DIG > DBL_MANT_DIG
+        	  	&& LDBL_MAX_EXP >= DBL_MAX_EXP
+                	&& LDBL_MIN_EXP <= DBL_MIN_EXP);
 
   ;
   return 0;
 }
 _ACEOF
-if ac_fn_c_try_compile "$LINENO"; then :
-  gl_cv_long_double_equals_double=yes
+if ac_fn_c_try_run "$LINENO"; then :
+  gawk_cv_long_double_equals_double=no
 else
-  gl_cv_long_double_equals_double=no
+  gawk_cv_long_double_equals_double=yes
 fi
-rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext \
+  conftest.$ac_objext conftest.beam conftest.$ac_ext
+fi
+
 
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gl_cv_long_double_equals_double" >&5
-$as_echo "$gl_cv_long_double_equals_double" >&6; }
-    if test $gl_cv_long_double_equals_double = no; then
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $gawk_cv_long_double_equals_double" >&5
+$as_echo "$gawk_cv_long_double_equals_double" >&6; }
+    if test $gawk_cv_long_double_equals_double = no; then
       { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether printf supports %Lf" >&5
 $as_echo_n "checking whether printf supports %Lf... " >&6; }
 if ${gawk_cv_has_L_format+:} false; then :
@@ -10333,6 +10341,8 @@ $as_echo "#define HAVE_STRTOLD 1" >>confdefs.h
 
     fi
 
+    LONG_DOUBLE_SAVE_LIBS=$LIBS
+    gawk_use_included_math=no
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sinl in -lm" >&5
 $as_echo_n "checking for sinl in -lm... " >&6; }
 if ${ac_cv_lib_m_sinl+:} false; then :
@@ -10378,11 +10388,6 @@ _ACEOF
 
 fi
 
-    if test $ac_cv_lib_m_sinl = yes; then
-
-$as_echo "#define HAVE_SINL 1" >>confdefs.h
-
-    fi
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for cosl in -lm" >&5
 $as_echo_n "checking for cosl in -lm... " >&6; }
 if ${ac_cv_lib_m_cosl+:} false; then :
@@ -10428,11 +10433,6 @@ _ACEOF
 
 fi
 
-    if test $ac_cv_lib_m_cosl = yes; then
-
-$as_echo "#define HAVE_COSL 1" >>confdefs.h
-
-    fi
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for atan2l in -lm" >&5
 $as_echo_n "checking for atan2l in -lm... " >&6; }
 if ${ac_cv_lib_m_atan2l+:} false; then :
@@ -10478,11 +10478,6 @@ _ACEOF
 
 fi
 
-    if test $ac_cv_lib_m_atan2l = yes; then
-
-$as_echo "#define HAVE_ATAN2L 1" >>confdefs.h
-
-    fi
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for logl in -lm" >&5
 $as_echo_n "checking for logl in -lm... " >&6; }
 if ${ac_cv_lib_m_logl+:} false; then :
@@ -10528,11 +10523,6 @@ _ACEOF
 
 fi
 
-    if test $ac_cv_lib_m_logl = yes; then
-
-$as_echo "#define HAVE_LOGL 1" >>confdefs.h
-
-    fi
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for expl in -lm" >&5
 $as_echo_n "checking for expl in -lm... " >&6; }
 if ${ac_cv_lib_m_expl+:} false; then :
@@ -10578,11 +10568,106 @@ _ACEOF
 
 fi
 
-    if test $ac_cv_lib_m_expl = yes; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for powl in -lm" >&5
+$as_echo_n "checking for powl in -lm... " >&6; }
+if ${ac_cv_lib_m_powl+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lm  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
 
-$as_echo "#define HAVE_EXPL 1" >>confdefs.h
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char powl ();
+int
+main ()
+{
+return powl ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_m_powl=yes
+else
+  ac_cv_lib_m_powl=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_m_powl" >&5
+$as_echo "$ac_cv_lib_m_powl" >&6; }
+if test "x$ac_cv_lib_m_powl" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBM 1
+_ACEOF
+
+  LIBS="-lm $LIBS"
+
+fi
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqrtl in -lm" >&5
+$as_echo_n "checking for sqrtl in -lm... " >&6; }
+if ${ac_cv_lib_m_sqrtl+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lm  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char sqrtl ();
+int
+main ()
+{
+return sqrtl ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_m_sqrtl=yes
+else
+  ac_cv_lib_m_sqrtl=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_m_sqrtl" >&5
+$as_echo "$ac_cv_lib_m_sqrtl" >&6; }
+if test "x$ac_cv_lib_m_sqrtl" = xyes; then :
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBM 1
+_ACEOF
+
+  LIBS="-lm $LIBS"
+
+fi
+
+    if test $ac_cv_lib_m_sinl = no || test $ac_cv_lib_m_cosl = no \
+          || test $ac_cv_lib_m_atan2l = no ||  test $ac_cv_lib_m_logl = no \
+  	  || test $ac_cv_lib_m_expl = no ||  test $ac_cv_lib_m_powl = no \
+  	  || test $ac_cv_lib_m_sqrtl = no; then
+       gawk_use_included_math=yes
+
+$as_echo "#define USE_INCLUDED_MATH_FUNCS 1" >>confdefs.h
 
     fi
+
     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for fmodl in -lm" >&5
 $as_echo_n "checking for fmodl in -lm... " >&6; }
 if ${ac_cv_lib_m_fmodl+:} false; then :
@@ -10733,105 +10818,11 @@ fi
 $as_echo "#define HAVE_CEILL 1" >>confdefs.h
 
     fi
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for powl in -lm" >&5
-$as_echo_n "checking for powl in -lm... " >&6; }
-if ${ac_cv_lib_m_powl+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lm  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char powl ();
-int
-main ()
-{
-return powl ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_m_powl=yes
-else
-  ac_cv_lib_m_powl=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_m_powl" >&5
-$as_echo "$ac_cv_lib_m_powl" >&6; }
-if test "x$ac_cv_lib_m_powl" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBM 1
-_ACEOF
-
-  LIBS="-lm $LIBS"
-
-fi
-
-    if test $ac_cv_lib_m_powl = yes; then
-
-$as_echo "#define HAVE_POWL 1" >>confdefs.h
-
-    fi
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for sqrtl in -lm" >&5
-$as_echo_n "checking for sqrtl in -lm... " >&6; }
-if ${ac_cv_lib_m_sqrtl+:} false; then :
-  $as_echo_n "(cached) " >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lm  $LIBS"
-cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char sqrtl ();
-int
-main ()
-{
-return sqrtl ();
-  ;
-  return 0;
-}
-_ACEOF
-if ac_fn_c_try_link "$LINENO"; then :
-  ac_cv_lib_m_sqrtl=yes
-else
-  ac_cv_lib_m_sqrtl=no
-fi
-rm -f core conftest.err conftest.$ac_objext \
-    conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_m_sqrtl" >&5
-$as_echo "$ac_cv_lib_m_sqrtl" >&6; }
-if test "x$ac_cv_lib_m_sqrtl" = xyes; then :
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBM 1
-_ACEOF
-
-  LIBS="-lm $LIBS"
-
-fi
-
-    if test $ac_cv_lib_m_sqrtl = yes; then
-
-$as_echo "#define HAVE_SQRTL 1" >>confdefs.h
-
+    if test $ac_cv_lib_m_fmodl = yes || test $ac_cv_lib_m_floorl = yes \
+          || test $ac_cv_lib_m_ceill = yes || test $gawk_use_included_math = no; then
+       LIBS="$LONG_DOUBLE_SAVE_LIBS -lm"
+    else
+       LIBS="$LONG_DOUBLE_SAVE_LIBS"
     fi
   fi
 
@@ -11532,7 +11523,7 @@ dylib)	GAWKLIBEXT=so ;;	# MacOS uses .dylib for shared libraries, but libtool us
 esac
 
 
-ac_config_files="$ac_config_files Makefile awklib/Makefile doc/Makefile po/Makefile.in test/Makefile"
+ac_config_files="$ac_config_files Makefile awklib/Makefile doc/Makefile po/Makefile.in test/Makefile misc/ldbl_tests/Makefile"
 
 
 
@@ -12284,6 +12275,7 @@ do
     "doc/Makefile") CONFIG_FILES="$CONFIG_FILES doc/Makefile" ;;
     "po/Makefile.in") CONFIG_FILES="$CONFIG_FILES po/Makefile.in" ;;
     "test/Makefile") CONFIG_FILES="$CONFIG_FILES test/Makefile" ;;
+    "misc/ldbl_tests/Makefile") CONFIG_FILES="$CONFIG_FILES misc/ldbl_tests/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac

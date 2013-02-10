@@ -390,6 +390,7 @@ AC_CONFIG_FILES(Makefile
 	awklib/Makefile
 	doc/Makefile
 	po/Makefile.in
-	test/Makefile)
+	test/Makefile
+	misc/ldbl_tests/Makefile)
 AC_CONFIG_SUBDIRS(extension)
 AC_OUTPUT

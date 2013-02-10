@@ -1,3 +1,9 @@
+2013-02-09         John Haque      <j.eh@mchsi.com>
+
+	* main.c (main): Added GAWK_FLOAT env. variable.
+	* long_double.c: Remove all use of math functions for C-double as the fallback.
+	Use ours in misc/gawk_math.c instead.
+
 2013-01-27         John Haque      <j.eh@mchsi.com>
 
 	* long_double.c (GAWK_FORMAT_INT): New define.
