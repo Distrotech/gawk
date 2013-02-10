@@ -35,6 +35,8 @@
 #include <config.h>
 #endif
 
+#define _BSD_SOURCE
+
 #include <stdio.h>
 #include <assert.h>
 #include <errno.h>
@@ -104,6 +106,7 @@ do_readfile(int nargs, awk_value_t *result)
 		if ((ret = read(fd, text, sbuf.st_size)) != sbuf.st_size) {
 			(void) close(fd);
 			update_ERRNO_int(errno);
+			free(text);
 			goto done;
 		}
 

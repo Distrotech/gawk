@@ -1,7 +1,7 @@
 dnl
 dnl configure.ac --- autoconf input file for gawk
 dnl
-dnl Copyright (C) 1995-2012 the Free Software Foundation, Inc.
+dnl Copyright (C) 1995-2013 the Free Software Foundation, Inc.
 dnl
 dnl This file is part of GAWK, the GNU implementation of the
 dnl AWK Programming Language.
@@ -23,7 +23,7 @@ dnl
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([GNU Awk], 4.0.71, bug-gawk@gnu.org, gawk)
+AC_INIT([GNU Awk], 4.0.73, bug-gawk@gnu.org, gawk)
 
 # This is a hack. Different versions of install on different systems
 # are just too different. Chuck it and use install-sh.
@@ -155,6 +155,9 @@ then
 else
 	AC_CHECK_HEADERS(strings.h)
 fi
+
+dnl Check cross compiling
+AM_CONDITIONAL([TEST_CROSS_COMPILE], [test "x$build_alias" != "x$host_alias"])
 
 dnl checks for typedefs
 AC_TYPE_PID_T
@@ -347,7 +350,7 @@ dnl check for sockets
 GAWK_AC_LIB_SOCKETS
 
 dnl check for readline support
-GNUPG_CHECK_READLINE
+GAWK_CHECK_READLINE
 
 dnl check for mpfr support
 GNUPG_CHECK_MPFR

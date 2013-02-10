@@ -20,7 +20,7 @@
 @c applies to and all the info about who's publishing this edition
 
 @c These apply across the board.
-@set UPDATE-MONTH December, 2012
+@set UPDATE-MONTH January, 2013
 @set VERSION 4.0
 @set PATCHLEVEL 2
 
@@ -154,7 +154,7 @@ Some comments on the layout for TeX.
 
 @copying
 Copyright @copyright{} 1989, 1991, 1992, 1993, 1996, 1997, 1998, 1999,
-2000, 2001, 2002, 2003, 2004, 2005, 2007, 2009, 2010, 2011, 2012
+2000, 2001, 2002, 2003, 2004, 2005, 2007, 2009, 2010, 2011, 2012, 2013
 Free Software Foundation, Inc.
 @sp 2
 
@@ -765,6 +765,7 @@ particular records in a file and perform operations upon them.
 * Extension Sample Fnmatch::            An interface to @code{fnmatch()}.
 * Extension Sample Fork::               An interface to @code{fork()} and
                                         other process functions.
+* Extension Sample Inplace::            Enabling in-place file editing.
 * Extension Sample Ord::                Character to value to character
                                         conversions.
 * Extension Sample Readdir::            An interface to @code{readdir()}.
@@ -9584,18 +9585,19 @@ Here are some examples indicating the difference in behavior,
 on a GNU/Linux system:
 
 @example
+$ @kbd{export POSIXLY_CORRECT=1}                        @ii{Force POSIX behavior}
 $ @kbd{gawk 'BEGIN @{ printf "%g\n", 3.1415927 @}'}
 @print{} 3.14159
-$ @kbd{LC_ALL=en_DK gawk 'BEGIN @{ printf "%g\n", 3.1415927 @}'}
+$ @kbd{LC_ALL=en_DK.utf-8 gawk 'BEGIN @{ printf "%g\n", 3.1415927 @}'}
 @print{} 3,14159
 $ @kbd{echo 4,321 | gawk '@{ print $1 + 1 @}'}
 @print{} 5
-$ @kbd{echo 4,321 | LC_ALL=en_DK gawk '@{ print $1 + 1 @}'}
+$ @kbd{echo 4,321 | LC_ALL=en_DK.utf-8 gawk '@{ print $1 + 1 @}'}
 @print{} 5,321
 @end example
 
 @noindent
-The @samp{en_DK} locale is for English in Denmark, where the comma acts as
+The @samp{en_DK.utf-8} locale is for English in Denmark, where the comma acts as
 the decimal point separator.  In the normal @code{"C"} locale, @command{gawk}
 treats @samp{4,321} as @samp{4}, while in the Danish locale, it's treated
 as the full number, 4.321.
@@ -9608,7 +9610,7 @@ decimal point character.  You can use the @option{--use-lc-numeric}
 option (@pxref{Options}) to force @command{gawk} to use the locale's
 decimal point character.  (@command{gawk} also uses the locale's decimal
 point character when in POSIX mode, either via @option{--posix}, or the
-@env{POSIXLY_CORRECT} environment variable.)
+@env{POSIXLY_CORRECT} environment variable, as shown previously.)
 
 @ref{table-locale-affects} describes the cases in which the locale's decimal
 point character is used and when a period is used. Some of these
@@ -15703,7 +15705,7 @@ _hrulefill!_hrulefill!_hrulefill_cr
 @code{\\\\&}!     @code{\\&}!a literal @samp{\}, then the matched text_cr
 @code{\\\\\\&}!  @code{\\\&}!a literal @samp{\&}_cr
 }
-@bigskip}
+_bigskip}
 @end tex
 @ifdocbook
 @multitable @columnfractions .20 .20 .60
@@ -16225,10 +16227,11 @@ epoch.
 In order to make it easier to process such log files and to produce
 useful reports, @command{gawk} provides the following functions for
 working with timestamps.  They are @command{gawk} extensions; they are
-not specified in the POSIX standard, nor are they in any other known
-version of @command{awk}.@footnote{The GNU @command{date} utility can
+not specified in the POSIX standard.@footnote{The GNU @command{date} utility can
 also do many of the things described here.  Its use may be preferable
 for simple time-related operations in shell scripts.}
+However, recent versions
+of @command{mawk} (@pxref{Other Versions}) also support these functions.
 Optional parameters are enclosed in square brackets ([ ]):
 
 @table @code
@@ -17609,6 +17612,11 @@ BEGIN @{
 @}
 @end example
 
+In this example, the first call to @code{foo()} generates
+a fatal error, so @command{gawk} will not report the second
+error. If you comment out that call, though, then @command{gawk}
+will report the second error.
+
 Usually, such things aren't a big issue, but it's worth
 being aware of them.
 @c ENDOFRANGE udfunc
@@ -18010,11 +18018,24 @@ it allows you to encapsulate algorithms and program tasks in a single
 place.  It simplifies programming, making program development more
 manageable, and making programs more readable.
 
-One valuable way to learn a new programming language is to @emph{read}
-programs in that language.  To that end, this @value{CHAPTER}
-and @ref{Sample Programs},
-provide a good-sized body of code for you to read,
-and hopefully, to learn from.
+In their seminal 1976 book, @cite{Software Tools}@footnote{Sadly, over 35
+years later, many of the lessons taught by this book have yet to be
+learned by a vast number of practicing programmers.}, Brian Kernighan
+and P.J.@: Plauger wrote:
+
+@quotation
+Good Programming is not learned from generalities, but by seeing how
+significant programs can be made clean, easy to read, easy to maintain and
+modify, human-engineered, efficient and reliable, by the application of
+common sense and good programming practices.  Careful study and imitation
+of good programs leads to better writing.
+@end quotation
+
+In fact, they felt this idea was so important that they placed this
+statement on the cover of their book.  Because we believe strongly
+that their statement is correct, this @value{CHAPTER} and @ref{Sample
+Programs}, provide a good-sized body of code for you to read, and we hope,
+to learn from.
 
 @c 2e: USE TEXINFO-2 FUNCTION DEFINITION STUFF!!!!!!!!!!!!!
 This @value{CHAPTER} presents a library of useful @command{awk} functions.
@@ -27943,7 +27964,7 @@ Here, @var{prec} denotes the binary precision
 (measured in bits) and @var{dps} (short for decimal places)
 is the decimal digits. We can easily calculate how many decimal
 digits the 53-bit significand of an IEEE double is equivalent to:
-53 / 3.332 which is equal to about 15.95.
+53 / 3.322 which is equal to about 15.95.
 But what does 15.95 digits actually mean? It depends whether you are
 concerned about how many digits you can rely on, or how many digits
 you need.
@@ -28333,6 +28354,9 @@ This is shown in @ref{load-extension}.
 
 @float Figure,load-extension
 @caption{Loading The Extension}
+@c FIXME: One day, it should not be necessary to have two cases,
+@c but rather just the one without the "txt" final argument.
+@c This applies to the other figures as well.
 @ifinfo
 @center @image{api-figure1, , , Loading the extension, txt}
 @end ifinfo
@@ -31142,7 +31166,7 @@ $ @kbd{AWKLIBPATH=$PWD gawk -f testff.awk}
 
 This @value{SECTION} provides brief overviews of the sample extensions
 that come in the @command{gawk} distribution. Some of them are intended
-for production use, such the @code{filefuncs} and @code{readdir} extensions.
+for production use, such the @code{filefuncs}, @code{readdir} and @code{inplace} extensions.
 Others mainly provide example code that shows how to use the extension API.
 
 @menu
@@ -31150,6 +31174,7 @@ Others mainly provide example code that shows how to use the extension API.
 * Extension Sample Fnmatch::          An interface to @code{fnmatch()}.
 * Extension Sample Fork::             An interface to @code{fork()} and other
                                       process functions.
+* Extension Sample Inplace::          Enabling in-place file editing.
 * Extension Sample Ord::              Character to value to character
                                       conversions.
 * Extension Sample Readdir::          An interface to @code{readdir()}.
@@ -31489,6 +31514,62 @@ if ((pid = fork()) == 0)
 else
     print "hello from the parent"
 @end example
+
+@node Extension Sample Inplace
+@subsection Enabling in-place file editing.
+
+The @code{inplace} extension emulates the @command{sed} @option{-i} option
+which performs ``in placed'' editing of each input file.
+It uses the bundled @file{inplace.awk} include file to invoke the extension
+properly:
+
+@example
+@c file eg/lib/inplace.awk
+@group
+# inplace --- load and invoke the inplace extension.
+
+@@load "inplace"
+
+# Please set INPLACE_SUFFIX to make a backup copy.  For example, you may
+# want to set INPLACE_SUFFIX to .bak on the command line or in a BEGIN rule.
+
+BEGINFILE @{
+    inplace_begin(FILENAME, INPLACE_SUFFIX)
+@}
+
+ENDFILE @{
+    inplace_end(FILENAME, INPLACE_SUFFIX)
+@}
+@end group
+@c endfile
+@end example
+
+For each regular file that is processed, the extension redirects
+standard output to a temporary file configured to have the same owner
+and permissions as the original.  After the file has been processed,
+the extension restores standard output to its original destination.
+If @code{INPLACE_SUFFIX} is not an empty string, the original file is
+linked to a backup filename created by appending that suffix.  Finally,
+the temporary file is renamed to the original filename.
+
+If any error occurs, the extension issues a fatal error to terminate
+processing immediately without damaging the original file.
+
+Here are some simple examples:
+
+@example
+$ @kbd{gawk -i inplace '@{ gsub(/foo/, "bar") @}; @{ print @}' file1 file2 file3}
+@end example
+
+To keep a backup copy of the original files, try this:
+
+@example
+$ @kbd{gawk -i inplace -v INPLACE_SUFFIX=.bak '@{ gsub(/foo/, "bar") @}}
+> @kbd{@{ print @}' file1 file2 file3}
+@end example
+
+We leave it as an exercise to write a wrapper script that presents an
+interface similar to the @command{sed} @option{-i} option.
 
 @node Extension Sample Ord
 @subsection Character and Numeric values: @code{ord()} and @code{chr()}
@@ -32434,6 +32515,7 @@ the three most widely-used freely available versions of @command{awk}
 @item @code{delete} without subscript @tab X @tab X @tab X
 @item @code{length()} of an array @tab X @tab @tab X
 @item @code{BINMODE} variable @tab @tab X @tab X
+@item Time related functions @tab @tab X @tab X
 @end multitable
 
 @node Ranges and Locales
@@ -33941,6 +34023,18 @@ It is available in several archive formats:
 @uref{http://www.cs.princeton.edu/~bwk/btl.mirror/awk.zip}
 @end table
 
+You can also retrieve it from Git Hub:
+
+@example
+git clone git://github.com/onetrueawk/awk bwkawk
+@end example
+
+@noindent
+The above command creates a copy of the @uref{http://www.git-scm.com, Git}
+repository in a directory named @file{bwkawk}.  If you leave that argument
+off the @command{git} command line, the repository copy is created in a
+directory named @file{awk}.
+
 This version requires an ISO C (1990 standard) compiler;
 the C compiler from
 GCC (the GNU Compiler Collection)
@@ -33964,7 +34058,7 @@ no longer has it.  A copy is available at
 
 In 2009, Thomas Dickey took on @command{mawk} maintenance.
 Basic information is available on
-@uref{http://www.invisible-island.net/mawk/mawk.html, the project's web page}.
+@uref{http://www.invisible-island.net/mawk, the project's web page}.
 The download URL is
 @url{http://invisible-island.net/datafiles/release/mawk.tar.gz}.
 
@@ -34065,17 +34159,6 @@ under the GPL. It has a large number of extensions over standard
 @command{awk} and may not be 100% syntactically compatible with it.
 See @uref{http://www.quiktrim.org/QTawk.html} for more information,
 including the manual and a download link.
-
-@item @command{xgawk}
-@cindex @command{xgawk}
-@cindex source code, @command{xgawk}
-XML @command{gawk}.
-This is a fork of the @command{gawk} 3.1.6 source base
-to support processing XML files. It has a number of
-interesting extensions which should one day be integrated
-into the main @command{gawk} code base.
-For more information, see
-@uref{http://xmlgawk.sourceforge.net, the XMLgawk project web site}.
 
 @end table
 @c ENDOFRANGE gligawk

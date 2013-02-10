@@ -500,10 +500,7 @@ printf_common(int nargs)
 	int i;
 	NODE *r, *tmp;
 
-	if (nargs == 0)
-		fatal(_("[s]printf called with no arguments"));
-
-	assert(nargs <= max_args);
+	assert(nargs > 0 && nargs <= max_args);
 	for (i = 1; i <= nargs; i++) {
 		tmp = args_array[nargs - i] = POP();
 		if (tmp->type == Node_var_array) {
@@ -526,6 +523,10 @@ NODE *
 do_sprintf(int nargs)
 {
 	NODE *r;
+
+	if (nargs == 0)
+		fatal(_("sprintf: no arguments"));
+
 	r = printf_common(nargs);
 	if (r == NULL)
 		gawk_exit(EXIT_FATAL);
@@ -568,8 +569,10 @@ do_printf(int nargs, int redirtype)
 		rp = redirect(redir_exp, redirtype, & errflg);
 		if (rp != NULL)
 			fp = rp->output.fp;
-	} else
+	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
+	else
+		fp = stdout;
 
 	tmp = printf_common(nargs);
 	if (redir_exp != NULL) {
@@ -978,8 +981,10 @@ do_print(int nargs, int redirtype)
 		rp = redirect(redir_exp, redirtype, & errflg);
 		if (rp != NULL)
 			fp = rp->output.fp;
-	} else
+	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
+	else
+		fp = stdout;
 
 	for (i = 1; i <= nargs; i++) {
 		tmp = args_array[i] = POP();

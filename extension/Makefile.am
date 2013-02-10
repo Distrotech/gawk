@@ -35,6 +35,7 @@ pkgextension_LTLIBRARIES =	\
 	filefuncs.la	\
 	fnmatch.la	\
 	fork.la		\
+	inplace.la	\
 	ordchr.la	\
 	readdir.la	\
 	readfile.la	\
@@ -48,7 +49,8 @@ MY_MODULE_FLAGS = -module -avoid-version -no-undefined
 # on Cygwin, gettext requires that we link with -lintl 
 MY_LIBS = $(LIBINTL)
 
-filefuncs_la_SOURCES  = filefuncs.c stack.h stack.c gawkfts.h gawkfts.c
+filefuncs_la_SOURCES  = filefuncs.c stack.h stack.c gawkfts.h \
+			gawkfts.c gawkdirfd.h
 filefuncs_la_LDFLAGS  = $(MY_MODULE_FLAGS)
 filefuncs_la_LIBADD   = $(MY_LIBS)
 
@@ -60,11 +62,15 @@ fork_la_SOURCES       = fork.c
 fork_la_LDFLAGS       = $(MY_MODULE_FLAGS)
 fork_la_LIBADD        = $(MY_LIBS)
 
+inplace_la_SOURCES    = inplace.c
+inplace_la_LDFLAGS    = $(MY_MODULE_FLAGS)
+inplace_la_LIBADD     = $(MY_LIBS)
+
 ordchr_la_SOURCES     = ordchr.c
 ordchr_la_LDFLAGS     = $(MY_MODULE_FLAGS)
 ordchr_la_LIBADD      = $(MY_LIBS)
 
-readdir_la_SOURCES    = readdir.c
+readdir_la_SOURCES    = readdir.c gawkdirfd.h
 readdir_la_LDFLAGS    = $(MY_MODULE_FLAGS)
 readdir_la_LIBADD     = $(MY_LIBS)
 
