@@ -39,12 +39,14 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 #include <config.h>
 #endif
 
+#define _BSD_SOURCE
+
+#include <limits.h>
 /* #include "namespace.h" */
 #ifndef ZOS_USS
 #include <sys/param.h>
 #else
 #include <stdio.h>
-#include <limits.h>
 #endif /* ZOS_USS */
 #include <sys/stat.h>
 
@@ -56,6 +58,12 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+#include "gawkdirfd.h"
+
+#if ! defined(S_ISREG) && defined(S_IFREG)
+#define	S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
 
 /*
 #if ! HAVE_NBTOOL_CONFIG_H

@@ -21,6 +21,7 @@
    Modified July, 1988 by Arthur David Olson to assist BMG speedups  */
 
 #include <config.h>
+
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -41,6 +42,8 @@
 #else
 #include "missing_d/gawkbool.h"
 #endif /* HAVE_STDBOOL_H */
+
+#include "dfa.h"
 
 
 #define STREQ(a, b) (strcmp (a, b) == 0)
@@ -79,8 +82,6 @@
 # include <langinfo.h>
 #endif
 
-#include "regex.h"
-#include "dfa.h"
 #include "xalloc.h"
 
 #ifdef GAWK
@@ -479,6 +480,7 @@ static void regexp (void);
     (sizeof (t) == 1 ? xzalloc (n) : xcalloc (n, sizeof (t)))
 
 #define CALLOC(p, n) do { (p) = XCALLOC (n, *(p)); } while (0)
+#undef MALLOC	/* Irix defines this */
 #define MALLOC(p, n) do { (p) = XNMALLOC (n, *(p)); } while (0)
 #define REALLOC(p, n) do {(p) = xnrealloc (p, n, sizeof (*(p))); } while (0)
 

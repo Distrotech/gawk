@@ -1,3 +1,58 @@
+2013-01-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkdirfd.h: New file.
+	* Makeile.am (filefuncs_la_SOURCES, readdir_la_SOURCES): Use it.
+	* gawkfts.c, readdir.c: Include gawkdirfd.h.
+	* configure.ac (AC_USE_SYSTEM_EXTENSIONS): Added.
+	(GAWK_FUNC_DIRFD, GAWK_PREREQ_DIRFD): New calls.
+	(.developing): Fix check.
+	* alocal.m4: Updated.
+	* configure: Regenerated.
+	* gawkdirfd.h: Fixed for Mac OS X also.
+
+2013-01-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkfts.c: Make include of <limits.h> be unconditional.
+
+2013-01-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Improve portability. We hope.
+
+	* gawkfts.c (S_ISREG): Define macro if not defined.
+	(_BSD_SOURCE): Define for use with c99 compiler driver.
+	* inplace.c (S_ISREG): Define macro if not defined.
+	(_XOPEN_SOURCE, _XOPEN_SOURCE_EXTENDED): Define for use with c99
+	compiler driver.
+	* filefuncs.c (_BSD_SOURCE): Define for use with c99 compiler driver.
+	* readfile.c (_BSD_SOURCE): Define for use with c99 compiler driver.
+	* revtwoway.c (_BSD_SOURCE): Define for use with c99 compiler driver.
+
+2013-01-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* readfile.c (do_readfile): Free `text' if read fails. Thanks to
+	cppcheck.
+	* inplace.c (do_inplace_begin): Check chown return value in an if
+	to shut up compiler warning.
+
+2013-01-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* inplace.3am: New file.
+	* filefuncs.3am, fnmatch.3am, fork.3am, ordchr.3am, readdir.3am,
+	readfile.3am, revoutput.3am, revtwoway.3am, rwarray.3am,
+	time.3am: Update copyright dates, add reference to inplace(3am).
+
+	* inplace.c (do_inplace_begin): Remove unused variable `p'.
+
+2013-01-10         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* inplace.c (do_inplace_begin): No need to get the 2nd suffix argument,
+	since it is not currently used in this function.
+
+2013-01-08         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* inplace.c: New extension to implement in-place editing.
+	* Makefile.am: Add inplace extension.
+
 2012-12-25         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* filefuncs.3am, fnmatch.3am: Predefined variables are no

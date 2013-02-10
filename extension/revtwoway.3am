@@ -1,4 +1,4 @@
-.TH REVTWOWAY 3am "Oct 24 2012" "Free Software Foundation" "GNU Awk Extension Modules"
+.TH REVTWOWAY 3am "Jan 15 2013" "Free Software Foundation" "GNU Awk Extension Modules"
 .SH NAME
 revtwoway \- Reverse strings sample two-way processor extension
 .SH SYNOPSIS
@@ -29,6 +29,7 @@ it may also be mildy amusing.
 .IR filefuncs (3am),
 .IR fnmatch (3am),
 .IR fork (3am),
+.IR inplace (3am),
 .IR ordchr (3am),
 .IR readdir (3am),
 .IR readfile (3am),
@@ -39,7 +40,7 @@ it may also be mildy amusing.
 Arnold Robbins,
 .BR arnold@skeeve.com .
 .SH COPYING PERMISSIONS
-Copyright \(co 2012
+Copyright \(co 2012, 2013,
 Free Software Foundation, Inc.
 .PP
 Permission is granted to make and distribute verbatim copies of

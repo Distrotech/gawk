@@ -39,7 +39,6 @@ EXTRA_DIST = \
 	NEWS \
 	NEWS.0 \
 	POSIX.STD \
-	PROBLEMS \
 	README_d \
 	bisonfix.awk \
 	config.guess \
@@ -142,7 +141,7 @@ gawk_SOURCES = $(base_sources)
 EXTRA_LIBS = misc/libmisc.a
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
-LDADD = $(EXTRA_LIBS) $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
+LDADD = $(EXTRA_LIBS) $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) $(LIBREADLINE) $(LIBMPFR)
 
 # Directory for gawk's data files. Automake supplies datadir.
 pkgdatadir = $(datadir)/awk

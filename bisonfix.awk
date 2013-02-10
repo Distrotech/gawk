@@ -1,6 +1,6 @@
 # bisonfix.awk --- tweak awkgram.c for stupid compilers.
 
-# Copyright (C) 2005, 2009 the Free Software Foundation, Inc.
+# Copyright (C) 2005, 2009, 2013 the Free Software Foundation, Inc.
 # 
 # This file is part of GAWK, the GNU implementation of the
 # AWK Programming Language.
@@ -19,7 +19,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
 
-BEGIN { sfile = ARGV[1] ; delete ARGV[1] }
+BEGIN { sfile = ARGV[1] ; ARGV[1] = "-" ; ARGC = 2 }
 
 /^#if.*\\$/ {
 	line = $0

@@ -120,6 +120,7 @@ gawk_OBJECTS = $(am_gawk_OBJECTS)
 gawk_LDADD = $(LDADD)
 am__DEPENDENCIES_1 =
 gawk_DEPENDENCIES = $(EXTRA_LIBS) $(am__DEPENDENCIES_1) \
+	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1) \
 	$(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 DEFAULT_INCLUDES = -I.@am__isrc@
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -372,7 +373,6 @@ EXTRA_DIST = \
 	NEWS \
 	NEWS.0 \
 	POSIX.STD \
-	PROBLEMS \
 	README_d \
 	bisonfix.awk \
 	config.guess \
@@ -471,7 +471,7 @@ gawk_SOURCES = $(base_sources)
 EXTRA_LIBS = misc/libmisc.a
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
-LDADD = $(EXTRA_LIBS) $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
+LDADD = $(EXTRA_LIBS) $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) $(LIBREADLINE) $(LIBMPFR)
 
 # stuff for compiling gawk/pgawk
 DEFPATH = '".$(PATH_SEPARATOR)$(pkgdatadir)"'

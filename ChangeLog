@@ -4,6 +4,55 @@
 	* long_double.c: Remove all use of math functions for C-double as the fallback.
 	Use ours in misc/gawk_math.c instead.
 
+2013-02-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (printf_common): Move nargs > 0 check into assert.
+	(do_sprintf): Add nargs check and fatal message to here.
+
+2013-02-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* main.c (main): Remove undocumented -m option which was for
+	compatibility with BWK awk. His awk dropped it back in 2007.
+
+2013-02-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Add Automake test for cross compiling.
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regcomp.c, regex.c, regex_internal.c, regexec.c: Update
+	copyright years to sync with GLIBC.
+
+	From: http://www.sourceware.org/ml/libc-alpha/2013-01/msg00967.html,
+	by Andreas Schwab <schwab@suse.de>:
+
+	* regexec.c (extend_buffers): Add parameter min_len.
+	(check_matching): Pass minimum needed length.
+	(clean_state_log_if_needed): Likewise.
+	(get_subexp): Likewise.`
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Include "dfa.h" which includes regex.h after limits.h
+	so that RE_DUP_MAX gets the correct value. Especially needed on
+	OpenVMS. Thanks to Anders Wallin.
+
+	* main.c (version): Print out API version numbers if DYNAMIC.
+	Helpful also for knowing if to run the shlib tests.
+
+	* configure: Regenerated after change in m4/readline.m4.
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* PROBLEMS: Removed. It is no longer needed.
+	* Makefile.am (EXTRA_DIST): Remove PROBLEMS from list.
+
+2013-01-31         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* configure.ac: Remove TEST_MPFR conditional added in last patch.
+	We will instead test for MPFR capability by looking at the output
+	from gawk --version.
+
 2013-01-27         John Haque      <j.eh@mchsi.com>
 
 	* long_double.c (GAWK_FORMAT_INT): New define.
@@ -11,12 +60,48 @@
 	from long_double.h.
 	* long_double.h	(format_float_1, format_uint_1, double_to_int): Adjust.
 
+2013-01-27         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* configure.ac: Add MPFR test for use in test/Makefile.am.
+
+2013-01-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (parms_shadow): Change int param to bool.
+	* cmd.h (output_is_tty): Sync type with rest of code (is bool).
+	* dfa.c (MALLOC): Undef first, for Irix.
+	* Makefile.am (LDADD): Use LIBREADLINE and LIBMPFR instead of
+	automake substitutions.
+	* configure.ac (AC_INIT): Version bump.
+	(GAWK_CHECK_READLINE): Renamed from GNUPG_CHECK_READLINE.
+
 2013-01-23         John Haque      <j.eh@mchsi.com>
 
 	* long_double.c (format_uint_1): New inline routines to format integers.
 	* long_double.h (format_float_1): Remove integer formatting code.
 	(format_awkldbl_printf): Use format_uint_1() to format integers.
 	
+
+2013-01-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awk.h (list_functions): Change parameter to bool.
+	* symbol.c (list_functions): Ditto.
+	(get_symbols): Change sort parameter to bool. Additional
+	code cleanup.
+
+2013-01-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* symbol.c (get_symbols): Reset count after each loop to only
+	sort the actual items retrieved. Thanks to Hermann Peifer (by
+	way of Andrew Schorr) for reporting the bug.  Also add some
+	commentary and fix function name in emalloc calls.
+
+2013-01-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* re.c (regexflags2str): New routine.
+	(resetup): If do_intervals, also turn on RE_NO_BK_BRACES.
+	Thanks to Yan Lei <yanl.fnst@cn.fujitsu.com> for the
+	bug report.
+
 2013-01-19         John Haque      <j.eh@mchsi.com>
 
 	For C long double and without "%Lf" in printf, provide "%.0Lf" to
@@ -36,6 +121,15 @@
 	* long_double.h (make_integer): Remove call to adjust_uint().
 	Install similar code suitable for a long double.
 
+2013-01-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Fix a problem with include ordering to get ptrdiff_t definition,
+	showed up on Debian Lenny. Reported by Manuel Collado.
+	Fix brought over from grep.
+
+	* dfa.h: Include regex.h and stddef.h directly.
+	* dfa.c: Adjust includes.
+
 2013-01-12         John Haque      <j.eh@mchsi.com>
 
 	* format.c: New file.
@@ -54,6 +148,35 @@
 	* double.c (format_awknum_val): Reworked to use compiled
 	format codes.
 	* mpfr.c (mpfp_format_val): Ditto.
+
+2013-01-11         John Haque            <j.eh@mchsi.com>
+
+	* awk.h (do_mpfr_rshift): Renamed from do_mpfr_rhift.
+	* awkgram.y (do_mpfr_rshift): Renamed from do_mpfr_rhift.
+	* mpfr.c (_tz1, _tz2, _mpz1, _mpz2, mpz1, mpz2, get_bit_ops,
+	free_bit_ops): Removed.
+	(init_mpfr): Remove calls to mpz_init.
+	(get_intval, free_intval): New functions.
+	(do_mpfr_rshift, do_mpfr_lshift): Rework code.
+	(do_mpfr_and, do_mpfr_or, do_mpfr_xor): Accept two or more arguments
+	to match regular functions.
+
+2013-01-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bisonfix.awk: Adjust ARGV / ARGC to force reading of standard
+	input; apparently needed for Mac OS X. Thanks to Akim Demaille
+	for the report.
+
+2013-01-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (redirect, two_way_open): Set the name field in the
+	awk_input_buf_t and awk_output_buf_t structures, as needed.
+	Thanks to Manuel Collado for the report.
+
+2013-01-05         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regex_internal.h (struct re_dfa_t): Restore ifdefs around
+	__libc_lock_define, they really were needed. Bleah.
 
 2013-01-03         John Haque      <j.eh@mchsi.com>
 
@@ -77,6 +200,16 @@
 	New routines.
 	(mpfp_format_nodes): Removed.
 
+2013-01-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Sync with GLIBC regex files.
+
+	* regex_internal.h (struct re_dfa_t): Remove ifdefs around
+	__libc_lock_define since it's already defined to empty in non-LIBC
+	case.
+	* regexec.c (check_node_accept_bytes): Restore decl with use from
+	GLIBC code since this is LIBC case.
+
 2012-12-29         John Haque      <j.eh@mchsi.com>
 
 	Add support for long double numbers.
@@ -98,6 +231,12 @@
 	* double.c: Use make_awknum everywhere instead of make_number
 	in case a routine is called not using the current handler
 	or before initialization.
+
+2012-12-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (do_print, do_printf): Use output_fp as default
+	output for print/printf only if running under the debugger.
+	Otherwise use stdout as Brian, Peter, and Al intended.
  
 2012-12-27         John Haque      <j.eh@mchsi.com>
 

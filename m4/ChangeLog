@@ -2,6 +2,17 @@
 
 	* long_double.m4: Reworked.
 
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* readline.m4: Add cross-compiling action.
+
+2013-01-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* readline.m4 (GAWK_CHECK_READLINE): Renamed from GNUPG_CHECK_READLINE.
+	Test program changed and test changed to try to run the built program
+	since some systems don't notice a link dependency between libreadline
+	and other libs until runtime. Isn't that fun?
+
 2013-01-19         John Haque      <j.eh@mchsi.com>
 
 	* long_double.m4: Make "%Lf" support in printf optional.
@@ -23,10 +34,6 @@
 	* libtool.m4, ltoptions.m4, ltsugar.m4, ltversion.m4, lt~obsolete.m4:
 	Remove files related to libtool support.  Libtool usage has been
 	pushed down into the extension directory.
-
-2012-04-01         John Haque      <j.eh@mchsi.com>
-
-	* mpfr.m4: New file.
 
 2012-04-27         Arnold D. Robbins     <arnold@skeeve.com>
 

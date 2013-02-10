@@ -1,3 +1,74 @@
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am: Move functab4 into shlib tests, since it uses
+	@load. Thanks to Anders Wallin for the report.
+	(shlib-tests): Check --version output for "API" and run tests
+	if there.
+
+2013-01-31         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am: To decide whether to run MPFR tests, use the output
+	of gawk --version instead of the automake TEST_MPFR conditional (which
+	has now been removed from configure.ac).
+
+2013-01-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (EXTRA_DIST): Add all the mpfr test files. Duh.
+	(reginttrad): Use $(srcdir)/$@.awk. Double Duh.
+
+2013-01-27         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am: Add mpfr tests if MPFR is available.
+
+2013-01-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (reginttrad): New test.
+	* reginttrad.awk, reginttrad.ok: New files.
+
+2013-01-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Fix tests to work with make diffout:
+
+	* rtlenmb.ok: New file.
+	* Makefile.am (clobber, mmap8k, rtlenmb): Tests adjusted.
+	(EXTRA_DIST): Add rtlenmb.ok.
+
+2013-01-15         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Gentests: Remove a debugging printf.
+
+2013-01-15         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am (readdir): Try to protect against failure on filesystems
+	lacking type information by invoking readdir.awk before readdir0.awk
+	and passing the results of readdir to readdir0 for inspection.
+	* readdir0.awk: Analyze the results of the readdir extension.
+	If all file types are set to "u", we infer that this filesystem lacks
+	type information.
+
+2013-01-14         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (rand): Let Gentests create the test.
+	(fmtspcl): Add $(AWKFLAGS).
+	* Gentests: For MPFR tests, add $(AWKFLAGS) on the command line.
+	* mpfr-rand.ok: Updated.
+
+2013-01-14         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am (symtab8): Use grep to remove FILENAME from the output
+	so the test will succeed when building outside the source tree.
+	* symtab8.ok: Remove FILENAME.
+
+2013-01-10         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* inplace.1.in, inplace.2.in, inplace.in, inplace1.1.ok, inplace1.2.ok,
+	inplace1.ok, inplace2.1.bak.ok, inplace2.1.ok, inplace2.2.bak.ok,
+	inplace2.2.ok, inplace2.ok, inplace3.1.bak.ok, inplace3.1.ok,
+	inplace3.2.bak.ok, inplace3.2.ok, inplace3.ok: New files.
+	* Makefile.am (EXTRA_DIST): Add new files.
+	(SHLIB_TESTS): Add inplace1, inplace2, and inplace3.
+	(inplace1, inplace2, inplace3): New tests.
+
 2012-12-25         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* assignconst.awk, assignconst.ok: Removed.
