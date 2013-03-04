@@ -551,6 +551,13 @@ typedef struct gawk_api {
 				awk_value_t *value);
 
 	/*
+	 * Install a constant value.
+	 */
+	awk_bool_t (*sym_constant)(awk_ext_id_t id,
+				const char *name,
+				awk_value_t *value);
+
+	/*
 	 * A ``scalar cookie'' is an opaque handle that provide access
 	 * to a global variable or array. It is an optimization that
 	 * avoids looking up variables in gawk's symbol table every time
@@ -710,6 +717,8 @@ typedef struct gawk_api {
 	(api->api_sym_update(ext_id, name, value))
 #define sym_update_scalar(scalar_cookie, value) \
 	(api->api_sym_update_scalar)(ext_id, scalar_cookie, value)
+#define sym_constant(name, value) \
+	(api->sym_constant(ext_id, name, value))
 
 #define get_array_element(array, index, wanted, result) \
 	(api->api_get_array_element(ext_id, array, index, wanted, result))

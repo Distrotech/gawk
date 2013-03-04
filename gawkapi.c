@@ -538,12 +538,13 @@ api_sym_lookup_scalar(awk_ext_id_t id,
 	return node_to_awk_value(node, result, wanted);
 }
 
-/* api_sym_update --- update a symbol's value, see gawkapi.h for semantics */
+/* sym_update_real --- update a symbol's value, see gawkapi.h for semantics */
 
 static awk_bool_t
-api_sym_update(awk_ext_id_t id,
+sym_update_real(awk_ext_id_t id,
 		const char *name,
-		awk_value_t *value)
+		awk_value_t *value,
+		bool is_const)
 {
 	NODE *node;
 	NODE *array_node;
@@ -584,6 +585,8 @@ api_sym_update(awk_ext_id_t id,
 			node = install_symbol(estrdup((char *) name, strlen(name)),
 					Node_var);
 			node->var_value = awk_value_to_node(value);
+			if (is_const)
+				node->type = Node_var_const;
 		}
 
 		return true;
@@ -603,8 +606,12 @@ api_sym_update(awk_ext_id_t id,
 	    && (node->type == Node_var || node->type == Node_var_new)) {
 		unref(node->var_value);
 		node->var_value = awk_value_to_node(value);
-		if (node->type == Node_var_new && value->val_type != AWK_UNDEFINED)
-			node->type = Node_var;
+		if (value->val_type != AWK_UNDEFINED) {
+			if (node->type == Node_var_new)
+				node->type = Node_var;
+			else if (is_const)
+				node->type = Node_var_const;
+		}
 
 		return true;
 	}
@@ -707,6 +714,22 @@ valid_subscript_type(awk_valtype_t valtype)
 	default:	/* AWK_ARRAY or an invalid type */
 		return false;
 	}
+}
+
+static awk_bool_t
+api_sym_update(awk_ext_id_t id,
+		const char *name,
+		awk_value_t *value)
+{
+	return sym_update_real(id, name, value, false);
+}
+
+static awk_bool_t
+api_sym_constant(awk_ext_id_t id,
+		const char *name,
+		awk_value_t *value)
+{
+	return sym_update_real(id, name, value, true);
 }
 
 /* Array management */
@@ -1089,6 +1112,7 @@ gawk_api_t api_impl = {
 	/* Accessing and installing variables and constants */
 	api_sym_lookup,
 	api_sym_update,
+	api_sym_constant,
 
 	/* Accessing and modifying variables via scalar cookies */
 	api_sym_lookup_scalar,

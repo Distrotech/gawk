@@ -289,6 +289,7 @@ typedef enum nodevals {
 
 	/* symbol table values */
 	Node_var,		/* scalar variable, lnode is value */
+	Node_var_const,		/* unassignable scalar variable, lnode is value */
 	Node_var_array,		/* array is ptr to elements, table_size num of eles */
 	Node_var_new,		/* newly created variable, may become an array */
 	Node_param_list,	/* lnode is a variable, rnode is more list */

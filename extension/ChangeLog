@@ -1,5 +1,9 @@
 2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
 
+	* testext.c: Make answer_num a constant.
+
+2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
+
 	* filefuncs.c (fill_stat_array): Adjust computation for block
 	count for WIN32 systems after consultation with Eli Zaretskii.
 

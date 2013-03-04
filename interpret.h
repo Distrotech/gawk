@@ -151,6 +151,7 @@ top:
 				
 			switch (m->type) {
 			case Node_var:
+			case Node_var_const:
 				if (do_lint && var_uninitialized(m))
 					lintwarn(isparam ?
 						_("reference to uninitialized argument `%s'") :
@@ -556,6 +557,8 @@ mod:
 		case Op_predecrement:
 			x = op == Op_preincrement ? 1.0 : -1.0;
 			lhs = TOP_ADDRESS();
+			if ((*lhs)->type == Node_var_const)
+				fatal(_("cannot assign to defined constant"));
 			t1 = *lhs;
 			force_number(t1);
 			if (t1->valref == 1 && t1->flags == (MALLOC|NUMCUR|NUMBER)) {
@@ -574,6 +577,8 @@ mod:
 		case Op_postdecrement:
 			x = op == Op_postincrement ? 1.0 : -1.0;
 			lhs = TOP_ADDRESS();
+			if ((*lhs)->type == Node_var_const)
+				fatal(_("cannot assign to defined constant"));
 			t1 = *lhs;
 			force_number(t1);
 			r = make_number(t1->numbr);

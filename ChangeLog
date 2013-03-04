@@ -1,3 +1,26 @@
+2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Provide the API with the ability to create true constants.
+
+	* awk.h (Node_var_const): New nodetype.
+	* awkgram.y (statement): Don't allow a constant as the for loop
+	control variable.
+	* debug.c (print_symbol, do_set_var, watchpoint_triggered): Handle
+	Node_var_const.
+	(initialize_watch_item, print_memory, do_print_f): Ditto.
+	* eval.c (nodetypes, setup_frame): Add Node_var_const.
+	(r_get_lhs, op_assign): Assigning to constant is fatal error.
+	* gawkapi.c (sym_update_real): Renamed from api_sym_update_real,
+	add is_const parameter. Handle it.
+	(api_sym_update, api_sym_constant): Call sym_update_real.
+	(api_impl): Add new element.
+	* gawk_api.h: Add new function pointer for sym_constant.
+	(sym_constant): New macro.
+	* interpret.h: Support Node_var_const.
+	* profile.c (pprint): Support Node_var_const.
+	* symbol.c (destroy_symbol, make_symbol, print_vars): Support
+	Node_var_const.
+
 2013-02-28         Arnold D. Robbins     <arnold@skeeve.com>
 
 	Cause profiling / pretty printing to include a list of

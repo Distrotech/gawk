@@ -657,6 +657,9 @@ statement
 		INSTRUCTION *ip;
 		char *var_name = $3->lextok;
 
+		if ($3->memory->type == Node_var_const)
+			fatal(_("cannot use defined constant as loop variable in `for' statement"));
+
 		if ($8 != NULL
 				&& $8->lasti->opcode == Op_K_delete
 				&& $8->lasti->expr_count == 1
