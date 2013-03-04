@@ -2,6 +2,8 @@
 
 	* gawk.texi (Getline/Pipe): Add a nice quote from BWK.
 
+	API doc: Restore sym_constant.
+
 2013-02-08         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* gawk.texi: Restore centering of text images.

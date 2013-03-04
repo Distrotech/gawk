@@ -193,7 +193,7 @@ uninitialized_scalar:
 			m = pc->memory;
 			if (m->type == Node_param_list)
 				m = GET_PARAM(m->param_cnt);
-			if (m->type == Node_var) {
+			if (m->type == Node_var || m->type == Node_var_const) {
 				m = m->var_value;
 				UPREF(m);
 				PUSH(m);
@@ -1064,7 +1064,10 @@ match_re:
 			f = pc->func_body;
 			if (f == NULL) {
 				f = lookup(pc->func_name);
-				if (f == NULL || (f->type != Node_func && f->type != Node_ext_func && f->type != Node_old_ext_func))
+				if (f == NULL ||
+				   (f->type != Node_func &&
+				    f->type != Node_ext_func
+				    && f->type != Node_old_ext_func))
 					fatal(_("function `%s' not defined"), pc->func_name);
 				pc->func_body = f;     /* save for next call */
 			}

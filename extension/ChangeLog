@@ -1,5 +1,10 @@
 2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
 
+	* filefuncs.c, fnmatch.c: Restore use of sym_constant.
+	* filefuncs.3am, fnmatch.3am: Restore documentation of constants.
+
+2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
+
 	* testext.c: Make answer_num a constant.
 
 2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>

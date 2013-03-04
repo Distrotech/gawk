@@ -102,6 +102,8 @@ EXTRA_DIST = \
 	asort.ok \
 	asorti.awk \
 	asorti.ok \
+	assignconst.awk \
+	assignconst.ok \
 	awkpath.ok \
 	back89.awk \
 	back89.in \
@@ -985,7 +987,7 @@ LOCALE_CHARSET_TESTS = \
 	mbprintf1 mbprintf2 mbprintf3 rebt8b2 rtlenmb sort1 sprintfc
 
 SHLIB_TESTS = \
-	fnmatch filefuncs fork fork2 fts functab4 inplace1 inplace2 inplace3 \
+	assignconst fnmatch filefuncs fork fork2 fts functab4 inplace1 inplace2 inplace3 \
 	ordchr ordchr2 readdir readfile revout revtwoway rwarray testext time
 
 # List of the tests which should be run with --lint option:
@@ -1750,6 +1752,13 @@ testext::
 	@$(AWK) '/^(@load|BEGIN)/,/^}/' $(top_srcdir)/extension/testext.c > testext.awk
 	@$(AWK) -f testext.awk >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@ testext.awk
+
+assignconst:
+	@echo $@
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14; \
+	do AWKPATH=$(srcdir) $(AWK) -f $@.awk $$i ; \
+	done 2>&1 | grep -v at_exit > _$@
+	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
 
 readdir:
 	@echo $@
