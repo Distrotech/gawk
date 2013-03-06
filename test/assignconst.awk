@@ -46,7 +46,6 @@ BEGIN {
 			print answer_num, a[answer_num]
 		break
 	case 14:
-		stopme()
 		test_func(answer_num)
 		break
 	}
