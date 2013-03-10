@@ -1,3 +1,36 @@
+2013-03-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Change how constants are handled; use a flag in the value, not
+	a new node type.  Add ":=" assignment operator to create constants
+	at the awk level. Array elements need work. Still needs documenting.
+
+	* awk.h (Node_var_const): Removed.
+	(VAR_CONST): New flag.
+	(Op_assign_const): New op code.
+	(dupnode): If value is a constant, call r_dupnode.
+	* awkgram.y (ASSIGN_CONST): New token.
+	(statement): Don't check Node_var_const.
+	(assign): Allow ASSIGN_CONST.
+	(yylex): Return ASSIGN_CONST for ":=".
+	(valinfo): Enhance for constant values.
+	(mk_assignment): Check for Op_assign_const.
+	* builtin.c (do_sub): Disallow assignment in sub/gsub to constants.
+	* debug.c (print_symbol, do_set_var, watchpoint_triggered,
+	initialize_watch, print_memory, do_print_f): Remove use of
+	Node_var_const.
+	* eval.c (nodetypes, setup_frame): Remove Node_var_const.
+	(optypetab): Add Op_assign_const;
+	(r_get_lhs, op_assign): Check value for VAR_CONST instead of node type.
+	* gawkapi.c (sym_update_real): Update value with flag, not node type.
+	* interpret.h (r_interpret): Check for flag value where appropriate
+	instead of checking node type. Add op_assign_const.
+	* io.c (do_getline_redir, do_getline): Check for constant.
+	* node.c (r_dupnode): If a constant, copy the value, don't up the
+	reference count.
+	* profile.c (pprint): Remove Node_var_const.
+	* symbol.c (destroy_symbol, make_symbol, print_vars): Remove
+	Node_var_const.
+
 2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
 
 	Provide the API with the ability to create true constants.

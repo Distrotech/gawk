@@ -235,7 +235,6 @@ static const char *const nodetypes[] = {
 	"Node_regex",
 	"Node_dynregex",
 	"Node_var",
-	"Node_var_const",
 	"Node_var_array",
 	"Node_var_new",
 	"Node_param_list",
@@ -289,6 +288,7 @@ static struct optypetab {
 	{ "Op_field_spec", "$" },
 	{ "Op_not", "! " },
 	{ "Op_assign", " = " },
+	{ "Op_assign_const", " := " },
 	{ "Op_store_var", " = " },
 	{ "Op_store_sub", " = " },
 	{ "Op_store_field", " = " },
@@ -1136,10 +1136,8 @@ r_get_lhs(NODE *n, bool reference)
 		break;
 
 	case Node_var:
-		break;
-
-	case Node_var_const:
-		fatal(_("cannot assign to defined constant"));
+		if ((n->var_value->flags & VAR_CONST) != 0)
+			fatal(_("cannot assign to defined constant"));
 		break;
 
 	default:
@@ -1316,12 +1314,6 @@ setup_frame(INSTRUCTION *pc)
 			r->prev_array = m;
 			break;
 
-		case Node_var_const:
-			/*
-			 * constant passed by value as parameter
-			 * becomes mutable in the function.
-			 */
-			/* FALL THROUGH */
 		case Node_var:
 			/* Untyped (Node_var_new) variable as param became a
 			 * scalar during evaluation of expression for a
@@ -1550,7 +1542,7 @@ op_assign(OPCODE op)
 	AWKNUM x = 0.0, x1, x2;
 
 	lhs = POP_ADDRESS();
-	if ((*lhs)->type == Node_var_const)
+	if (((*lhs)->flags & VAR_CONST) != 0)
 		fatal(_("cannot assign to defined constant"));
 
 	t1 = *lhs;

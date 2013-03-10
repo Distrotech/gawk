@@ -270,15 +270,20 @@ r_dupnode(NODE *n)
 	assert(n->type == Node_val);
 
 #ifdef GAWKDEBUG
+	if ((n->flags & VAR_CONST) != 0)
+		goto copynode;
+
 	if ((n->flags & MALLOC) != 0) {
 		n->valref++;
 		return n;
 	}
+
+copynode:
 #endif
 
 	getnode(r);
 	*r = *n;
-	r->flags &= ~FIELD;
+	r->flags &= ~(FIELD|VAR_CONST);
 	r->flags |= MALLOC;
 	r->valref = 1;
 #if MBS_SUPPORT

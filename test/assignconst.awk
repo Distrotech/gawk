@@ -46,6 +46,17 @@ BEGIN {
 			print answer_num, a[answer_num]
 		break
 	case 14:
+		a[1] = 1
+		for (answer_num in a)
+			delete a[answer_num]
+		break
+	case 15:
+		getline answer_num
+		break
+	case 16:
+		getline answer_num < "Makefile"
+		break
+	case 17:
 		test_func(answer_num)
 		break
 	}

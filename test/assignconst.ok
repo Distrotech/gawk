@@ -39,4 +39,13 @@ test: 13
 gawk: assignconst.awk:45: fatal: cannot assign to defined constant
 
 test: 14
+gawk: assignconst.awk:51: fatal: cannot assign to defined constant
+
+test: 15
+gawk: assignconst.awk:54: (FILENAME=15 FNR=1) fatal: cannot assign to defined constant
+
+test: 16
+gawk: assignconst.awk:57: fatal: cannot assign to defined constant
+
+test: 17
 in test_func, val now = 43

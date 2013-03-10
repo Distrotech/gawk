@@ -257,7 +257,6 @@ destroy_symbol(NODE *r)
 		break;
 
 	case Node_var: 
-	case Node_var_const: 
 		unref(r->var_value);
 		break;
 
@@ -282,7 +281,7 @@ make_symbol(char *name, NODETYPE type)
 	memset(r, '\0', sizeof(NODE));
 	if (type == Node_var_array)
 		null_array(r);
-	else if (type == Node_var || type == Node_var_const)
+	else if (type == Node_var)
 		r->var_value = dupnode(Nnull_string);
 	r->vname = name;
 	r->type = type;
@@ -460,10 +459,6 @@ print_vars(NODE **table, int (*print_func)(FILE *, const char *, ...), FILE *fp)
 			print_func(fp, "untyped variable\n");
 		else if (r->type == Node_var)
 			valinfo(r->var_value, print_func, fp);
-		else if (r->type == Node_var_const) {
-			print_func(fp, "defined constant ");
-			valinfo(r->var_value, print_func, fp);
-		}
 	}
 }
 

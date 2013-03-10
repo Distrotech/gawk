@@ -586,7 +586,7 @@ sym_update_real(awk_ext_id_t id,
 					Node_var);
 			node->var_value = awk_value_to_node(value);
 			if (is_const)
-				node->type = Node_var_const;
+				node->var_value->flags |= VAR_CONST;
 		}
 
 		return true;
@@ -609,8 +609,8 @@ sym_update_real(awk_ext_id_t id,
 		if (value->val_type != AWK_UNDEFINED) {
 			if (node->type == Node_var_new)
 				node->type = Node_var;
-			else if (is_const)
-				node->type = Node_var_const;
+			if (is_const)
+				node->var_value->flags |= VAR_CONST;
 		}
 
 		return true;

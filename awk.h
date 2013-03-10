@@ -289,7 +289,6 @@ typedef enum nodevals {
 
 	/* symbol table values */
 	Node_var,		/* scalar variable, lnode is value */
-	Node_var_const,		/* unassignable scalar variable, lnode is value */
 	Node_var_array,		/* array is ptr to elements, table_size num of eles */
 	Node_var_new,		/* newly created variable, may become an array */
 	Node_param_list,	/* lnode is a variable, rnode is more list */
@@ -437,6 +436,8 @@ typedef struct exp_node {
 #		define	HALFHAT		0x8000       /* half-capacity Hashed Array Tree;
 		                                      * See cint_array.c */
 #		define	XARRAY		0x10000
+
+#		define	VAR_CONST	0x20000	    /* value is for a const */
 } NODE;
 
 #define vname sub.nodep.name
@@ -588,6 +589,7 @@ typedef enum opcodeval {
 
 	/* assignments */
 	Op_assign,
+	Op_assign_const,
 	Op_store_var,		/* simple variable assignment optimization */
 	Op_store_sub,		/* array[subscript] assignment optimization */
 	Op_store_field,  	/* $n assignment optimization */
@@ -1782,6 +1784,9 @@ in_array(NODE *a, NODE *s)
 static inline NODE *
 dupnode(NODE *n)
 {
+	if ((n->flags & VAR_CONST) != 0)
+		return r_dupnode(n);
+
 	if ((n->flags & MALLOC) != 0) {
 		n->valref++;
 		return n;

@@ -2318,8 +2318,11 @@ do_getline_redir(int into_variable, enum redirval redirtype)
 	NODE **lhs = NULL;
 	int redir_error = 0;
 
-	if (into_variable)
+	if (into_variable) {
 		lhs = POP_ADDRESS();
+		if (((*lhs)->flags & VAR_CONST) != 0)
+			fatal(_("cannot assign to defined constant"));
+	}
 
 	assert(redirtype != redirect_none);
 	redir_exp = TOP();
@@ -2405,6 +2408,8 @@ do_getline(int into_variable, IOBUF *iop)
 	else {			/* assignment to variable */
 		NODE **lhs;
 		lhs = POP_ADDRESS();
+		if (((*lhs)->flags & VAR_CONST) != 0)
+			fatal(_("cannot assign to defined constant"));
 		unref(*lhs);
 		*lhs = make_string(s, cnt);
 		(*lhs)->flags |= MAYBE_NUM;

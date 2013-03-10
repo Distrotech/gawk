@@ -954,10 +954,6 @@ print_symbol(NODE *r, bool isparam)
 			r->var_update();
 		valinfo(r->var_value, fprintf, out_fp);
 		break;
-	case Node_var_const:
-		fprintf(out_fp, "defined constant ");
-		valinfo(r->var_value, fprintf, out_fp);
-		break;
 	case Node_var_array:
 		fprintf(out_fp, "array, %ld elements\n", assoc_length(r));
 		break;
@@ -1231,10 +1227,9 @@ do_set_var(CMDARG *arg, int cmd ATTRIBUTE_UNUSED)
 			r->var_value = dupnode(Nnull_string);
 			/* fall through */
 		case Node_var:
-		case Node_var_const:
-			if (r->type == Node_var_const)
-				d_warning(_("`%s' is a constant (changing anyway)"), name);
 			lhs = &r->var_value;
+			if (((*lhs)->flags & VAR_CONST) != 0)
+				d_warning(_("`%s' is a constant (changing anyway)"), name);
 			unref(*lhs);
 			*lhs = dupnode(val);
 			if (pname == NULL && r->var_assign != NULL)
@@ -1711,7 +1706,6 @@ watchpoint_triggered(struct list_item *w)
 	} else {
 		switch (symbol->type) {
 		case Node_var:
-		case Node_var_const:
 			t2 = symbol->var_value;
 			break;
 		case Node_var_array:
@@ -1796,7 +1790,7 @@ initialize_watch_item(struct list_item *w)
 	} else {
 		if (symbol->type == Node_var_new)
 			w->cur_value = (NODE *) 0;
-		else if (symbol->type == Node_var || symbol->type == Node_var_const) {
+		else if (symbol->type == Node_var) {
 			r = symbol->var_value;
 			w->cur_value = dupnode(r);
 		} else if (symbol->type == Node_var_array) {
@@ -3717,7 +3711,6 @@ print_memory(NODE *m, NODE *func, Func_print print_func, FILE *fp)
 			break;
 
 		case Node_var:
-		case Node_var_const:
 		case Node_var_new:
 		case Node_var_array:
 			print_func(fp, "%s", m->vname);
@@ -4967,7 +4960,7 @@ do_print_f(CMDARG *arg, int cmd ATTRIBUTE_UNUSED)
 				goto done;
 			if (r->type == Node_var_new)
 				tmp[i] = Nnull_string;
-			else if (r->type != Node_var && r->type != Node_var_const) {
+			else if (r->type != Node_var) {
 				d_error(_("`%s' is not a scalar variable"), name);
 				goto done;
 			} else

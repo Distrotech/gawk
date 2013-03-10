@@ -259,7 +259,6 @@ pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header)
 				break;
 
 			case Node_var:
-			case Node_var_const:
 			case Node_var_new:
 			case Node_var_array:
 				if (m->vname != NULL)

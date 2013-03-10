@@ -161,7 +161,7 @@ extern double fmod(double x, double y);
 %token FUNC_CALL NAME REGEXP FILENAME
 %token YNUMBER YSTRING
 %token RELOP IO_OUT IO_IN
-%token ASSIGNOP ASSIGN MATCHOP CONCAT_OP
+%token ASSIGNOP ASSIGN ASSIGN_CONST MATCHOP CONCAT_OP
 %token SUBSCRIPT
 %token LEX_BEGIN LEX_END LEX_IF LEX_ELSE LEX_RETURN LEX_DELETE
 %token LEX_SWITCH LEX_CASE LEX_DEFAULT LEX_WHILE LEX_DO LEX_FOR LEX_BREAK LEX_CONTINUE
@@ -176,7 +176,7 @@ extern double fmod(double x, double y);
 %token NEWLINE
 
 /* Lowest to highest */
-%right ASSIGNOP ASSIGN SLASH_BEFORE_EQUAL
+%right ASSIGNOP ASSIGN ASSIGN_CONST SLASH_BEFORE_EQUAL
 %right '?' ':'
 %left LEX_OR
 %left LEX_AND
@@ -656,9 +656,6 @@ statement
 	  {
 		INSTRUCTION *ip;
 		char *var_name = $3->lextok;
-
-		if ($3->memory->type == Node_var_const)
-			fatal(_("cannot use defined constant as loop variable in `for' statement"));
 
 		if ($8 != NULL
 				&& $8->lasti->opcode == Op_K_delete
@@ -1314,6 +1311,8 @@ assign_operator
 	: ASSIGN
 	  { $$ = $1; }
 	| ASSIGNOP
+	  { $$ = $1; }
+	| ASSIGN_CONST
 	  { $$ = $1; }
 	| SLASH_BEFORE_EQUAL ASSIGN   /* `/=' */
 	  {	
@@ -3138,6 +3137,14 @@ retry:
 		break;
 
 	case ':':
+		if (! do_traditional) {
+			if (nextc() == '=') {
+				yylval = GET_INSTRUCTION(Op_assign_const);
+				return lasttok = ASSIGN_CONST;
+			}
+			pushback();
+		}
+		/* fall through */
 	case '?':
 		yylval = GET_INSTRUCTION(Op_cond_exp);
 		if (! do_posix)
@@ -3333,7 +3340,7 @@ retry:
 			return lasttok = c;
 		}
 		did_newline++;
-		--lexptr;	/* pick up } next time */
+		--lexptr;	/* pick up right brace next time */
 		return lasttok = NEWLINE;
 
 	case '"':
@@ -4054,9 +4061,15 @@ parms_shadow(INSTRUCTION *pc, bool *shadow)
 void
 valinfo(NODE *n, Func_print print_func, FILE *fp)
 {
-	if (n == Nnull_string)
+	if (n == Nnull_string) {
 		print_func(fp, "uninitialized scalar\n");
-	else if (n->flags & STRING) {
+		return;
+	}
+
+	if (n->flags & VAR_CONST)
+		print_func(fp, "defined constant ");
+
+	if (n->flags & STRING) {
 		pp_string_fp(print_func, fp, n->stptr, n->stlen, '"', false);
 		print_func(fp, "\n");
 	} else if (n->flags & NUMBER) {
@@ -5028,7 +5041,8 @@ mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op)
 		cant_happen();
 	}
 
-	tp->do_reference = (op->opcode != Op_assign);	/* check for uninitialized reference */
+	tp->do_reference = (op->opcode != Op_assign	/* check for uninitialized reference */
+				&& op->opcode != Op_assign_const);
 
 	if (rhs != NULL)
 		ip = list_merge(rhs, lhs);

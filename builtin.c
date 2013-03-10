@@ -2727,6 +2727,8 @@ set_how_many:
 			t = POP_STRING();
 		else {
 			lhs = POP_ADDRESS();
+			if (((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
 			t = force_string(*lhs);
 		}
 	}

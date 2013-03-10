@@ -151,7 +151,6 @@ top:
 				
 			switch (m->type) {
 			case Node_var:
-			case Node_var_const:
 				if (do_lint && var_uninitialized(m))
 					lintwarn(isparam ?
 						_("reference to uninitialized argument `%s'") :
@@ -193,8 +192,8 @@ uninitialized_scalar:
 			m = pc->memory;
 			if (m->type == Node_param_list)
 				m = GET_PARAM(m->param_cnt);
-			if (m->type == Node_var || m->type == Node_var_const) {
-				m = m->var_value;
+			if (m->type == Node_var) {
+				m = dupnode(m->var_value);
 				UPREF(m);
 				PUSH(m);
 		 		break;
@@ -557,7 +556,7 @@ mod:
 		case Op_predecrement:
 			x = op == Op_preincrement ? 1.0 : -1.0;
 			lhs = TOP_ADDRESS();
-			if ((*lhs)->type == Node_var_const)
+			if (((*lhs)->flags & VAR_CONST) != 0)
 				fatal(_("cannot assign to defined constant"));
 			t1 = *lhs;
 			force_number(t1);
@@ -577,7 +576,7 @@ mod:
 		case Op_postdecrement:
 			x = op == Op_postincrement ? 1.0 : -1.0;
 			lhs = TOP_ADDRESS();
-			if ((*lhs)->type == Node_var_const)
+			if (((*lhs)->flags & VAR_CONST) != 0)
 				fatal(_("cannot assign to defined constant"));
 			t1 = *lhs;
 			force_number(t1);
@@ -652,6 +651,8 @@ mod:
 			 */
 	
 			lhs = get_lhs(pc->memory, false);
+			if (*lhs != NULL && ((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
 			unref(*lhs);
 			r = pc->initval;	/* constant initializer */
 			if (r == NULL)
@@ -683,6 +684,8 @@ mod:
 		case Op_assign_concat:
 			/* x = x ... string concatenation optimization */
 			lhs = get_lhs(pc->memory, false);
+			if (*lhs != NULL && ((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
 			t1 = force_string(*lhs);
 			t2 = POP_STRING();
 
@@ -728,9 +731,23 @@ mod:
 
 		case Op_assign:
 			lhs = POP_ADDRESS();
+			if (*lhs != NULL && ((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
 			r = TOP_SCALAR();
 			unref(*lhs);
 			*lhs = r;
+			UPREF(r);
+			REPLACE(r);
+			break;
+
+		case Op_assign_const:
+			lhs = POP_ADDRESS();
+			if (*lhs != NULL && ((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
+			r = TOP_SCALAR();
+			unref(*lhs);
+			*lhs = r;
+			(*lhs)->flags |= VAR_CONST;
 			UPREF(r);
 			REPLACE(r);
 			break;
@@ -839,6 +856,8 @@ mod:
 		case Op_K_delete_loop:
 			t1 = POP_ARRAY();
 			lhs = POP_ADDRESS();	/* item */
+			if (((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
 			do_delete_loop(t1, lhs);
 			break;
 
@@ -913,6 +932,8 @@ arrayfor:
 
 			t1 = r->for_list[r->cur_idx];
 			lhs = get_lhs(pc->array_var, false);
+			if (((*lhs)->flags & VAR_CONST) != 0)
+				fatal(_("cannot assign to defined constant"));
 			unref(*lhs);
 			*lhs = dupnode(t1);
 			break;

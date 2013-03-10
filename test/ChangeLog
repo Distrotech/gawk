@@ -1,3 +1,9 @@
+2013-03-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (assignconst): Add more tests. Put data in "15"
+	which uses getline.
+	* assignconst.awk, assignconst.ok: Update with more tests.
+
 2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* assignconst.awk, assignconst.ok: New file.
