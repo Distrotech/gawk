@@ -444,6 +444,7 @@ flags2str(int flagval)
 		{ ARRAYMAXED, "ARRAYMAXED" },
 		{ HALFHAT, "HALFHAT" },
 		{ XARRAY, "XARRAY" },
+		{ VAR_CONST, "VAR_CONST" },
 		{ 0,	NULL },
 	};
 

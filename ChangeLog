@@ -1,3 +1,7 @@
+2013-03-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* eval.c (flags2str): Add entry for VAR_CONST. Duh.
+
 2013-03-10         Arnold D. Robbins     <arnold@skeeve.com>
 
 	Change how constants are handled; use a flag in the value, not
