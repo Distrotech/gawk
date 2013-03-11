@@ -1,3 +1,8 @@
+2013-03-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (colonwarn): New test.
+	* colonwarn.awk, colonwarn.in, colonwarn.ok: New files.
+
 2013-03-10         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* Makefile.am (assignconst): Add more tests. Put data in "15"

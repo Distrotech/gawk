@@ -1,5 +1,9 @@
 2013-03-11         Arnold D. Robbins     <arnold@skeeve.com>
 
+	* re.c (check_bracket_exp): Make handling of embedded ] in
+	regexp smarter. Thanks to Ed Morton <mortoneccc@comcast.net>
+	for reporting the bug.
+
 	* eval.c (flags2str): Add entry for VAR_CONST. Duh.
 
 2013-03-10         Arnold D. Robbins     <arnold@skeeve.com>
