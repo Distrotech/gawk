@@ -1,3 +1,8 @@
+2013-03-14         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* main.c (arg_assign): Recognize ":=" in a variable assignment to
+	do a constant assignment.
+
 2013-03-11         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* re.c (check_bracket_exp): Make handling of embedded ] in

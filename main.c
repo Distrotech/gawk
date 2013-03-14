@@ -1249,6 +1249,7 @@ arg_assign(char *arg, bool initing)
 	NODE *it;
 	NODE **lhs;
 	long save_FNR;
+	bool isconst = false;
 
 	if (! initing && disallow_var_assigns)
 		return false;	/* --exec */
@@ -1263,9 +1264,13 @@ arg_assign(char *arg, bool initing)
 			_("%s: `%s' argument to `-v' not in `var=value' form\n\n"),
 			myname, arg);
 		usage(EXIT_FAILURE, stderr);
+	} else {
+		if (cp[-1] == ':') {
+			isconst = true;
+			cp[-1] = '\0';	/* will need restoring */
+		}
+		*cp++ = '\0';	/* temporarily nuke the = */
 	}
-
-	*cp++ = '\0';
 
 	/* avoid false source indications in a fatal message */
 	source = NULL;
@@ -1334,13 +1339,19 @@ arg_assign(char *arg, bool initing)
 		lhs = get_lhs(var, false);
 		unref(*lhs);
 		*lhs = it;
+		if (isconst)
+			(*lhs)->flags |= VAR_CONST;
 		/* check for set_FOO() routine */
 		if (var->type == Node_var && var->var_assign)
 			var->var_assign();
 	}
 
-	if (! initing)
+	if (! initing) {
 		*--cp = '=';	/* restore original text of ARGV */
+		if (isconst)
+			*--cp = ':';	/* restore it all the way */
+	}
+
 	FNR = save_FNR;
 	return ! badvar;
 }
