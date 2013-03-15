@@ -1,0 +1,34 @@
+Fri Mar 15 14:03:02 IST 2013
+============================
+
+This branch represents a failed experiment, which was to add defined
+constants to gawk.
+
+It started from the extension facility, where adding constants analogous
+to those of C header files for library routines (like fts(3)) seemed like
+a good idea.
+
+Then the question was raised: extensions can do something that awk code
+cannot?  So this facility was removed.  During the discussion though,
+the ":=" operator was suggested as an alternative method for creating
+constants.
+
+I tried to add the extension facility back, and then add code for ":=".
+But there were too many weirdnesses, like what should happen for special
+variables, and should ":=" only work for undefined variables? Also,
+simple code like this didn't work:
+
+	BEGIN {
+		x := 5
+		print x
+		y = x		# constness came across here
+		print y
+		y++ 		# this blows up
+		print y
+	}
+
+Since it's a lot of weird code for not very much benefit, I am
+abandoning further development of this idea.
+
+Arnold Robbins
+arnold@skeeve.com
