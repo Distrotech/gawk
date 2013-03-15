@@ -1,0 +1,7 @@
+Fri Mar 15 14:07:55 IST 2013
+============================
+
+This branch needs to be merged with master.
+
+The eventual goal is to support decimal arithmetic with the mpdecimal library
+at http://www.bytereef.org/mpdecimal/index.html
