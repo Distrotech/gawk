@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <link href='https://fonts.googleapis.com/css?family=Chivo:900' rel='stylesheet' type='text/css'>
+    <link rel="stylesheet" type="text/css" href="stylesheets/stylesheet.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/pygment_trac.css" media="screen" />
+    <link rel="stylesheet" type="text/css" href="stylesheets/print.css" media="print" />
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <title>Gawk by Distrotech</title>
+  </head>
+
+  <body>
+    <div id="container">
+      <div class="inner">
+
+        <header>
+          <h1>Gawk</h1>
+          <h2>Mirror of git://git.savannah.gnu.org/gawk.git</h2>
+        </header>
+
+        <section id="downloads" class="clearfix">
+          <a href="https://github.com/Distrotech/gawk/zipball/master" id="download-zip" class="button"><span>Download .zip</span></a>
+          <a href="https://github.com/Distrotech/gawk/tarball/master" id="download-tar-gz" class="button"><span>Download .tar.gz</span></a>
+          <a href="https://github.com/Distrotech/gawk" id="view-on-github" class="button"><span>View on GitHub</span></a>
+        </section>
+
+        <hr>
+
+        <section id="main_content">
+          <p>Copyright (C) 2005, 2006, 2007, 2009, 2010, 2011, 2012, 2013
+  Free Software Foundation, Inc.</p>
+
+<p>Copying and distribution of this file, with or without modification,
+  are permitted in any medium without royalty provided the copyright
+  notice and this notice are preserved.</p>
+
+<p>README:</p>
+
+<p>This is GNU Awk 4.1.0. It is upwardly compatible with Brian Kernighan's
+version of Unix awk.  It is almost completely compliant with the
+2008 POSIX 1003.1 standard for awk. (See the note below about POSIX.)</p>
+
+<p>This is a major new release. See NEWS and ChangeLog for details.</p>
+
+<p>Work to be done is described briefly in the TODO file.  Changes in this
+version are summarized in the NEWS file.</p>
+
+<p>Read the file POSIX.STD for a discussion of issues where the standard
+says one thing but gawk does something different.</p>
+
+<p>To format the documentation with TeX, use at least version 2013-03-19.11
+of texinfo.tex. There is a usable copy of texinfo.tex in the doc directory.</p>
+
+<p>INSTALLATION:</p>
+
+<p>Check whether there is a system-specific README file for your system under
+the `README_d' directory.  If there's something there that you should
+have read and didn't, and you bug me about it, I'm going to yell at you.</p>
+
+<p>See the file INSTALL for installation instructions.</p>
+
+<p>If you have neither bison nor yacc, use the awkgram.c file here.  It was
+generated with bison, and has no proprietary code in it.  (Note that
+modifying awkgram.y without bison or yacc will be difficult, at best.
+You might want to get a copy of bison from the FSF too.)</p>
+
+<p>If you have an MS-DOS, MS-Windows, or OS/2 system, use the stuff in the `pc'
+directory.  Similarly, there is a separate directory for VMS.</p>
+
+<p>Appendix B of ``GAWK: Effective Awk Programming'' discusses configuration
+in detail. The configuration process is based on GNU Autoconf and
+Automake.</p>
+
+<p>After successful compilation, do <code>make check' to run the test suite.
+There should be no output from the</code>cmp' invocations except in the
+cases where there are small differences in floating point values, and
+possibly in the case of strftime. Several of the tests ignore errors
+on purpose; those are not a problem.  If there are other differences,
+please investigate and report the problem.</p>
+
+<p>PRINTING THE MANUAL</p>
+
+<p>The <code>doc' directory contains a recent version of texinfo.tex, which will
+be necessary for printing the manual.  Use</code>make dvi' to get a DVI file
+from the manual. In the <code>doc' directory, use</code>make postscript' to get
+PostScript versions of the manual, the man page, and the reference card.
+Use `make pdf' to get PDF versions of the manuals, the man page and
+the reference card.</p>
+
+<p>BUG REPORTS AND FIXES (Un*x systems):</p>
+
+<p>Please coordinate changes through Arnold Robbins. In particular, see
+the section in the manual on reporting bugs. Note that comp.lang.awk
+is about the worst place to post a gawk bug report. Please, use the
+mechanisms outlined in the manual.</p>
+
+<p>Email should be sent to bug-gawk@gnu.org.  This is now a separate mailing
+list at GNU Central.  The advantage to using this address is that bug
+reports are archived at GNU Central.</p>
+
+<p>Arnold Robbins</p>
+
+<p>BUG REPORTS AND FIXES, non-Unix systems:</p>
+
+<p>MS-DOS with DJGPP:
+    Scott Deifik
+    <a href="mailto:scottd.mail@sbcglobal.net">scottd.mail@sbcglobal.net</a></p>
+
+<p>MS-Windows with MinGW:
+    Eli Zaretskii
+    <a href="mailto:eliz@gnu.org">eliz@gnu.org</a></p>
+
+<p>OS/2:
+    Andreas Buening
+    <a href="mailto:andreas.buening@nexgo.de">andreas.buening@nexgo.de</a></p>
+
+<p>VMS:
+    Pat Rankin
+    <a href="mailto:r.pat.rankin@gmail.com">r.pat.rankin@gmail.com</a></p>
+
+<p>z/OS (OS/390):
+    Dave Pitts
+    <a href="mailto:dpitts@cozx.com">dpitts@cozx.com</a></p>
+        </section>
+
+        <footer>
+          Gawk is maintained by <a href="https://github.com/Distrotech">Distrotech</a><br>
+          This page was generated by <a href="http://pages.github.com">GitHub Pages</a>. Tactile theme by <a href="http://twitter.com/jasonlong">Jason Long</a>.
+        </footer>
+
+        
+      </div>
+    </div>
+  </body>
+</html>
