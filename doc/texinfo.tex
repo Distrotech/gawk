@@ -3,7 +3,7 @@
 % Load plain if necessary, i.e., if running under initex.
 \expandafter\ifx\csname fmtname\endcsname\relax\input plain\fi
 %
-\def\texinfoversion{2013-03-19.11}
+\def\texinfoversion{2013-02-01.11}
 %
 % Copyright 1985, 1986, 1988, 1990, 1991, 1992, 1993, 1994, 1995,
 % 1996, 1997, 1998, 1999, 2000, 2001, 2002, 2003, 2004, 2005, 2006,
@@ -4211,9 +4211,8 @@ end
 
 % @ifset VAR ... @end ifset reads the `...' iff VAR has been defined
 % with @set.
-% 
-% To get the special treatment we need for `@end ifset,' we call
-% \makecond and then redefine.
+%
+% To get special treatment of `@end ifset,' call \makeond and the redefine.
 %
 \makecond{ifset}
 \def\ifset{\parsearg{\doifset{\let\next=\ifsetfail}}}
@@ -6403,7 +6402,7 @@ end
 \newdimen\nonfillparindent
 \def\nonfillstart{%
   \aboveenvbreak
-  \ifdim\hfuzz < 12pt \hfuzz = 12pt \fi % Don't be fussy
+  \hfuzz = 12pt % Don't be fussy
   \sepspaces % Make spaces be word-separators rather than space tokens.
   \let\par = \lisppar % don't ignore blank lines
   \obeylines % each line of input is a line of output

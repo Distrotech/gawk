@@ -1,3 +1,14 @@
+2013-06-21  gettextize  <bug-gnu-gettext@gnu.org>
+
+	* gettext.m4: Upgrade to gettext-0.18.2.
+	* iconv.m4: Upgrade to gettext-0.18.2.
+	* lib-ld.m4: Upgrade to gettext-0.18.2.
+	* lib-link.m4: Upgrade to gettext-0.18.2.
+	* lib-prefix.m4: Upgrade to gettext-0.18.2.
+	* nls.m4: Upgrade to gettext-0.18.2.
+	* po.m4: Upgrade to gettext-0.18.2.
+	* progtest.m4: Upgrade to gettext-0.18.2.
+
 2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* 4.1.0: Release tar ball made.
