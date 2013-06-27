@@ -1358,6 +1358,13 @@ match_re:
 		case Op_cond_exp:
 			break;
 
+		case Op_end_stmt:
+			if (async_pending) {
+				async_pending = false;
+				run_async_handlers();
+			}
+			break;
+
 		default:
 			fatal(_("Sorry, don't know how to interpret `%s'"), opcode2str(op));
 		}

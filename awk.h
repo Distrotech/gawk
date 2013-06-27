@@ -675,6 +675,7 @@ typedef enum opcodeval {
 
 	Op_exec_count,
 	Op_breakpoint,
+	Op_end_stmt,		/* sync point, end of statement */
 	Op_lint,
 	Op_atexit,
 	Op_stop,
@@ -1491,6 +1492,8 @@ extern void update_ext_api(void);
 extern NODE *awk_value_to_node(const awk_value_t *);
 extern void run_ext_exit_handlers(int exitval);
 extern void print_ext_versions(void);
+extern void run_async_handlers(void);
+extern volatile bool async_pending;
 
 /* gawkmisc.c */
 extern char *gawk_name(const char *filespec);

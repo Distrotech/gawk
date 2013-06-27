@@ -455,6 +455,7 @@ statements
 			else
 				$$ = list_merge($1, $2);
 		}
+		list_append($$, instruction(Op_end_stmt));
 	    yyerrok;
 	  }
 	| statements error

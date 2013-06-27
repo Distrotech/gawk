@@ -264,7 +264,7 @@ typedef struct awk_two_way_processor {
 /* Current version of the API. */
 enum {
 	GAWK_API_MAJOR_VERSION = 1,
-	GAWK_API_MINOR_VERSION = 0
+	GAWK_API_MINOR_VERSION = 1
 };
 
 /* A number of typedefs related to different types of values. */
@@ -380,6 +380,13 @@ typedef struct awk_ext_func {
 } awk_ext_func_t;
 
 typedef void *awk_ext_id_t;	/* opaque type for extension id */
+
+/* Information for asynchronous callbacks */
+typedef struct awk_async_callback {
+	awk_bool_t needs_calling;
+	void *data;
+	void (*callback_fn)(void *data);
+} awk_async_callback_t;
 
 /*
  * The API into gawk. Lots of functions here. We hope that they are
@@ -665,6 +672,13 @@ typedef struct gawk_api {
 	awk_bool_t (*api_release_flattened_array)(awk_ext_id_t id,
 			awk_array_t a_cookie,
 			awk_flat_array_t *data);
+
+	/* Handling async events */
+	/* Register a call back */
+	void (*api_register_async_callback)(awk_ext_id_t id, awk_async_callback_t *callback);
+
+	/* Tell gawk that something happened, it will call us when it's ready */
+	void (*api_notify_async_event)(awk_ext_id_t id);
 } gawk_api_t;
 
 #ifndef GAWK	/* these are not for the gawk code itself! */
@@ -744,6 +758,12 @@ typedef struct gawk_api {
 
 #define register_ext_version(version) \
 	(api->api_register_ext_version(ext_id, version))
+
+#define register_async_callback(callback)	\
+	(api->api_register_async_callback)(ext_id, callback)
+
+#define notify_async_event()	\
+	(api->api_notify_async_event)(awk_ext_id_t)
 
 #define emalloc(pointer, type, size, message) \
 	do { \

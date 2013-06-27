@@ -1057,6 +1057,55 @@ api_register_ext_version(awk_ext_id_t id, const char *version)
 	vi_head = info;
 }
 
+volatile bool async_pending = false;
+
+struct async_list {
+	awk_ext_id_t id;
+	awk_async_callback_t *callback;
+	struct async_list *next;
+};
+
+static struct async_list *async_head = NULL;
+
+/* api_register_async_callback --- register an asynchronous callback function */
+static void
+api_register_async_callback(awk_ext_id_t id, awk_async_callback_t *callback)
+{
+	struct async_list *lp;
+
+	if (callback == NULL)
+		return;
+
+	emalloc(lp, struct async_list *, sizeof(struct async_list), "register_async_callback");
+	lp->id = id;	// for future use
+	lp->callback = callback;
+	lp->next = async_head;
+	async_head = lp;
+}
+
+/* api_notify_async_event --- tell gawk that something happened */
+
+static void
+api_notify_async_event(awk_ext_id_t id)
+{
+	async_pending = true;
+}
+
+/* run_aysnc_handlers --- execute the async handlers */
+
+void
+run_async_handlers(void)
+{
+	struct async_list *lp;
+
+	for (lp = async_head; lp != NULL; lp = lp->next) {
+		if (lp->callback->needs_calling) {
+			lp->callback->needs_calling = false;
+			lp->callback->callback_fn(lp->callback->data);
+		}
+	}
+}
+
 /* the struct api */
 gawk_api_t api_impl = {
 	/* data */
@@ -1107,6 +1156,10 @@ gawk_api_t api_impl = {
 	api_clear_array,
 	api_flatten_array,
 	api_release_flattened_array,
+
+	/* Asynchronous callbacks */
+	api_register_async_callback,
+	api_notify_async_event,
 };
 
 /* init_ext_api --- init the extension API */

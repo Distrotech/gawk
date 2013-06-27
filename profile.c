@@ -501,6 +501,7 @@ cleanup:
 		case Op_cond_pair:
 		case Op_after_beginfile:
 		case Op_after_endfile:
+		case Op_end_stmt:
 			break;
 
 		case Op_sub_builtin:
