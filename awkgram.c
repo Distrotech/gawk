@@ -2604,7 +2604,7 @@ yyreduce:
 			(yyval) = list_prepend(ip, (yyvsp[(1) - (8)]));
 			bcfree((yyvsp[(4) - (8)]));
 		} /* else
-				$1 and $4 are NULLs */
+			$1 and $4 are NULLs */
 	  }
     break;
 
@@ -7941,10 +7941,8 @@ add_lint(INSTRUCTION *list, LINTTYPE linttype)
 				;
 
 			if (do_lint) {		/* compile-time warning */
-#ifndef NO_LINT
 				if (isnoeffect(ip->opcode))
 					lintwarn_ln(ip->source_line, ("statement may have no effect"));
-#endif
 			}
 
 			if (ip->opcode == Op_push) {		/* run-time warning */

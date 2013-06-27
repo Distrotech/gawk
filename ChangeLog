@@ -16,6 +16,9 @@
 	* interpret.h (r_interpret): Add case for Op_end_stmt.
 	* profile.c (pprint): Ditto.
 
+2013-06-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y: Minor whitespace cleanup, remove redundant ifdef.
 
 2013-06-24         Arnold D. Robbins     <arnold@skeeve.com>
 
