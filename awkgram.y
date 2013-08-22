@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2012 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -46,8 +46,10 @@ static char **check_params(char *fname, int pcount, INSTRUCTION *list);
 static int install_function(char *fname, INSTRUCTION *fi, INSTRUCTION *plist);
 static NODE *mk_rexp(INSTRUCTION *exp);
 static void param_sanity(INSTRUCTION *arglist);
-static int parms_shadow(INSTRUCTION *pc, int *shadow);
+static int parms_shadow(INSTRUCTION *pc, bool *shadow);
+#ifndef NO_LINT
 static int isnoeffect(OPCODE type);
+#endif
 static INSTRUCTION *make_assignable(INSTRUCTION *ip);
 static void dumpintlstr(const char *str, size_t len);
 static void dumpintlstr2(const char *str1, size_t len1, const char *str2, size_t len2);
@@ -55,6 +57,7 @@ static int include_source(INSTRUCTION *file);
 static int load_library(INSTRUCTION *file);
 static void next_sourcefile(void);
 static char *tokexpand(void);
+static bool is_deferred_variable(const char *name);
 
 #define instruction(t)	bcalloc(t, 1, 0)
 
@@ -151,6 +154,8 @@ static inline INSTRUCTION *list_merge(INSTRUCTION *l1, INSTRUCTION *l2);
 extern double fmod(double x, double y);
 
 #define YYSTYPE INSTRUCTION *
+
+#define is_identchar(c)		(isalnum(c) || (c) == '_')
 %}
 
 %token FUNC_CALL NAME REGEXP FILENAME
@@ -645,7 +650,7 @@ statement
 			$$ = list_prepend(ip, $1);
 			bcfree($4);
 		} /* else
-				$1 and $4 are NULLs */
+			$1 and $4 are NULLs */
 	  }
 	| LEX_FOR '(' NAME LEX_IN simple_variable r_paren opt_nls statement
 	  {
@@ -1231,11 +1236,23 @@ expression_list
 	| error
 	  { $$ = NULL; }
 	| expression_list error
-	  { $$ = NULL; }
+	  {
+		/*
+		 * Returning the expression list instead of NULL lets
+		 * snode get a list of arguments that it can count.
+		 */
+		$$ = $1;
+	  }
 	| expression_list error exp
-	  { $$ = NULL; }
+	  {
+		/* Ditto */
+		$$ = mk_expression_list($1, $3);
+	  }
 	| expression_list comma error
-	  { $$ = NULL; }
+	  {
+		/* Ditto */
+		$$ = $1;
+	  }
 	;
 
 /* Expressions, not including the comma operator.  */
@@ -1795,9 +1812,8 @@ struct token {
 #	define	NOT_OLD		0x0100	/* feature not in old awk */
 #	define	NOT_POSIX	0x0200	/* feature not in POSIX */
 #	define	GAWKX		0x0400	/* gawk extension */
-#	define	RESX		0x0800	/* Bell Labs Research extension */
-#	define	BREAK		0x1000	/* break allowed inside */
-#	define	CONTINUE	0x2000	/* continue allowed inside */
+#	define	BREAK		0x0800	/* break allowed inside */
+#	define	CONTINUE	0x1000	/* continue allowed inside */
 	
 	NODE *(*ptr)(int);	/* function that implements this keyword */
 	NODE *(*ptr2)(int);	/* alternate arbitrary-precision function */
@@ -1858,7 +1874,10 @@ static const struct token tokentab[] = {
 {"eval",	Op_symbol,	 LEX_EVAL,	0,		0,	0},
 {"exit",	Op_K_exit,	 LEX_EXIT,	0,		0,	0},
 {"exp",		Op_builtin,	 LEX_BUILTIN,	A(1),		do_exp,	MPF(exp)},
-{"fflush",	Op_builtin,	 LEX_BUILTIN,	RESX|A(0)|A(1), do_fflush,	0},
+#ifdef DYNAMIC
+{"extension",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_ext,	0},
+#endif
+{"fflush",	Op_builtin,	 LEX_BUILTIN,	A(0)|A(1), do_fflush,	0},
 {"for",		Op_K_for,	 LEX_FOR,	BREAK|CONTINUE,	0,	0},
 {"func",	Op_func, LEX_FUNCTION,	NOT_POSIX|NOT_OLD,	0,	0},
 {"function",Op_func, LEX_FUNCTION,	NOT_OLD,	0,	0},
@@ -1867,7 +1886,7 @@ static const struct token tokentab[] = {
 {"gsub",	Op_sub_builtin,	 LEX_BUILTIN,	NOT_OLD|A(2)|A(3), 0,	0},
 {"if",		Op_K_if,	 LEX_IF,	0,		0,	0},
 {"in",		Op_symbol,	 LEX_IN,	0,		0,	0},
-{"include",  Op_symbol,	 LEX_INCLUDE,	GAWKX,	0,	0},
+{"include",	Op_symbol,	 LEX_INCLUDE,	GAWKX,	0,	0},
 {"index",	Op_builtin,	 LEX_BUILTIN,	A(2),		do_index,	0},
 {"int",		Op_builtin,	 LEX_BUILTIN,	A(1),		do_int,	MPF(int)},
 {"isarray",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_isarray,	0},
@@ -1885,7 +1904,7 @@ static const struct token tokentab[] = {
 {"printf",	Op_K_printf,	 LEX_PRINTF,	0,		0,	0},
 {"rand",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(0),	do_rand,	MPF(rand)},
 {"return",	Op_K_return,	 LEX_RETURN,	NOT_OLD,	0,	0},
-{"rshift",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2),	do_rshift,	MPF(rhift)},
+{"rshift",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(2),	do_rshift,	MPF(rshift)},
 {"sin",		Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(1),	do_sin,	MPF(sin)},
 {"split",	Op_builtin,	 LEX_BUILTIN,	A(2)|A(3)|A(4),	do_split,	0},
 {"sprintf",	Op_builtin,	 LEX_BUILTIN,	0,		do_sprintf,	0},
@@ -3603,33 +3622,28 @@ retry:
 			goto out;
 
 		if (do_lint) {
-			if ((tokentab[mid].flags & GAWKX) && ! (warntab[mid] & GAWKX)) {
+			if ((tokentab[mid].flags & GAWKX) != 0 && (warntab[mid] & GAWKX) == 0) {
 				lintwarn(_("`%s' is a gawk extension"),
 					tokentab[mid].operator);
 				warntab[mid] |= GAWKX;
 			}
-			if ((tokentab[mid].flags & RESX) && ! (warntab[mid] & RESX)) {
-				lintwarn(_("`%s' is a Bell Labs extension"),
-					tokentab[mid].operator);
-				warntab[mid] |= RESX;
-			}
-			if ((tokentab[mid].flags & NOT_POSIX) && ! (warntab[mid] & NOT_POSIX)) {
+			if ((tokentab[mid].flags & NOT_POSIX) != 0 && (warntab[mid] & NOT_POSIX) == 0) {
 				lintwarn(_("POSIX does not allow `%s'"),
 					tokentab[mid].operator);
 				warntab[mid] |= NOT_POSIX;
 			}
 		}
-		if (do_lint_old && (tokentab[mid].flags & NOT_OLD)
-				 && ! (warntab[mid] & NOT_OLD)
+		if (do_lint_old && (tokentab[mid].flags & NOT_OLD) != 0
+				 && (warntab[mid] & NOT_OLD) == 0
 		) {
 			warning(_("`%s' is not supported in old awk"),
 					tokentab[mid].operator);
 			warntab[mid] |= NOT_OLD;
 		}
 
-		if (tokentab[mid].flags & BREAK)
+		if ((tokentab[mid].flags & BREAK) != 0)
 			break_allowed++;
-		if (tokentab[mid].flags & CONTINUE)
+		if ((tokentab[mid].flags & CONTINUE) != 0)
 			continue_allowed++;
 
 		switch (class) {
@@ -3807,7 +3821,11 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 				subn->lasti->assign_ctxt = Op_sub_builtin;
 				subn->lasti->field_assign = (Func_ptr) 0;
 				ip->target_assign = subn->lasti;
+			} else if (ip->opcode == Op_subscript_lhs) {
+				(void) list_append(subn, instruction(Op_subscript_assign));
+				subn->lasti->assign_ctxt = Op_sub_builtin;
 			}
+
 			return subn;	
 
 		} else {
@@ -3967,6 +3985,12 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 				ip->opcode = Op_push_array;
 		}
 	}
+	else if (r->builtin == do_index) {
+		arg = subn->nexti->lasti->nexti;	/* 2nd arg list */
+		ip = arg->lasti;
+		if (ip->opcode == Op_match_rec)
+			fatal(_("index: regexp constant as second argument is not allowed"));
+	}
 #ifdef ARRAYDEBUG
 	else if (r->builtin == do_adump) {
 		ip = subn->nexti->lasti;
@@ -3988,7 +4012,7 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 /* parms_shadow --- check if parameters shadow globals */
 
 static int
-parms_shadow(INSTRUCTION *pc, int *shadow)
+parms_shadow(INSTRUCTION *pc, bool *shadow)
 {
 	int pcount, i;
 	bool ret = false;
@@ -4187,7 +4211,7 @@ install_function(char *fname, INSTRUCTION *fi, INSTRUCTION *plist)
 	int pcount = 0;
 
 	r = lookup(fname);
-	if (r != NULL) {
+	if (r != NULL || is_deferred_variable(fname)) {
 		error_ln(fi->source_line, _("function name `%s' previously defined"), fname);
 		return -1;
 	}
@@ -4335,17 +4359,18 @@ check_funcs()
  
 	for (i = 0; i < HASHSIZE; i++) {
 		for (fp = ftable[i]; fp != NULL; fp = fp->next) {
-			if (fp->defined == 0 && ! fp->extension) {
 #ifdef REALLYMEAN
-				/* making this the default breaks old code. sigh. */
+			/* making this the default breaks old code. sigh. */
+			if (fp->defined == 0 && ! fp->extension) {
 				error(
 		_("function `%s' called but never defined"), fp->name);
 				errcount++;
+			}
 #else
+			if (do_lint && fp->defined == 0 && ! fp->extension)
 				lintwarn(
 		_("function `%s' called but never defined"), fp->name);
 #endif
-			}
 
 			if (do_lint && fp->used == 0 && ! fp->extension) {
 				lintwarn(_("function `%s' defined but never called directly"),
@@ -4416,6 +4441,19 @@ register_deferred_variable(const char *name, NODE *(*load_func)(void))
 	memcpy(dv->name, name, sl+1);
 	deferred_variables = dv;
 }
+
+/* is_deferred_variable --- check if NAME is a deferred variable */
+
+static bool
+is_deferred_variable(const char *name)
+{
+	struct deferred_variable *dv;
+	for (dv = deferred_variables; dv != NULL; dv = dv->next)
+		if (strcmp(name, dv->name) == 0)
+			return true;
+	return false;
+}
+
 
 /* variable --- make sure NAME is in the symbol table */
 
@@ -4511,6 +4549,7 @@ mk_rexp(INSTRUCTION *list)
 	return ip->memory;
 }
 
+#ifndef NO_LINT
 /* isnoeffect --- when used as a statement, has no side effects */
 
 static int
@@ -4553,6 +4592,8 @@ isnoeffect(OPCODE type)
 
 	return false;
 }
+#endif /* NO_LINT */
+
 
 /* make_assignable --- make this operand an assignable one if posiible */
 
@@ -5013,6 +5054,8 @@ mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op)
 		(void) list_append(ip, instruction(Op_field_assign));
 		ip->lasti->field_assign = (Func_ptr) 0;
 		tp->target_assign = ip->lasti;
+	} else if (tp->opcode == Op_subscript_lhs) {
+		(void) list_append(ip, instruction(Op_subscript_assign));
 	}
 
 	return ip;
@@ -5222,7 +5265,11 @@ mk_getline(INSTRUCTION *op, INSTRUCTION *var, INSTRUCTION *redir, int redirtype)
 			asgn->assign_ctxt = op->opcode;
 			asgn->field_assign = (Func_ptr) 0;   /* determined at run time */
 			tp->target_assign = asgn;
+		} else if (tp->opcode == Op_subscript_lhs) {
+			asgn = instruction(Op_subscript_assign);
+			asgn->assign_ctxt = op->opcode;
 		}
+
 		if (redir != NULL) {
 			ip = list_merge(redir, var);
 			(void) list_append(ip, op);

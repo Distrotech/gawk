@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2012 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -37,6 +37,9 @@ r_interpret(INSTRUCTION *code)
 	AWKNUM x, x2;
 	int di;
 	Regexp *rp;
+	NODE *set_array = NULL;	/* array with a post-assignment routine */
+	NODE *set_idx = NULL;	/* the index of the array element */
+
 
 /* array subscript */
 #define mk_sub(n)  	(n == 1 ? POP_SCALAR() : concat_exp(n, true))
@@ -103,6 +106,8 @@ top:
 			 */
 			if (stdio_problem && ! exiting && exit_val == 0)
 				exit_val = 1;
+
+			close_extensions();
 		}
 			break;
 
@@ -135,8 +140,13 @@ top:
 			if (m->type == Node_param_list) {
 				isparam = true;
 				save_symbol = m = GET_PARAM(m->param_cnt);
-				if (m->type == Node_array_ref)
+				if (m->type == Node_array_ref) {
+					if (m->orig_array->type == Node_var) {
+						/* gawk 'func f(x) { a = 10; print x; } BEGIN{ f(a) }' */
+						goto uninitialized_scalar;
+					}
 					m = m->orig_array;
+				}
 			}
 				
 			switch (m->type) {
@@ -152,6 +162,7 @@ top:
 				break;
 
 			case Node_var_new:
+uninitialized_scalar:
 				m->type = Node_var;
 				m->var_value = dupnode(Nnull_string);
 				if (do_lint)
@@ -220,6 +231,10 @@ top:
 				}
 				r = t2;
 			} else {
+				/* make sure stuff like NF, NR, are up to date */
+				if (t1 == symbol_table)
+					update_global_values();
+
 				r = *assoc_lookup(t1, t2);
 			}
 			DEREF(t2);
@@ -248,9 +263,15 @@ top:
 			if (r == NULL) {
 				r = make_array();
 				r->parent_array = t1;
-				*assoc_lookup(t1, t2) = r;
+				lhs = assoc_lookup(t1, t2);
+				unref(*lhs);
+				*lhs = r;
 				t2 = force_string(t2);
 				r->vname = estrdup(t2->stptr, t2->stlen);	/* the subscript in parent array */
+
+				/* execute post-assignment routine if any */
+				if (t1->astore != NULL)
+					(*t1->astore)(t1, t2);
 			} else if (r->type != Node_var_array) {
 				t2 = force_string(t2);
 				fatal(_("attempt to use scalar `%s[\"%.*s\"]' as an array"),
@@ -280,7 +301,37 @@ top:
 						array_vname(t1), (int) t2->stlen, t2->stptr);
 			}
 
-			DEREF(t2);
+			/*
+			 * Changing something in FUNCTAB is not allowed.
+			 *
+			 * SYMTAB is a little more messy.  Three kinds of values may
+			 * be stored in SYMTAB:
+			 * 	1. Variables that don"t yet have a value (Node_var_new)
+			 * 	2. Variables that have a value (Node_var)
+			 * 	3. Values that awk code stuck into SYMTAB not related to variables (Node_value)
+			 * For 1, since we are giving it a value, we have to change the type to Node_var.
+			 * For 1 and 2, we have to step through the Node_var to get to the value.
+			 * For 3, we just us the value we got from assoc_lookup(), above.
+			 */
+			if (t1 == func_table)
+				fatal(_("cannot assign to elements of FUNCTAB"));
+			else if (   t1 == symbol_table
+				 && (   (*lhs)->type == Node_var
+				     || (*lhs)->type == Node_var_new)) {
+				update_global_values();		/* make sure stuff like NF, NR, are up to date */
+				(*lhs)->type = Node_var;	/* in case was Node_var_new */
+				lhs = & ((*lhs)->var_value);	/* extra level of indirection */
+			}
+
+			assert(set_idx == NULL);
+
+			if (t1->astore) {
+				/* array has post-assignment routine */
+				set_array = t1;
+				set_idx = t2;
+			} else
+				DEREF(t2);
+
 			PUSH_ADDRESS(lhs);
 			break;
 
@@ -544,10 +595,11 @@ mod:
 			break;
 
 		case Op_store_sub:
-			/* array[sub] assignment optimization,
+			/*
+			 * array[sub] assignment optimization,
 			 * see awkgram.y (optimize_assignment)
 			 */
-			t1 = get_array(pc->memory, true);	/* array */
+			t1 = force_array(pc->memory, true);	/* array */
 			t2 = mk_sub(pc->expr_count);	/* subscript */
  			lhs = assoc_lookup(t1, t2);
 			if ((*lhs)->type == Node_var_array) {
@@ -580,10 +632,17 @@ mod:
 
 			unref(*lhs);
 			*lhs = POP_SCALAR();
+
+			/* execute post-assignment routine if any */
+			if (t1->astore != NULL)
+				(*t1->astore)(t1, t2);
+
+			DEREF(t2);
 			break;
 
 		case Op_store_var:
-			/* simple variable assignment optimization,
+			/*
+			 * simple variable assignment optimization,
 			 * see awkgram.y (optimize_assignment)
 			 */
 	
@@ -622,8 +681,6 @@ mod:
 			t1 = force_string(*lhs);
 			t2 = POP_STRING();
 
-			free_wstr(*lhs);
-
 			if (t1 != *lhs) {
 				unref(*lhs);
 				*lhs = dupnode(t1);
@@ -637,6 +694,20 @@ mod:
 				t1->stlen = nlen;
 				t1->stptr[nlen] = '\0';
 				t1->flags &= ~(NUMCUR|NUMBER|NUMINT);
+
+#if MBS_SUPPORT
+				if ((t1->flags & WSTRCUR) != 0 && (t2->flags & WSTRCUR) != 0) {
+					size_t wlen = t1->wstlen + t2->wstlen;
+
+					erealloc(t1->wstptr, wchar_t *,
+							sizeof(wchar_t) * (wlen + 2), "r_interpret");
+					memcpy(t1->wstptr + t1->wstlen, t2->wstptr, t2->wstlen);
+					t1->wstlen = wlen;
+					t1->wstptr[wlen] = L'\0';
+					t1->flags |= WSTRCUR;
+				} else
+					free_wstr(*lhs);
+#endif
 			} else {
 				size_t nlen = t1->stlen + t2->stlen;  
 				char *p;
@@ -657,6 +728,30 @@ mod:
 			*lhs = r;
 			UPREF(r);
 			REPLACE(r);
+			break;
+
+		case Op_subscript_assign:
+			/* conditionally execute post-assignment routine for an array element */ 
+
+			if (set_idx != NULL) {
+				di = true;
+				if (pc->assign_ctxt == Op_sub_builtin
+					&& (r = TOP())
+					&& get_number_si(r) == 0	/* no substitution performed */
+				)
+					di = false;
+				else if ((pc->assign_ctxt == Op_K_getline
+						|| pc->assign_ctxt == Op_K_getline_redir)
+					&& (r = TOP())
+					&& get_number_si(r) <= 0 	/* EOF or error */
+				)
+					di = false;
+
+				if (di)
+					(*set_array->astore)(set_array, set_idx);
+				unref(set_idx);
+				set_idx = NULL;
+			}
 			break;
 
 		/* numeric assignments */
@@ -763,10 +858,9 @@ mod:
 			array = POP_ARRAY();
 
 			/* sanity: check if empty */
-			if (array_empty(array))
+			num_elems = assoc_length(array);
+			if (num_elems == 0)
 				goto arrayfor;
-
-			num_elems = array->table_size;
 
 			if (sorted_in == NULL)		/* do this once */
 				sorted_in = make_string("sorted_in", 9);
@@ -830,12 +924,16 @@ arrayfor:
 			break;
 
 		case Op_ext_builtin:
+		case Op_old_ext_builtin:
 		{
 			int arg_count = pc->expr_count;
 			awk_value_t result;
 
 			PUSH_CODE(pc);
-			r = awk_value_to_node(pc->extfunc(arg_count, & result));
+			if (op == Op_ext_builtin)
+				r = awk_value_to_node(pc->extfunc(arg_count, & result));
+			else
+				r = pc->builtin(arg_count);
 			(void) POP_CODE();
 			while (arg_count-- > 0) {
 				t1 = POP();
@@ -941,7 +1039,7 @@ match_re:
 			}
 
 			if (f == NULL || f->type != Node_func) {
-				if (f->type == Node_ext_func)
+				if (f->type == Node_ext_func || f->type == Node_old_ext_func)
 					fatal(_("cannot (yet) call extension functions indirectly"));
 				else
 					fatal(_("function called indirectly through `%s' does not exist"),
@@ -961,19 +1059,22 @@ match_re:
 			f = pc->func_body;
 			if (f == NULL) {
 				f = lookup(pc->func_name);
-				if (f == NULL || (f->type != Node_func && f->type != Node_ext_func))
+				if (f == NULL || (f->type != Node_func && f->type != Node_ext_func && f->type != Node_old_ext_func))
 					fatal(_("function `%s' not defined"), pc->func_name);
 				pc->func_body = f;     /* save for next call */
 			}
 
-			if (f->type == Node_ext_func) {
+			if (f->type == Node_ext_func || f->type == Node_old_ext_func) {
 				INSTRUCTION *bc;
 				char *fname = pc->func_name;
 				int arg_count = (pc + 1)->expr_count;
 
 				bc = f->code_ptr;
 				assert(bc->opcode == Op_symbol);
-				pc->opcode = Op_ext_builtin;	/* self modifying code */
+				if (f->type == Node_ext_func)
+					pc->opcode = Op_ext_builtin;	/* self modifying code */
+				else
+					pc->opcode = Op_old_ext_builtin;	/* self modifying code */
 				pc->extfunc = bc->extfunc;
 				pc->expr_count = arg_count;		/* actual argument count */
 				(pc + 1)->func_name = fname;	/* name of the builtin */

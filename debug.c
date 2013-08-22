@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 2004, 2010, 2011 the Free Software Foundation, Inc.
+ * Copyright (C) 2004, 2010-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -536,6 +536,9 @@ print_lines(char *src, int start_line, int nlines)
 		}
 	}
 
+	/* set binary mode so that byte offset calculations will be right */
+	os_setbinmode(s->fd, O_BINARY);
+
 	if (s->line_offset == NULL && find_lines(s) != 0)
 		return -1;
   	if (start_line < 1 || start_line > s->srclines) {
@@ -745,16 +748,16 @@ do_info(CMDARG *arg, int cmd ATTRIBUTE_UNUSED)
 			gprintf(out_fp, _("Number  Disp  Enabled  Location\n\n"));
 			for (b = breakpoints.prev; b != &breakpoints; b = b->prev) {
 				char *disp = "keep";
-				if (b->flags & BP_ENABLE_ONCE)
+				if ((b->flags & BP_ENABLE_ONCE) != 0)
 					disp = "dis";
-				else if(b->flags & BP_TEMP)
+				else if ((b->flags & BP_TEMP) != 0)
 					disp = "del";
 				gprintf(out_fp, "%-6d  %-4.4s  %-7.7s  file %s, line #%d\n",
-						b->number, disp, (b->flags & BP_ENABLE) ? "yes" : "no",
+						b->number, disp, (b->flags & BP_ENABLE) != 0 ? "yes" : "no",
 					 	b->src,	b->bpi->source_line);
 				if (b->hit_count > 0)
 					gprintf(out_fp, _("\tno of hits = %ld\n"), b->hit_count);
-				if (b->flags & BP_IGNORE)
+				if ((b->flags & BP_IGNORE) != 0)
 					gprintf(out_fp, _("\tignore next %ld hit(s)\n"), b->ignore_count);
 				if (b->cndn.code != NULL)
 					gprintf(out_fp, _("\tstop condition: %s\n"), b->cndn.expr);
@@ -942,7 +945,7 @@ print_symbol(NODE *r, bool isparam)
 		valinfo(r->var_value, fprintf, out_fp);
 		break;
 	case Node_var_array:
-		fprintf(out_fp, "array, %ld elements\n", r->table_size);
+		fprintf(out_fp, "array, %ld elements\n", assoc_length(r));
 		break;
 	case Node_func:
 		fprintf(out_fp, "`function'\n");
@@ -1063,12 +1066,12 @@ print_array(volatile NODE *arr, char *arr_name)
 	volatile int ret = 0;
 	volatile jmp_buf pager_quit_tag_stack;
 
-	if (array_empty(arr)) {
+	if (assoc_empty((NODE *) arr)) {
 		gprintf(out_fp, _("array `%s' is empty\n"), arr_name);
 		return 0;
 	}
 
-	num_elems = arr->table_size;
+	num_elems = assoc_length((NODE *) arr);
 
 	/* sort indices, sub_arrays are also sorted! */
 	list = assoc_list((NODE *) arr, "@ind_str_asc", SORTED_IN);
@@ -1263,7 +1266,9 @@ do_set_var(CMDARG *arg, int cmd ATTRIBUTE_UNUSED)
 					array = make_array();
 					array->vname = estrdup(subs->stptr, subs->stlen);
 					array->parent_array = r;
-					*assoc_lookup(r, subs) = array;
+					lhs = assoc_lookup(r, subs);
+					unref(*lhs);
+					*lhs = array;
 					r = array;
 				} else if (value->type != Node_var_array) {
 					d_error(_("attempt to use scalar `%s[\"%s\"]' as array"),
@@ -1645,7 +1650,7 @@ cmp_val(struct list_item *w, NODE *old, NODE *new)
 		if (new->type == Node_val)	/* 7 */
 			return true;
 		/* new->type == Node_var_array */	/* 8 */
-		size = new->table_size;
+		size = assoc_length(new);
 		if (w->cur_size == size)
 			return false;
 		return true;
@@ -1719,7 +1724,7 @@ watchpoint_triggered(struct list_item *w)
 			w->flags &= ~CUR_IS_ARRAY;
 			w->cur_value = dupnode(t2);
 		} else
-			w->cur_size = (t2->type == Node_var_array) ? t2->table_size : 0;
+			w->cur_size = (t2->type == Node_var_array) ? assoc_length(t2) : 0;
 	} else if (! t1) { /* 1, 2 */
 		w->old_value = 0;
 		/* new != NULL */
@@ -1727,7 +1732,7 @@ watchpoint_triggered(struct list_item *w)
 			w->cur_value = dupnode(t2);
 		else {
 			w->flags |= CUR_IS_ARRAY;
-			w->cur_size = (t2->type == Node_var_array) ? t2->table_size : 0;
+			w->cur_size = (t2->type == Node_var_array) ? assoc_length(t2) : 0;
 		}
 	} else /* if (t1->type == Node_val) */ {	/* 4, 5, 6 */
 		w->old_value = w->cur_value;
@@ -1735,7 +1740,7 @@ watchpoint_triggered(struct list_item *w)
 			w->cur_value = 0;
 		else if (t2->type == Node_var_array) {
 			w->flags |= CUR_IS_ARRAY;
-			w->cur_size = t2->table_size;
+			w->cur_size = assoc_length(t2);
 		} else
 			w->cur_value = dupnode(t2);
 	}
@@ -1761,7 +1766,7 @@ initialize_watch_item(struct list_item *w)
 			w->cur_value = (NODE *) 0;
 		else if (r->type == Node_var_array) { /* it's a sub-array */
 			w->flags |= CUR_IS_ARRAY;
-			w->cur_size = r->table_size;
+			w->cur_size = assoc_length(r);
 		} else
 			w->cur_value = dupnode(r);
 	} else if (IS_FIELD(w)) {
@@ -1778,7 +1783,7 @@ initialize_watch_item(struct list_item *w)
 			w->cur_value = dupnode(r);
 		} else if (symbol->type == Node_var_array) {
 			w->flags |= CUR_IS_ARRAY;
-			w->cur_size = symbol->table_size;
+			w->cur_size = assoc_length(symbol);
 		} /* else
 			can't happen */
 	}
@@ -2172,8 +2177,8 @@ add_breakpoint(INSTRUCTION *prevp, INSTRUCTION *ip, char *src, bool silent)
 			 * This is more verbose that it might otherwise be,
 			 * in order to provide easily translatable strings.
 			 */
-			if (b->flags & BP_ENABLE) {
-				if (b->flags & BP_IGNORE)
+			if ((b->flags & BP_ENABLE) != 0) {
+				if ((b->flags & BP_IGNORE) != 0)
 					fprintf(out_fp,
 			_("Note: breakpoint %d (enabled, ignore next %ld hits), also set at %s:%d"),
 						b->number,
@@ -2187,7 +2192,7 @@ add_breakpoint(INSTRUCTION *prevp, INSTRUCTION *ip, char *src, bool silent)
 						b->src,
 						lineno);
 			} else {
-				if (b->flags & BP_IGNORE)
+				if ((b->flags & BP_IGNORE) != 0)
 					fprintf(out_fp,
 			_("Note: breakpoint %d (disabled, ignore next %ld hits), also set at %s:%d"),
 						b->number,
@@ -2402,7 +2407,7 @@ breakpoint_triggered(BREAKPOINT *b)
 		return 0;
 
 	b->hit_count++;
-	if (b->flags & BP_ENABLE_ONCE) {
+	if ((b->flags & BP_ENABLE_ONCE) != 0) {
 		b->flags &= ~BP_ENABLE_ONCE;
 		b->flags &= ~BP_ENABLE;
 	} 
@@ -3404,9 +3409,9 @@ else                                                                \
 	valinfo(w->V, fprintf, out_fp);
 
 	fprintf(out_fp, "  Old value: ");
-	print_value((w->flags & OLD_IS_ARRAY), old_size, old_value);
+	print_value((w->flags & OLD_IS_ARRAY) != 0, old_size, old_value);
 	fprintf(out_fp, "  New value: ");
-	print_value((w->flags & CUR_IS_ARRAY), cur_size, cur_value);
+	print_value((w->flags & CUR_IS_ARRAY) != 0, cur_size, cur_value);
 
 #undef print_value
 }
@@ -3651,56 +3656,56 @@ static void
 print_memory(NODE *m, NODE *func, Func_print print_func, FILE *fp)
 {
 	switch (m->type) {
-		case Node_val:
-			if (m == Nnull_string)
-				print_func(fp, "Nnull_string");
-			else if ((m->flags & NUMBER) != 0) {
+	case Node_val:
+		if (m == Nnull_string)
+			print_func(fp, "Nnull_string");
+		else if ((m->flags & NUMBER) != 0) {
 #ifdef HAVE_MPFR
-				if (m->flags & MPFN)
-					print_func(fp, "%s", mpg_fmt("%R*g", ROUND_MODE, m->mpg_numbr));
-				else if (m->flags & MPZN)
-					print_func(fp, "%s", mpg_fmt("%Zd", m->mpg_i));
-				else
-#endif
-					print_func(fp, "%g", m->numbr);
-			} else if ((m->flags & STRING) != 0)
-				pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
-			else if ((m->flags & NUMCUR) != 0) {
-#ifdef HAVE_MPFR
-				if (m->flags & MPFN)
-					print_func(fp, "%s", mpg_fmt("%R*g", ROUND_MODE, m->mpg_numbr));
-				else if (m->flags & MPZN)
-					print_func(fp, "%s", mpg_fmt("%Zd", m->mpg_i));
-				else
-#endif
-					print_func(fp, "%g", m->numbr);
-			} else if ((m->flags & STRCUR) != 0)
-				pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
+			if ((m->flags & MPFN) != 0)
+				print_func(fp, "%s", mpg_fmt("%R*g", ROUND_MODE, m->mpg_numbr));
+			else if ((m->flags & MPZN) != 0)
+				print_func(fp, "%s", mpg_fmt("%Zd", m->mpg_i));
 			else
-				print_func(fp, "-?-");
-			print_func(fp, " [%s]", flags2str(m->flags));
-			break;
+#endif
+				print_func(fp, "%g", m->numbr);
+		} else if ((m->flags & STRING) != 0)
+			pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
+		else if ((m->flags & NUMCUR) != 0) {
+#ifdef HAVE_MPFR
+			if ((m->flags & MPFN) != 0)
+				print_func(fp, "%s", mpg_fmt("%R*g", ROUND_MODE, m->mpg_numbr));
+			else if ((m->flags & MPZN) != 0)
+				print_func(fp, "%s", mpg_fmt("%Zd", m->mpg_i));
+			else
+#endif
+				print_func(fp, "%g", m->numbr);
+		} else if ((m->flags & STRCUR) != 0)
+			pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
+		else
+			print_func(fp, "-?-");
+		print_func(fp, " [%s]", flags2str(m->flags));
+		break;
 
-		case Node_regex:
-			pp_string_fp(print_func, fp, m->re_exp->stptr, m->re_exp->stlen, '/', false);
-			break;
+	case Node_regex:
+		pp_string_fp(print_func, fp, m->re_exp->stptr, m->re_exp->stlen, '/', false);
+		break;
 
-		case Node_dynregex:
-			break;
-			
-		case Node_param_list:
-			assert(func != NULL);
-			print_func(fp, "%s", func->fparms[m->param_cnt].param);
-			break;
+	case Node_dynregex:
+		break;
+		
+	case Node_param_list:
+		assert(func != NULL);
+		print_func(fp, "%s", func->fparms[m->param_cnt].param);
+		break;
 
-		case Node_var:
-		case Node_var_new:
-		case Node_var_array:
-			print_func(fp, "%s", m->vname);
-			break;
+	case Node_var:
+	case Node_var_new:
+	case Node_var_array:
+		print_func(fp, "%s", m->vname);
+		break;
 
-		default:
-			print_func(fp, "?");  /* can't happen */
+	default:
+		print_func(fp, "?");  /* can't happen */
 	}
 }
 
@@ -3873,9 +3878,9 @@ print_instruction(INSTRUCTION *pc, Func_print print_func, FILE *fp, int in_dump)
 			{ 0, NULL }
 		};
 
-		if (pc->sub_flags & GSUB)
+		if ((pc->sub_flags & GSUB) != 0)
 			fname = "gsub";
-		else if (pc->sub_flags & GENSUB)
+		else if ((pc->sub_flags & GENSUB) != 0)
 			fname = "gensub";
 		print_func(fp, "%s [arg_count = %ld] [sub_flags = %s]\n",
 				fname, pc->expr_count,
@@ -3918,7 +3923,7 @@ print_instruction(INSTRUCTION *pc, Func_print print_func, FILE *fp, int in_dump)
 		/* NB: concat_flag CSVAR only used in grammar, don't display it */ 
 		print_func(fp, "[expr_count = %ld] [concat_flag = %s]\n",
 						pc->expr_count,
-						(pc->concat_flag & CSUBSEP) ? "CSUBSEP" : "0");
+						(pc->concat_flag & CSUBSEP) != 0 ? "CSUBSEP" : "0");
 		break;
 
 	case Op_rule:
@@ -5343,6 +5348,8 @@ close_all()
 			cs->fd = INVALID_HANDLE;
 		}
 	}
+
+	close_extensions();
 
 	set_gawk_output(NULL);	/* closes output_fp if not stdout */ 
 }

@@ -1,4 +1,8 @@
-2012-12-05         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+2013-08-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (clean-local): Get at least cleaning to work.
+
+2013-08-22         Andrew J. Schorr     <aschorr@telemetry-investments.com>
 
 	* Makefile.am: Rewrite without libtool.  We use the shobj-conf script
 	from bash instead.  There are many flaws in this version, the most
@@ -7,10 +11,286 @@
 	libtool usage.  Replaced by values emitted by the support/shobj-conf
 	script from bash.
 
+2013-08-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Clean up some warnings from -Wextra.
+
+	* gawkfts.c (fts_set): Add cast to void for sp.
+	* inplace.c (at_exit): Add cast to void for data and exit_status.
+	* readdir.c (ftype): Add cast to void for dirname.
+	(dir_get_record): Assign NULL to *rt_start.
+	* revtwoway.c (rev2way_get_record): Add cast to void for errcode.
+	(rev2way_fwrite): Add cast to void for fp.
+	(rev2way_take_control_of): Add cast to void for name.
+	* testext.c (test_array_param, test_scalar, test_scalar_reserved,
+	test_indirect_vars): Add cast to void for nargs.
+
+2013-08-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkdirfd.h: Include ../nonposix.h to get FAKE_FD_VALUE.
+
+2013-08-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.c: Change _WIN32 to __MINGW32__ globally, per
+	Eli Zaretskii.
+
+2013-08-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.c (do_fts): Add a version for _WIN32 that prints a
+	"not supported" fatal message.  This is slightly better than the
+	"fts not found" which is otherwise produced.
+
+2013-07-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkdirfd.h (FAKE_FD_VALUE): Move definition up in the file to give
+	clean compile on MinGW.
+
+2013-06-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac (AC_HEADER_MAJOR): New macro added.
+	Add check for limits.h header.
+	* filefuncs.c: Add the right stuff to get the major/minor macros.
+	* readdir.c: Add include of limits.h appropriately wrapped.
+
+	Thanks to ICHII Takashi <ichii386@schweetheart.jp> for the reports
+	and pointers.
+
+2013-06-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* filefuncs.c [_WIN32]: Define WIN32_LEAN_AND_MEAN before
+	including windows.h.
+
+	* readdir.c [__MINGW32__]: Define WIN32_LEAN_AND_MEAN before
+	including windows.h.
+
+	* filefuncs.c [HAVE_GETSYSTEMTIMEASFILETIME]: Define
+	WIN32_LEAN_AND_MEAN before including windows.h.
+
+2013-05-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Add <sys/param.h> header check.
+	* filefuncs.c: Include <sys/param.h> if there.
+	(device_blocksize): New function.
+	(fill_stat_array): Call it.
+
+2013-05-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac (AC_STRUCT_ST_BLKSIZE): Replaced with call to
+	AC_CHECK_MEMBERS.
+	* filefuncs.c (fill_stat_array): Change test from ifdef
+	HAVE_ST_BLKSIZE to HAVE_STRUCT_STAT_ST_BLKSIZE.
+
+2013-05-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkdirfd.h [FAKE_FD_VALUE]: Copied here from ../gawkapi.h.
+
+2013-05-16         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am (install-data-hook): Remove .la files installed by
+	Automake.  Leaves less clutter, if not (yet) less noise.
+
+2013-05-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.c (fill_stat_array): For _WIN32 use a blocksize of
+	4096 for the "blksize" element, per Eli Zaretskii.
+
+	* configure.ac [AC_STRUCT_ST_BLKSIZE]: Add call that was missing.
+	ARGH!!!!
+
+2013-05-14  Eli Zaretskii  <eliz@gnu.org>
+
+	* rwarray.c [__MINGW32__]: Include winsock2.h instead of
+	arpa/inet.h.
+
+	* readdir.c [__MINGW32__]: Include windows.h.
+	Include gawkapi.h before gawkdirfd.h, since the former defines
+	FAKE_FD_VALUE needed by the latter.
+	(ftype): Accept an additional argument, the directory that is
+	being read.  Callers changed.
+	[!DT_BLK]: Produce the file's type by calling 'stat' on it, if the
+	dirent structure doesn't provide that.
+	(get_inode): New function, to produce inode values on MS-Windows.
+	(dir_get_record): Use it.
+
+	* inplace.c (chown, link) [__MINGW32__]: Redirect to existing
+	library functions.
+	(mkstemp) [__MINGW32__]: New function, for MinGW, which doesn't
+	have it in its library.
+	(do_inplace_end) [__MINGW32__]: Remove the old file before
+	renaming the new, since 'rename' on Windows cannot overwrite
+	existing files.
+
+	* gawkdirfd.h (ENOTSUP): Define to ENOSYS if not already defined.
+	(DIR_TO_FD): If not defined yet, define to FAKE_FD_VALUE.
+
+	* filefuncs.c (get_inode) [_WIN32]: New function, produces the
+	file index used on Windows as its inode.
+	(fill_stat_array) [_WIN32]: Use it.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-04-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Update copyright.
+	For z/OS: If uname output is OS/390, just blast the Makefile,
+	same as for MirBSD.
+
+2013-04-17         Corinna Vinschen      <vinschen@redhat.com>
+
+	* Makefile.am (MY_LIBS): Use $(LTLIBINTL) since we use libtool,
+	not LIBINTL.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.c, fnmatch.c, fork.c, ordchr.c, readdir.c, readfile.c,
+	revoutput.c, revtwoway.c, rwarray.c, rwarray0.c, stack.c, stack.h,
+	testext.c, time.c: Update copyright year.
+
+	Update to automake 1.13.1:
+
+	* configure, Makefile.in, aclocal.m4: Regenerated.
+
+2013-03-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkdirfd.h: Improve test for doing own dirfd function. Needed
+	for IRIX.
+
+2013-03-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Add AC_OUTPUT_COMMANDS that drops in a do-nothing
+	Makefile for MirBSD, since the extensions can't be built on MirBSD.
+	* configure: Regenerated.
+	* Makefile.am (check-for-shared-lib-support): Update comment some.
+	* gawkfts.c (MAX): Provide for systems that don't (Solaris).
+
+2013-03-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.c (fill_stat_array): Adjust computation for block
+	count for WIN32 systems after consultation with Eli Zaretskii.
+
+2013-02-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (check-recursive, all-recursive): Make dependant upon
+	check-for-shared-lib-support.
+	(check-for-shared-lib-support): New target. If gawk doesn't have the
+	API built-in, don't try to build.
+
+2013-02-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* fnmatch.c: Pull in versions of C routine from missing_d
+	if the native system doesn't provide them.
+
+2013-02-11         Eli Zaretskii	<eliz@gnu.org>
+
+	* filefuncs.c (S_ISLNK, lstat, readlink, S_IRGRP, S_IWGRP, S_IXGRP,
+	S_IROTH, S_IWOTH, S_IXOTH, S_ISUID, S_ISGID, S_ISVTX, major, minor):
+	Define if needed.
+	(fill_stat_array, init_filefuncs, func_table): Fix for Win 32.
+	* time.c: Port to Win 32.
+
+2013-01-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkdirfd.h: New file.
+	* Makeile.am (filefuncs_la_SOURCES, readdir_la_SOURCES): Use it.
+	* gawkfts.c, readdir.c: Include gawkdirfd.h.
+	* configure.ac (AC_USE_SYSTEM_EXTENSIONS): Added.
+	(GAWK_FUNC_DIRFD, GAWK_PREREQ_DIRFD): New calls.
+	(.developing): Fix check.
+	* alocal.m4: Updated.
+	* configure: Regenerated.
+	* gawkdirfd.h: Fixed for Mac OS X also.
+
+2013-01-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkfts.c: Make include of <limits.h> be unconditional.
+
+2013-01-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Improve portability. We hope.
+
+	* gawkfts.c (S_ISREG): Define macro if not defined.
+	(_BSD_SOURCE): Define for use with c99 compiler driver.
+	* inplace.c (S_ISREG): Define macro if not defined.
+	(_XOPEN_SOURCE, _XOPEN_SOURCE_EXTENDED): Define for use with c99
+	compiler driver.
+	* filefuncs.c (_BSD_SOURCE): Define for use with c99 compiler driver.
+	* readfile.c (_BSD_SOURCE): Define for use with c99 compiler driver.
+	* revtwoway.c (_BSD_SOURCE): Define for use with c99 compiler driver.
+
+2013-01-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* readfile.c (do_readfile): Free `text' if read fails. Thanks to
+	cppcheck.
+	* inplace.c (do_inplace_begin): Check chown return value in an if
+	to shut up compiler warning.
+
+2013-01-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* inplace.3am: New file.
+	* filefuncs.3am, fnmatch.3am, fork.3am, ordchr.3am, readdir.3am,
+	readfile.3am, revoutput.3am, revtwoway.3am, rwarray.3am,
+	time.3am: Update copyright dates, add reference to inplace(3am).
+
+	* inplace.c (do_inplace_begin): Remove unused variable `p'.
+
+2013-01-10         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* inplace.c (do_inplace_begin): No need to get the 2nd suffix argument,
+	since it is not currently used in this function.
+
+2013-01-08         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* inplace.c: New extension to implement in-place editing.
+	* Makefile.am: Add inplace extension.
+
+2012-12-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.3am, fnmatch.3am: Predefined variables are no
+	longer constants.
+	* filefuncs.c (init_filefuncs): Use sym_update() instead of
+	sym_constant().
+	* fnmatch.c (init_fnmatch): Ditto.
+	* testext.c (init_testext): Ditto.
+
+2012-12-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.0.2: Release tar ball made.
+
+2012-12-19         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* testext.c (test_indirect_vars): New test and awk code.
+
+2012-12-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (EXTRA_DIST): Add README.fts.
+
 2012-11-30         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* filefuncs.c readdir.c, revoutput.c, revtwoway.c, rwarray.c,
 	rwarray0.c, testext.c: Use awk_true and awk_false instead of 1 and 0.
+
+2012-11-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bindarr.c, fileop.c, sparr.c: Make them compile.
+	* steps: Reinstated and updated.
+	* testsparr.awk: Add call to extension().
+
+2011-05-03         John Haque     <j.eh@mchsi.com>
+
+	* fileop.c, record.awk, testrecord.sh: New files.
+	* steps: Updated.
+
+2011-05-02         John Haque     <j.eh@mchsi.com>
+
+	* bindarr.c, dbarray.awk, testdbarray.awk: New files.
+	* steps: Updated.
+
+2011-04-24         John Haque     <j.eh@mchsi.com>
+
+	* spec_array.c, spec_array.h, sparr.c, testsparr.awk: New files.
+	* steps: Updated.
 
 2012-11-21         Arnold D. Robbins     <arnold@skeeve.com>
 

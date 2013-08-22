@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1991-2012 the Free Software Foundation, Inc.
+ * Copyright (C) 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -27,6 +27,7 @@
 
 static reg_syntax_t syn;
 static void check_bracket_exp(char *s, size_t len);
+const char *regexflags2str(int flags);
 
 /* make_regexp --- generate compiled regular expressions */
 
@@ -408,7 +409,7 @@ resetup()
 	 * variable remains for use with --traditional.
 	 */
 	if (do_intervals)
-		syn |= RE_INTERVALS | RE_INVALID_INTERVAL_ORD;
+		syn |= RE_INTERVALS | RE_INVALID_INTERVAL_ORD | RE_NO_BK_BRACES;
 
 	(void) re_set_syntax(syn);
 	dfasyntax(syn, false, '\n');
@@ -554,20 +555,24 @@ again:
 		goto done;
 
 	for (count++, sp++; *sp != '\0'; sp++) {
-		static bool range_warned = false;
-
 		if (*sp == '[')
 			count++;
-		else if (*sp == ']')
-			count--;
-		if (*sp == '-' && do_lint && ! range_warned && count == 1
-		    && sp[-1] != '[' && sp[1] != ']'
-		    && ! isdigit((unsigned char) sp[-1]) && ! isdigit((unsigned char) sp[1])
-		    && ! (sp[-2] == '[' && sp[-1] == '^')) {
-			range_warned = true;
-			warning(_("range of the form `[%c-%c]' is locale dependent"),
-					sp[-1], sp[1]);
+		/*
+		 * ] as first char after open [ is skipped
+		 * \] is skipped
+		 * [^]] is skipped
+		 */
+		if (*sp == ']' && sp > sp2) {
+			 if (sp[-1] != '['
+			     && sp[-1] != '\\')
+				 ;
+			 else if ((sp - sp2) >= 2
+				  && sp[-1] == '^' && sp[-2] == '[')
+				 ;
+			 else
+				count--;
 		}
+
 		if (count == 0) {
 			sp++;	/* skip past ']' */
 			break;
@@ -603,4 +608,41 @@ again:
 	}
 done:
 	s[length] = save;
+}
+
+/* regexflags2str --- make regex flags printable */
+
+const char *
+regexflags2str(int flags)
+{
+	static const struct flagtab regextab[] = {
+		{ RE_BACKSLASH_ESCAPE_IN_LISTS,	"RE_BACKSLASH_ESCAPE_IN_LISTS" },
+		{ RE_BK_PLUS_QM,		"RE_BK_PLUS_QM" },
+		{ RE_CHAR_CLASSES,		"RE_CHAR_CLASSES" },
+		{ RE_CONTEXT_INDEP_ANCHORS,	"RE_CONTEXT_INDEP_ANCHORS" },
+		{ RE_CONTEXT_INDEP_OPS,		"RE_CONTEXT_INDEP_OPS" },
+		{ RE_CONTEXT_INVALID_OPS,	"RE_CONTEXT_INVALID_OPS" },
+		{ RE_DOT_NEWLINE,		"RE_DOT_NEWLINE" },
+		{ RE_DOT_NOT_NULL,		"RE_DOT_NOT_NULL" },
+		{ RE_HAT_LISTS_NOT_NEWLINE,	"RE_HAT_LISTS_NOT_NEWLINE" },
+		{ RE_INTERVALS,			"RE_INTERVALS" },
+		{ RE_LIMITED_OPS,		"RE_LIMITED_OPS" },
+		{ RE_NEWLINE_ALT,		"RE_NEWLINE_ALT" },
+		{ RE_NO_BK_BRACES,		"RE_NO_BK_BRACES" },
+		{ RE_NO_BK_PARENS,		"RE_NO_BK_PARENS" },
+		{ RE_NO_BK_REFS,		"RE_NO_BK_REFS" },
+		{ RE_NO_BK_VBAR,		"RE_NO_BK_VBAR" },
+		{ RE_NO_EMPTY_RANGES,		"RE_NO_EMPTY_RANGES" },
+		{ RE_UNMATCHED_RIGHT_PAREN_ORD,	"RE_UNMATCHED_RIGHT_PAREN_ORD" },
+		{ RE_NO_POSIX_BACKTRACKING,	"RE_NO_POSIX_BACKTRACKING" },
+		{ RE_NO_GNU_OPS,		"RE_NO_GNU_OPS" },
+		{ RE_DEBUG,			"RE_DEBUG" },
+		{ RE_INVALID_INTERVAL_ORD,	"RE_INVALID_INTERVAL_ORD" },
+		{ RE_ICASE,			"RE_ICASE" },
+		{ RE_CARET_ANCHORS_HERE,	"RE_CARET_ANCHORS_HERE" },
+		{ RE_CONTEXT_INVALID_DUP,	"RE_CONTEXT_INVALID_DUP" },
+		{ 0,				NULL }
+	};
+
+	return genflags2str(flags, regextab);
 }

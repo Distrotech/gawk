@@ -1,7 +1,15 @@
-2012-12-05         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+2013-08-22         Andrew J. Schorr     <aschorr@telemetry-investments.com>
 
 	* libtool.m4, ltoptions.m4, ltsugar.m4, ltversion.m4, lt~obsolete.m4:
 	Remove libtool support.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-01-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dirfd.m4: New file.
 
 2012-08-24         Arnold D. Robbins     <arnold@skeeve.com>
 

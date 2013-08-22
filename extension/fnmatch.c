@@ -7,7 +7,7 @@
  */
 
 /*
- * Copyright (C) 2012 the Free Software Foundation, Inc.
+ * Copyright (C) 2012, 2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -45,9 +45,16 @@
 #define _(msgid)  gettext(msgid)
 #define N_(msgid) msgid
 
-#ifdef HAVE_FNMATCH_H
 #define _GNU_SOURCE	1	/* use GNU extensions if they're there */
+#ifdef HAVE_FNMATCH_H
 #include <fnmatch.h>
+#else
+#include "../missing_d/fnmatch.h"	/* version that comes with gawk */
+#endif
+
+#ifndef HAVE_FNMATCH
+#include "../missing_d/fnmatch.c"	/* ditto */
+#define HAVE_FNMATCH
 #endif
 
 /* Provide GNU extensions as no-ops if not defined */
@@ -148,7 +155,7 @@ init_fnmatch(void)
 	awk_array_t new_array;
 	int i;
 
-	if (! sym_constant("FNM_NOMATCH", make_number(FNM_NOMATCH, & value))) {
+	if (! sym_update("FNM_NOMATCH", make_number(FNM_NOMATCH, & value))) {
 		warning(ext_id, _("fnmatch init: could not add FNM_NOMATCH variable"));
 		errors++;
 	}

@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -240,6 +240,7 @@ static const char *const nodetypes[] = {
 	"Node_param_list",
 	"Node_func",
 	"Node_ext_func",
+	"Node_old_ext_func",
 	"Node_array_ref",
 	"Node_array_tree",
 	"Node_array_leaf",
@@ -329,6 +330,7 @@ static struct optypetab {
 	{ "Op_builtin", NULL },
 	{ "Op_sub_builtin", NULL },
 	{ "Op_ext_builtin", NULL },
+	{ "Op_old_ext_builtin", NULL },	/* temporary */
 	{ "Op_in_array", " in " },
 	{ "Op_func_call", NULL },
 	{ "Op_indirect_func_call", NULL },
@@ -354,6 +356,7 @@ static struct optypetab {
 	{ "Op_var_update", NULL },
 	{ "Op_var_assign", NULL },
 	{ "Op_field_assign", NULL },
+	{ "Op_subscript_assign", NULL },
 	{ "Op_after_beginfile", NULL },
 	{ "Op_after_endfile", NULL },
 	{ "Op_func", NULL },
@@ -576,16 +579,16 @@ cmp_nodes(NODE *t1, NODE *t2)
 	if (t1 == t2)
 		return 0;
 
-	if (t1->flags & MAYBE_NUM)
+	if ((t1->flags & MAYBE_NUM) != 0)
 		(void) force_number(t1);
-	if (t2->flags & MAYBE_NUM)
+	if ((t2->flags & MAYBE_NUM) != 0)
 		(void) force_number(t2);
-	if (t1->flags & INTIND)
+	if ((t1->flags & INTIND) != 0)
 		t1 = force_string(t1);
-	if (t2->flags & INTIND)
+	if ((t2->flags & INTIND) != 0)
 		t2 = force_string(t2);
 
-	if ((t1->flags & NUMBER) && (t2->flags & NUMBER))
+	if ((t1->flags & NUMBER) != 0 && (t2->flags & NUMBER) != 0)
 		return cmp_numbers(t1, t2);
 
 	(void) force_string(t1);
@@ -732,15 +735,15 @@ set_BINMODE()
 		lintwarn(_("`BINMODE' is a gawk extension"));
 	}
 	if (do_traditional)
-		BINMODE = 0;
+		BINMODE = TEXT_TRANSLATE;
 	else if ((v->flags & NUMBER) != 0) {
 		(void) force_number(v);
 		BINMODE = get_number_si(v);
 		/* Make sure the value is rational. */
-		if (BINMODE < 0)
-			BINMODE = 0;
-		else if (BINMODE > 3)
-			BINMODE = 3;
+		if (BINMODE < TEXT_TRANSLATE)
+			BINMODE = TEXT_TRANSLATE;
+		else if (BINMODE > BINMODE_BOTH)
+			BINMODE = BINMODE_BOTH;
 	} else if ((v->flags & STRING) != 0) {
 		p = v->stptr;
 
@@ -760,13 +763,13 @@ set_BINMODE()
 				BINMODE = p[0] - '0';
 				break;
 			case 'r':
-				BINMODE = 1;
+				BINMODE = BINMODE_INPUT;
 				break;
 			case 'w':
-				BINMODE = 2;
+				BINMODE = BINMODE_OUTPUT;
 				break;
 			default:
-				BINMODE = 3;
+				BINMODE = BINMODE_BOTH;
 				goto bad_value;
 				break;
 			}
@@ -774,21 +777,21 @@ set_BINMODE()
 		case 2:
 			switch (p[0]) {
 			case 'r':
-				BINMODE = 3;
+				BINMODE = BINMODE_BOTH;
 				if (p[1] != 'w')
 					goto bad_value;
 				break;
 			case 'w':
-				BINMODE = 3;
+				BINMODE = BINMODE_BOTH;
 				if (p[1] != 'r')
 					goto bad_value;
 				break;
+			}
 			break;
 		default:
 	bad_value:
 			lintwarn(_("BINMODE value `%s' is invalid, treated as 3"), p);
 			break;
-			}
 		}
 	} else
 		BINMODE = 3;		/* shouldn't happen */
@@ -1121,8 +1124,10 @@ r_get_lhs(NODE *n, bool reference)
 		if (n->orig_array->type == Node_var_array)
 			fatal(_("attempt to use array `%s' in a scalar context"),
 					array_vname(n));
-		n->orig_array->type = Node_var;
-		n->orig_array->var_value = dupnode(Nnull_string);
+		if (n->orig_array->type != Node_var) {
+			n->orig_array->type = Node_var;
+			n->orig_array->var_value = Nnull_string;
+		}
 		/* fall through */
 	case Node_var_new:
 		n->type = Node_var;
@@ -1457,7 +1462,13 @@ unwind_stack(long n)
 			freenode(r);
 			break;
 		default:
-			if (in_main_context())
+			/*
+			 * Check `exiting' and don't produce an error for
+			 * cases like:
+			 *	func     _fn0() { exit }
+			 *	BEGIN { ARRAY[_fn0()] }
+			 */
+			if (in_main_context() && ! exiting)
 				fatal(_("unwind_stack: unexpected type `%s'"),
 						nodetype2str(r->type));
 			/* else 

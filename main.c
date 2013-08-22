@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2012 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -24,7 +24,7 @@
  */
 
 /* FIX THIS BEFORE EVERY RELEASE: */
-#define UPDATE_YEAR	2012
+#define UPDATE_YEAR	2013
 
 #include "awk.h"
 #include "getopt.h"
@@ -201,7 +201,7 @@ main(int argc, char **argv)
 	/*
 	 * The + on the front tells GNU getopt not to rearrange argv.
 	 */
-	const char *optlist = "+F:f:v:W;m:bcCd::D::e:E:gh:i:l:L:nNo::Op::MPrStVY";
+	const char *optlist = "+F:f:v:W;bcCd::D::e:E:gh:i:l:L:nNo::Op::MPrStVY";
 	bool stopped_early = false;
 	int old_optind;
 	int i;
@@ -261,6 +261,17 @@ main(int argc, char **argv)
 	 */
 	gawk_mb_cur_max = MB_CUR_MAX;
 	/* Without MBS_SUPPORT, gawk_mb_cur_max is 1. */
+#ifdef LIBC_IS_BORKED
+{
+	const char *env_lc;
+
+	env_lc = getenv("LC_ALL");
+	if (env_lc == NULL)
+		env_lc = getenv("LANG");
+	if (env_lc != NULL && env_lc[1] == '\0' && tolower(env_lc[0]) == 'c')
+		gawk_mb_cur_max = 1;
+}
+#endif
 
 	/* init the cache for checking bytes if they're characters */
 	init_btowc_cache();
@@ -348,20 +359,6 @@ main(int argc, char **argv)
 			add_preassign(PRE_ASSIGN, optarg);
 			break;
 
-		case 'm':
-			/*
-			 * BWK awk extension.
-			 *	-mf nnn		set # fields, gawk ignores
-			 *	-mr nnn		set record length, ditto
-			 *
-			 * As of at least 10/2007, BWK awk also ignores it.
-			 */
-			if (do_lint)
-				lintwarn(_("`-m[fr]' option irrelevant in gawk"));
-			if (optarg[0] != 'r' && optarg[0] != 'f')
-				warning(_("-m option usage: `-m[fr] nnn'"));
-			break;
-
 		case 'b':
 			do_binary = true;
 			break;
@@ -410,8 +407,8 @@ main(int argc, char **argv)
 			(void) add_srcfile(SRC_EXTLIB, optarg, srcfiles, NULL, NULL);
 			break;
 
-		case 'L':
 #ifndef NO_LINT
+		case 'L':
 			do_flags |= DO_LINT_ALL;
 			if (optarg != NULL) {
 				if (strcmp(optarg, "fatal") == 0)
@@ -628,10 +625,10 @@ out:
 	if (preassigns != NULL)
 		efree(preassigns);
 
-	if ((BINMODE & 1) != 0)
+	if ((BINMODE & BINMODE_INPUT) != 0)
 		if (os_setbinmode(fileno(stdin), O_BINARY) == -1)
 			fatal(_("can't set binary mode on stdin (%s)"), strerror(errno));
-	if ((BINMODE & 2) != 0) {
+	if ((BINMODE & BINMODE_OUTPUT) != 0) {
 		if (os_setbinmode(fileno(stdout), O_BINARY) == -1)
 			fatal(_("can't set binary mode on stdout (%s)"), strerror(errno));
 		if (os_setbinmode(fileno(stderr), O_BINARY) == -1)
@@ -725,6 +722,9 @@ out:
 
 	if (do_debug)
 		debug_prog(code_block);
+	else if (do_pretty_print && ! do_debug && getenv("GAWK_NO_PP_RUN") != NULL)
+		/* hack to run pretty printer only. need a better solution */
+		;
 	else
 		interpret(code_block);
 
@@ -1096,6 +1096,10 @@ load_environ()
 	 */
 	path_environ("AWKPATH", defpath);
 	path_environ("AWKLIBPATH", deflibpath);
+
+	/* set up array functions */
+	init_env_array(ENVIRON_node);
+
 	return ENVIRON_node;
 }
 
@@ -1130,6 +1134,11 @@ load_procinfo()
 	update_PROCINFO_str("gmp_version", name);
 	update_PROCINFO_num("prec_max", MPFR_PREC_MAX);
 	update_PROCINFO_num("prec_min", MPFR_PREC_MIN);
+#endif
+
+#ifdef DYNAMIC
+	update_PROCINFO_num("api_major", GAWK_API_MAJOR_VERSION);
+	update_PROCINFO_num("api_minor", GAWK_API_MINOR_VERSION);
 #endif
 
 #ifdef GETPGRP_VOID
@@ -1426,6 +1435,9 @@ static void
 version()
 {
 	printf("%s", version_string);
+#ifdef DYNAMIC
+	printf(", API: %d.%d", GAWK_API_MAJOR_VERSION, GAWK_API_MINOR_VERSION);
+#endif
 #ifdef HAVE_MPFR
 	printf(" (GNU MPFR %s, GNU MP %s)", mpfr_get_version(), gmp_version);
 #endif
@@ -1561,6 +1573,8 @@ save_argv(int argc, char **argv)
 /*
  * update_global_values --- make sure the symbol table has correct values.
  * Called from the grammar before dumping values.
+ *
+ * Also called when accessing through SYMTAB, and from api_sym_lookup().
  */
 
 void

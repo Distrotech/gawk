@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 2012, the Free Software Foundation, Inc.
+ * Copyright (C) 2012, 2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -26,7 +26,6 @@
 #include "awk.h"
 
 static awk_bool_t node_to_awk_value(NODE *node, awk_value_t *result, awk_valtype_t wanted);
-static void set_constant();
 
 /*
  * api_get_argument --- get the count'th paramater, zero-based.
@@ -413,7 +412,7 @@ node_to_awk_value(NODE *node, awk_value_t *val, awk_valtype_t wanted)
 			val->val_type = AWK_NUMBER;
 
 			(void) force_number(node);
-			if (node->flags & NUMCUR) {
+			if ((node->flags & NUMCUR) != 0) {
 				val->num_value = get_number_d(node);
 				ret = true;
 			}
@@ -423,7 +422,7 @@ node_to_awk_value(NODE *node, awk_value_t *val, awk_valtype_t wanted)
 			val->val_type = AWK_STRING;
 
 			(void) force_string(node);
-			if (node->flags & STRCUR) {
+			if ((node->flags & STRCUR) != 0) {
 				val->str_value.str = node->stptr;
 				val->str_value.len = node->stlen;
 				ret = true;
@@ -431,9 +430,9 @@ node_to_awk_value(NODE *node, awk_value_t *val, awk_valtype_t wanted)
 			break;
 
 		case AWK_SCALAR:
-			if (node->flags & NUMBER) {
+			if ((node->flags & NUMBER) != 0) {
 				val->val_type = AWK_NUMBER;
-			} else if (node->flags & STRING) {
+			} else if ((node->flags & STRING) != 0) {
 				val->val_type = AWK_STRING;
 			} else
 				val->val_type = AWK_UNDEFINED;
@@ -442,11 +441,11 @@ node_to_awk_value(NODE *node, awk_value_t *val, awk_valtype_t wanted)
 
 		case AWK_UNDEFINED:
 			/* return true and actual type for request of undefined */
-			if (node->flags & NUMBER) {
+			if ((node->flags & NUMBER) != 0) {
 				val->val_type = AWK_NUMBER;
 				val->num_value = get_number_d(node);
 				ret = true;
-			} else if (node->flags & STRING) {
+			} else if ((node->flags & STRING) != 0) {
 				val->val_type = AWK_STRING;
 				val->str_value.str = node->stptr;
 				val->str_value.len = node->stlen;
@@ -505,6 +504,8 @@ api_sym_lookup(awk_ext_id_t id,
 {
 	NODE *node;
 
+	update_global_values();		/* make sure stuff like NF, NR, are up to date */
+
 	if (   name == NULL
 	    || *name == '\0'
 	    || result == NULL
@@ -532,16 +533,17 @@ api_sym_lookup_scalar(awk_ext_id_t id,
 	    || node->type != Node_var)
 		return false;
 
+	update_global_values();	/* make sure stuff like NF, NR, are up to date */
+
 	return node_to_awk_value(node, result, wanted);
 }
 
-/* api_sym_update_real --- update a symbol's value, see gawkapi.h for semantics */
+/* api_sym_update --- update a symbol's value, see gawkapi.h for semantics */
 
 static awk_bool_t
-sym_update_real(awk_ext_id_t id,
+api_sym_update(awk_ext_id_t id,
 		const char *name,
-		awk_value_t *value,
-		bool is_const)
+		awk_value_t *value)
 {
 	NODE *node;
 	NODE *array_node;
@@ -582,8 +584,6 @@ sym_update_real(awk_ext_id_t id,
 			node = install_symbol(estrdup((char *) name, strlen(name)),
 					Node_var);
 			node->var_value = awk_value_to_node(value);
-			if (is_const)
-				node->var_assign = set_constant;
 		}
 
 		return true;
@@ -603,34 +603,13 @@ sym_update_real(awk_ext_id_t id,
 	    && (node->type == Node_var || node->type == Node_var_new)) {
 		unref(node->var_value);
 		node->var_value = awk_value_to_node(value);
-		/* let the extension change its own variable */
-		if (is_const)
-			node->var_assign = set_constant;
+		if (node->type == Node_var_new && value->val_type != AWK_UNDEFINED)
+			node->type = Node_var;
 
 		return true;
 	}
 
 	return false;
-}
-
-/* api_sym_update --- update a symbol, non-constant */
-
-static awk_bool_t
-api_sym_update(awk_ext_id_t id,
-		const char *name,
-		awk_value_t *value)
-{
-	return sym_update_real(id, name, value, false);
-}
-
-/* api_sym_update --- update a symbol, constant */
-
-static awk_bool_t
-api_sym_constant(awk_ext_id_t id,
-		const char *name,
-		awk_value_t *value)
-{
-	return sym_update_real(id, name, value, true);
 }
 
 /* api_sym_update_scalar --- update a scalar cookie */
@@ -900,7 +879,7 @@ api_create_array(awk_ext_id_t id)
 
 	getnode(n);
 	memset(n, 0, sizeof(NODE));
-	init_array(n);
+	null_array(n);
 
 	return (awk_array_t) n;
 }
@@ -955,12 +934,17 @@ api_flatten_array(awk_ext_id_t id,
 	for (i = j = 0; i < 2 * array->table_size; i += 2, j++) {
 		NODE *index, *value;
 
-		index = force_string(list[i]);
+		index = list[i];
 		value = list[i + 1]; /* number or string or subarray */
 
-		/* convert index and value to ext types */
+		/*
+		 * Convert index and value to ext types.  Force the
+		 * index to be a string, since indices are always
+		 * conceptually strings, regardless of internal optimizations
+		 * to treat them as integers in some cases.
+		 */
 		if (! node_to_awk_value(index,
-				& (*data)->elements[j].index, AWK_UNDEFINED)) {
+				& (*data)->elements[j].index, AWK_STRING)) {
 			fatal(_("api_flatten_array: could not convert index %d\n"),
 						(int) i);
 		}
@@ -1110,7 +1094,6 @@ gawk_api_t api_impl = {
 	/* Accessing and installing variables and constants */
 	api_sym_lookup,
 	api_sym_update,
-	api_sym_constant,
 
 	/* Accessing and modifying variables via scalar cookies */
 	api_sym_lookup_scalar,
@@ -1151,14 +1134,6 @@ void
 update_ext_api()
 {
 	api_impl.do_flags[0] = (do_lint ? 1 : 0);
-}
-
-/* set_constant --- prevent awk code from changing a constant */
-
-static void
-set_constant()
-{
-	fatal(_("cannot assign to defined constant"));
 }
 
 /* print_ext_versions --- print the list */

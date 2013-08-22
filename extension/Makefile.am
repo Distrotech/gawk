@@ -50,6 +50,7 @@ MY_LIBS = $(SHOBJ_LIBS) $(LIBINTL)
 SHLINK = $(MKDIR_P) .libs && $(SHOBJ_LD) $(SHOBJ_LDFLAGS) $(SHOBJ_XLDFLAGS)
 
 ALL = $(PFX)filefuncs$(SFX) $(PFX)fnmatch$(SFX) $(PFX)fork$(SFX) \
+	$(PFX)inplace$(SFX) \
 	$(PFX)ordchr$(SFX) $(PFX)readdir$(SFX) $(PFX)readfile$(SFX) \
 	$(PFX)revoutput$(SFX) $(PFX)revtwoway$(SFX) $(PFX)rwarray$(SFX) \
 	$(PFX)testext$(SFX) $(PFX)time$(SFX) 
@@ -76,6 +77,9 @@ $(PFX)fnmatch$(SFX): fnmatch.o
 $(PFX)fork$(SFX): fork.o
 	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
+$(PFX)inplace$(SFX): inplace.o
+	$(SHLINK) -o $@ $^ $(MY_LIBS)
+
 $(PFX)ordchr$(SFX): ordchr.o
 	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
@@ -100,15 +104,26 @@ $(PFX)testext$(SFX): testext.o
 $(PFX)time$(SFX): time.o
 	$(SHLINK) -o $@ $^ $(MY_LIBS)
 
+install-data-hook:
+	for i in $(pkgextension_LTLIBRARIES) ; do \
+		$(RM) $(pkgextensiondir)/$$i ; \
+	done
+
+clean-local:
+	$(RM) -fr $(PFX)
+	$(RM) -f *.$(OBJEXT)
+
 EXTRA_DIST = build-aux/config.rpath  \
 	ChangeLog \
 	ChangeLog.0 \
+	README.fts \
 	fts.3 \
 	filefuncs.c \
 	fnmatch.c \
 	fork.c \
 	gawkfts.c \
 	gawkfts.h \
+	inplace.c \
 	ordchr.c \
 	readdir.c \
 	readfile.c \
@@ -130,8 +145,24 @@ install-exec-hook:
 
 dist_man_MANS = \
 	filefuncs.3am fnmatch.3am fork.3am ordchr.3am \
+	inplace.3am \
 	readdir.3am readfile.3am revoutput.3am \
 	revtwoway.3am rwarray.3am time.3am
 
 # gettext requires this
 SUBDIRS =
+
+# This is an ugly hack, initially for MirBSD but probably needed for other
+# systems. If gawk doesn't have the API built in, don't try to build the
+# extensions.
+#
+# Given the workaround in configure, this isn't strictly necessary, but
+# we're leaving it in, in case of some other system needing it.
+check-recursive all-recursive: check-for-shared-lib-support
+
+check-for-shared-lib-support:
+	@if ../gawk$(EXEEXT) --version | sed 1q | grep API > /dev/null; \
+	then	: do nothing ; \
+	else	echo Building the extensions is not supported on this platform ; \
+		exit 1; \
+	fi

@@ -11,7 +11,8 @@
  */
 
 /*
- * Copyright (C) 2002, 2003, 2004, 2011, 2012 the Free Software Foundation, Inc.
+ * Copyright (C) 2002, 2003, 2004, 2011, 2012, 2013
+ * the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -34,6 +35,8 @@
 #ifdef HAVE_CONFIG_H
 #include <config.h>
 #endif
+
+#define _BSD_SOURCE
 
 #include <stdio.h>
 #include <assert.h>
@@ -104,6 +107,7 @@ do_readfile(int nargs, awk_value_t *result)
 		if ((ret = read(fd, text, sbuf.st_size)) != sbuf.st_size) {
 			(void) close(fd);
 			update_ERRNO_int(errno);
+			free(text);
 			goto done;
 		}
 

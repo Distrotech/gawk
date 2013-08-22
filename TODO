@@ -1,4 +1,4 @@
-Sat Nov 24 20:09:56 IST 2012
+Thu May  9 15:31:55 IDT 2013
 ============================
 
 There were too many files tracking different thoughts and ideas for
@@ -14,50 +14,41 @@ TODO
 
 Minor Cleanups and Code Improvements
 ------------------------------------
-	Fix all *assoc_lookup() = xxx  calls.
 
-	Make GAWKDEBUG pass the test suite.
+	Put FAKE_FD_VALUE into a head included from awk.h and extension/
+	dirfd.h.
+
+	Mac OS X readline doesn't have history_list which is used from debug.c
+	functions do_save and serialize.
+	See http://ftp.samba.org/pub/unpacked/samba_3_current/source4/lib/smbreadline/readline.m4
+	for some help. Reported by Larry Baker, larry.baker@stanfordalumni.org
+
 
 	API:
-		awk_true and awk_false ???
-		DONE: Update doc to use gcc -o filefuncs.so -shared filefuncs.o
-			instead of ld ...
 		??? #if !defined(GAWK) && !defined(GAWK_OMIT_CONVENIENCE_MACROS)
 
-	Make fflush() and fflush("") both flush all files, as in BWK awk.
-
 	?? Add debugger commands to reference card
-
-	FIX regular field splitting to use FPAT algorithm.
 
 	Look at function order within files.
 
 	regex.h - remove underscores in param names
 
-	From Andy: Review the following test cases that they work with make diffout.
-	These look suspicious: mmap8k, fmtspcl (the mpfr case), clobber, getlnbuf,
-	rtlenmb, profile1, rand (mpfr case).
-
-	Add tests for patches in emails (?? - not sure now what this referred to)
-
-	In gawkapi.c - review switch statements and use of default.
-
 	Consider removing use of and/or need for the protos.h file.
-
-	Consider moving var_value info into Node_var itself
-	to reduce memory usage.
-
-	Add macros for working with flags instead of using & and | directly.
 
 	Review the bash source script for working with shared libraries in
 	order to nuke the use of libtool.
 
+	Enhance profiling to same comments in a byte-code that does nothing
+	but that can be used when pretty printing the program.
+
 Minor New Features
 ------------------
 
-	Enhance extension/fork.c waitpid to allow the caller to specify the options.
-	And add an optional array argument to wait and waitpid in which to return
-	exit status information.
+	Enhance extension/fork.c waitpid to allow the caller to specify
+	the options.  And add an optional array argument to wait and
+	waitpid in which to return exit status information.
+
+	Add a readfile() function in awk from mail.
 
 	Consider relaxing the strictness of --posix.
 
@@ -68,6 +59,7 @@ Minor New Features
 
 Major New Features
 ------------------
+
 	Think about how to generalize indirect access. Manuel Collado
 	suggests things like
 
@@ -80,13 +72,18 @@ Major New Features
 		indirect calls of extension functions
 		indirect through array elements, not just scalar variables
 
-	Rebase and integration of array_iface branch.
+	Fix the early chapters in the doc with more up-to-date examples.
+	No-one uses Bulletin Board Systems anymore.
 
 	Rework management of array index storage. (Partially DONE.)
 
 	Consider using an atom table for all string array indices.
 
 	DBM storage of awk arrays. Try to allow multiple dbm packages.
+
+	?? Some way to make regexp constants first class citizens
+		- Assign to variables
+		- Pass to functions
 
 	?? A RECLEN variable for fixed-length record input. PROCINFO["RS"]
 	would be "RS" or "RECLEN" depending upon what's in use.
@@ -96,19 +93,27 @@ Major New Features
 
 Things To Think About That May Never Happen
 -------------------------------------------
+
+	Consider making shadowed variables a warning and not
+	a fatal warning when --lint=fatal.
+
+	Similar for extra parameters in a function call.
+
 	?? Scope IDs for IPv6 addresses ??
 
 	??? Gnulib
 
-	Consider making shadowed variables a warning and not
-	a fatal warning when -lint=fatal.
-
-	Similar for extra parameters in a function call.
-
 	Look at code coverage tools, like S2E: https://s2e.epfl.ch/
+	
+	Try running with diehard. See http://www.diehard-software.org,
+	https://github.com/emeryberger/DieHard
 
 	Change from dlopen to using the libltdl library (i.e. lt_dlopen).
 	This may support more platforms.
+
+	FIX regular field splitting to use FPAT algorithm.
+		Note: Looked at this. Not sure it's with the trouble:
+		If it ain't broke...
 
 	Implement namespaces.  Arnold suggested the following in an email:
 	- Extend the definition of an 'identifier' to include "." as a valid character
@@ -172,6 +177,22 @@ Done in 4.1:
 
 	Review all FIXME and TODO comments
 
+	Fix all *assoc_lookup() = xxx  calls.
+
+	Make GAWKDEBUG pass the test suite.
+
+	Make fflush() and fflush("") both flush all files, as in BWK awk.
+
+	In gawkapi.c - review switch statements and use of default.
+
+	API:
+		awk_true and awk_false
+		Update doc to use gcc -o filefuncs.so -shared filefuncs.o
+			instead of ld ...
+		Have check for name not rely on isalpha, isalnum since
+			the locale could botch that up. Also make it not
+			fatal.
+
 Minor New Features
 ------------------
 Done in 4.1:
@@ -182,29 +203,35 @@ Major New Features
 ------------------
 Done in 4.1:
 
-	DONE: Design and implement I/O plugin API.
+	Integration of array_iface branch.
 
-	DONE: Implement designed API for loadable modules
+	Design and implement I/O plugin API.
 
-	DONE: Redo the loadable modules interface from the awk level.
+	Implement designed API for loadable modules
 
-	DONE: xgawk features (@load, -l, others)
+	Redo the loadable modules interface from the awk level.
 
-	DONE: Merge gawk/pgawk/dgawk into one executable
+	xgawk features (@load, -l, others)
 
-	DONE: Merge xmlgawk XML extensions (via source forge project that
+	Merge gawk/pgawk/dgawk into one executable
+
+	Merge xmlgawk XML extensions (via source forge project that
 	      works with new API)
 
-	DONE: Integrate MPFR to provide high precision arithmetic.
+	Integrate MPFR to provide high precision arithmetic.
 
-	DONE: Consider really implementing BWK awk SYMTAB for seeing what
+	Consider really implementing BWK awk SYMTAB for seeing what
 	global variables are defined.
-
-Things To Think About That May Never Happen
--------------------------------------------
 
 Things That We Decided We Will Never Do
 ---------------------------------------
+
+	Consider moving var_value info into Node_var itself to reduce
+	memory usage. This would break all uses of get_lhs in the
+	code. It's too sweeping a change.
+
+	Add macros for working with flags instead of using & and |
+	directly.
 
 Code Review
 -----------

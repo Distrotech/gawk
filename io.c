@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -76,10 +76,6 @@
 #include <netdb.h>
 #endif /* HAVE_NETDB_H */
 
-#if defined(HAVE_POPEN_H)
-#include "popen.h"
-#endif
-
 #ifndef HAVE_GETADDRINFO
 #include "missing_d/getaddrinfo.h"
 #endif
@@ -108,6 +104,10 @@
 #include <limits.h>
 #endif
 
+#if defined(HAVE_POPEN_H)
+#include "popen.h"
+#endif
+
 #ifdef __EMX__
 #include <process.h>
 #endif
@@ -116,18 +116,45 @@
 #define ENFILE EMFILE
 #endif
 
+#if defined(VMS)
+#define closemaybesocket(fd)	close(fd)
+#endif
+
 #ifdef HAVE_SOCKETS
 
 #ifndef SHUT_RD
-#define SHUT_RD		0
+# ifdef SD_RECEIVE
+#  define SHUT_RD	SD_RECEIVE
+# else
+#  define SHUT_RD	0
+# endif
 #endif
 
 #ifndef SHUT_WR
-#define SHUT_WR		1
+# ifdef SD_SEND
+#  define SHUT_WR	SD_SEND
+# else
+#  define SHUT_WR	1
+# endif
 #endif
 
 #ifndef SHUT_RDWR
-#define SHUT_RDWR	2
+# ifdef SD_BOTH
+#  define SHUT_RDWR	SD_BOTH
+# else
+#  define SHUT_RDWR	2
+# endif
+#endif
+
+/* MinGW defines non-trivial macros on pc/socket.h.  */
+#ifndef FD_TO_SOCKET
+# define FD_TO_SOCKET(fd)	(fd)
+# define closemaybesocket(fd)	close(fd)
+#endif
+
+#ifndef SOCKET_TO_FD
+# define SOCKET_TO_FD(s)	(s)
+# define SOCKET			int
 #endif
 
 #endif /* HAVE_SOCKETS */
@@ -140,8 +167,14 @@
 #undef TANDEM	/* AIX defines this in one of its header files */
 #endif
 
-#if defined(__DJGPP__) || defined(__MINGW32__)
+#ifdef __DJGPP__
 #define PIPES_SIMULATED
+#endif
+
+#ifdef __MINGW32__
+# ifndef PIPES_SIMULATED
+#  define pipe(fds)	_pipe(fds, 0, O_NOINHERIT)
+# endif
 #endif
 
 #ifdef HAVE_MPFR
@@ -261,6 +294,9 @@ init_io()
 {
 	long tmout;
 
+	/* Only MinGW has a non-trivial implementation of this.  */
+	init_sockets();
+
 	/*
 	 * N.B.: all these hacks are to minimize the effect
 	 * on programs that do not care about timeout.
@@ -290,12 +326,12 @@ binmode(const char *mode)
 {
 	switch (mode[0]) {
 	case 'r':
-		if ((BINMODE & 1) != 0)
+		if ((BINMODE & BINMODE_INPUT) != 0)
 			mode = "rb";
 		break;
 	case 'w':
 	case 'a':
-		if ((BINMODE & 2) != 0)
+		if ((BINMODE & BINMODE_OUTPUT) != 0)
 			mode = (mode[0] == 'w' ? "wb" : "ab");
 		break;
 	}
@@ -583,7 +619,7 @@ iop_close(IOBUF *iop)
 		    || iop->public.fd == fileno(stderr))
 			ret = remap_std_file(iop->public.fd);
 		else
-			ret = close(iop->public.fd);
+			ret = closemaybesocket(iop->public.fd);
 	}
 
 	if (ret == -1)
@@ -733,9 +769,14 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 		 * we've gotten EOF from a child input pipeline, it's
 		 * a good bet that the child has died. So recover it.
 		 */
-		if ((rp->flag & RED_EOF) && redirtype == redirect_pipein) {
+		if ((rp->flag & RED_EOF) != 0 && redirtype == redirect_pipein) {
 			if (rp->pid != -1)
+#ifdef __MINGW32__
+				/* MinGW cannot wait for any process.  */
+				wait_any(rp->pid);
+#else
 				wait_any(0);
+#endif
 		}
 #endif /* PIPES_SIMULATED */
 
@@ -771,6 +812,7 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 		rp->value = str;
 		rp->flag = tflag;
 		init_output_wrapper(& rp->output);
+		rp->output.name = str;
 		rp->iop = NULL;
 		rp->pid = -1;
 		rp->status = 0;
@@ -779,7 +821,7 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 	save_rp = rp;
 
 	while (rp->output.fp == NULL && rp->iop == NULL) {
-		if (! new_rp && rp->flag & RED_EOF) {
+		if (! new_rp && (rp->flag & RED_EOF) != 0) {
 			/*
 			 * Encountered EOF on file or pipe -- must be cleared
 			 * by explicit close() before reading more
@@ -901,10 +943,6 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 			/* too many files open -- close one and try again */
 			if (errno == EMFILE || errno == ENFILE)
 				close_one();
-#if defined __MINGW32__
-			else if (errno == 0)    /* HACK! */
-				close_one();
-#endif
 #ifdef VMS
 			/* Alpha/VMS V7.1's C RTL is returning this instead
 			   of EMFILE (haven't tried other post-V6.2 systems) */
@@ -1114,7 +1152,7 @@ close_rp(struct redirect *rp, two_way_close_type how)
 	} else if ((rp->flag & (RED_PIPE|RED_WRITE)) == (RED_PIPE|RED_WRITE)) {
 		/* write to pipe */
 		status = pclose(rp->output.fp);
-		if ((BINMODE & 1) != 0)
+		if ((BINMODE & BINMODE_INPUT) != 0)
 			os_setbinmode(fileno(stdin), O_BINARY);
 
 		rp->output.fp = NULL;
@@ -1233,12 +1271,12 @@ flush_io()
 	}
 	for (rp = red_head; rp != NULL; rp = rp->next)
 		/* flush both files and pipes, what the heck */
-		if ((rp->flag & RED_WRITE) && rp->output.fp != NULL) {
+		if ((rp->flag & RED_WRITE) != 0 && rp->output.fp != NULL) {
 			if (rp->output.gawk_fflush(rp->output.fp, rp->output.opaque)) {
-				if (rp->flag  & RED_PIPE)
+				if ((rp->flag & RED_PIPE) != 0)
 					warning(_("pipe flush of `%s' failed (%s)."),
 						rp->value, strerror(errno));
-				else if (rp->flag & RED_TWOWAY)
+				else if ((rp->flag & RED_TWOWAY) != 0)
 					warning(_("co-process flush of pipe to `%s' failed (%s)."),
 						rp->value, strerror(errno));
 				else
@@ -1417,7 +1455,7 @@ socketopen(int family, int type, const char *localpname,
 					    && (clientsocket_fd = accept(socket_fd,
 						(struct sockaddr *) & remote_addr,
 						& namelen)) >= 0) {
-						close(socket_fd);
+						closemaybesocket(socket_fd);
 						socket_fd = clientsocket_fd;
 						break;
 					}
@@ -1441,7 +1479,7 @@ socketopen(int family, int type, const char *localpname,
 
 nextrres:
 			if (socket_fd != INVALID_HANDLE)
-				close(socket_fd);
+				closemaybesocket(socket_fd);
 			socket_fd = INVALID_HANDLE;
 			rres = rres->ai_next;
 		}
@@ -1628,12 +1666,15 @@ devopen(const char *name, const char *mode)
 strictopen:
 	if (openfd == INVALID_HANDLE)
 		openfd = open(name, flag, 0666);
-#ifdef __EMX__
+#if defined(__EMX__) || defined(__MINGW32__)
 	if (openfd == INVALID_HANDLE && errno == EACCES) {
-		/* on OS/2 directory access via open() is not permitted */
+		/* On OS/2 and Windows directory access via open() is
+		   not permitted.  */
 		struct stat buf;
+		int l, f;
 
-		if (stat(name, & buf) == 0 && S_ISDIR(buf.st_mode))
+		if (!inetfile(name, &l, &f)
+		    && stat(name, & buf) == 0 && S_ISDIR(buf.st_mode))
 			errno = EISDIR;
 	}
 #endif
@@ -1660,7 +1701,9 @@ two_way_open(const char *str, struct redirect *rp)
 		fd = devopen(str, "rw");
 		if (fd == INVALID_HANDLE)
 			return false;
-		rp->output.fp = fdopen(fd, "w");
+		if ((BINMODE & BINMODE_OUTPUT) != 0)
+			os_setbinmode(fd, O_BINARY);
+		rp->output.fp = fdopen(fd, binmode("wb"));
 		if (rp->output.fp == NULL) {
 			close(fd);
 			return false;
@@ -1670,9 +1713,12 @@ two_way_open(const char *str, struct redirect *rp)
 			rp->output.gawk_fclose(rp->output.fp, rp->output.opaque);
 			return false;
 		}
+		if ((BINMODE & BINMODE_INPUT) != 0)
+			os_setbinmode(newfd, O_BINARY);
 		os_close_on_exec(fd, str, "socket", "to/from");
 		os_close_on_exec(newfd, str, "socket", "to/from");
 		rp->iop = iop_alloc(newfd, str, 0);
+		rp->output.name = str;
 		find_input_parser(rp->iop);
 		iop_finish(rp->iop);
 		if (! rp->iop->valid) {
@@ -1697,7 +1743,7 @@ two_way_open(const char *str, struct redirect *rp)
 	if (! no_ptys && pty_vs_pipe(str)) {
 		static bool initialized = false;
 		static char first_pty_letter;
-#ifdef HAVE_GRANTPT
+#if defined(HAVE_GRANTPT) && ! defined(HAVE_POSIX_OPENPT)
 		static int have_dev_ptmx;
 #endif
 		char slavenam[32];
@@ -1714,7 +1760,7 @@ two_way_open(const char *str, struct redirect *rp)
 
 		if (! initialized) {
 			initialized = true;
-#ifdef HAVE_GRANTPT
+#if defined(HAVE_GRANTPT) && ! defined(HAVE_POSIX_OPENPT)
 			have_dev_ptmx = (stat("/dev/ptmx", & statb) >= 0);
 #endif
 			i = 0;
@@ -1729,8 +1775,13 @@ two_way_open(const char *str, struct redirect *rp)
 		}
 
 #ifdef HAVE_GRANTPT
+#ifdef HAVE_POSIX_OPENPT
+		{
+			master = posix_openpt(O_RDWR|O_NOCTTY);
+#else
 		if (have_dev_ptmx) {
 			master = open("/dev/ptmx", O_RDWR);
+#endif
 			if (master >= 0) {
 				char *tem;
 
@@ -1889,6 +1940,7 @@ two_way_open(const char *str, struct redirect *rp)
 			return false;
 		}
 
+		rp->output.name = str;
 		/*
 		 * Force read and write ends of two-way connection to
 		 * be different fd's so they can be closed independently.
@@ -1920,8 +1972,11 @@ use_pipes:
 	int ptoc[2], ctop[2];
 	int pid;
 	int save_errno;
-#ifdef __EMX__
+#if defined(__EMX__) || defined(__MINGW32__)
 	int save_stdout, save_stdin;
+#ifdef __MINGW32__
+	char *qcmd = NULL;
+#endif
 #endif
 
 	if (pipe(ptoc) < 0)
@@ -1935,7 +1990,7 @@ use_pipes:
 		return false;
 	}
 
-#ifdef __EMX__
+#if defined(__EMX__) || defined(__MINGW32__)
 	save_stdin = dup(0);	/* duplicate stdin */
 	save_stdout = dup(1);	/* duplicate stdout */
 	
@@ -1978,7 +2033,13 @@ use_pipes:
 	os_close_on_exec(save_stdout, str, "pipe", "from"); /* saved stdout of the parent process */
 
 	/* stderr does NOT get dup'ed onto child's stdout */
+#ifdef __EMX__
 	pid = spawnl(P_NOWAIT, "/bin/sh", "sh", "-c", str, NULL);
+#else  /* __MINGW32__ */
+	pid = spawnl(P_NOWAIT, getenv("ComSpec"), "cmd.exe", "/c",
+		     qcmd = quote_cmd(str), NULL);
+	efree(qcmd);
+#endif
 	
 	/* restore stdin and stdout */
 	close(1);
@@ -2006,7 +2067,7 @@ use_pipes:
 		return false;
 	}
 
-#else /* NOT __EMX__ */
+#else /* NOT __EMX__, NOT __MINGW32__ */
 	if ((pid = fork()) < 0) {
 		save_errno = errno;
 		close(ptoc[0]); close(ptoc[1]);
@@ -2033,9 +2094,13 @@ use_pipes:
 		execl("/bin/sh", "sh", "-c", str, NULL);
 		_exit(errno == ENOENT ? 127 : 126);
 	}
-#endif /* NOT __EMX__ */
+#endif /* NOT __EMX__, NOT __MINGW32__ */
 
 	/* parent */
+	if ((BINMODE & BINMODE_INPUT) != 0)
+		os_setbinmode(ctop[0], O_BINARY);
+	if ((BINMODE & BINMODE_OUTPUT) != 0)
+		os_setbinmode(ptoc[1], O_BINARY);
 	rp->pid = pid;
 	rp->iop = iop_alloc(ctop[0], str, 0);
 	find_input_parser(rp->iop);
@@ -2052,8 +2117,9 @@ use_pipes:
 
 		return false;
 	}
-	rp->output.fp = fdopen(ptoc[1], "w");
+	rp->output.fp = fdopen(ptoc[1], binmode("w"));
 	rp->output.mode = "w";
+	rp->output.name = str;
 	if (rp->output.fp == NULL) {
 		iop_close(rp->iop);
 		rp->iop = NULL;
@@ -2068,7 +2134,7 @@ use_pipes:
 	else
 		find_output_wrapper(& rp->output);
 
-#ifndef __EMX__
+#if !defined(__EMX__) && !defined(__MINGW32__)
 	os_close_on_exec(ctop[0], str, "pipe", "from");
 	os_close_on_exec(ptoc[1], str, "pipe", "from");
 
@@ -2100,15 +2166,31 @@ wait_any(int interesting)	/* pid of interest, if any */
 	int status = 0;
 	struct redirect *redp;
 
-	hstat = signal(SIGHUP, SIG_IGN);
 	istat = signal(SIGINT, SIG_IGN);
+#ifdef __MINGW32__
+	if (interesting < 0) {
+		status = -1;
+		pid = -1;
+	}
+	else
+		pid = _cwait(& status, interesting, 0);
+	if (pid == interesting && pid > 0) {
+		for (redp = red_head; redp != NULL; redp = redp->next)
+			if (interesting == redp->pid) {
+				redp->pid = -1;
+				redp->status = status;
+				break;
+			}
+	}
+#else
+	hstat = signal(SIGHUP, SIG_IGN);
 	qstat = signal(SIGQUIT, SIG_IGN);
 	for (;;) {
-#ifdef HAVE_SYS_WAIT_H	/* POSIX compatible sys/wait.h */
+# ifdef HAVE_SYS_WAIT_H	/* POSIX compatible sys/wait.h */
 		pid = wait(& status);
-#else
+# else
 		pid = wait((union wait *) & status);
-#endif
+# endif
 		if (interesting && pid == interesting) {
 			break;
 		} else if (pid != -1) {
@@ -2123,8 +2205,9 @@ wait_any(int interesting)	/* pid of interest, if any */
 			break;
 	}
 	signal(SIGHUP, hstat);
-	signal(SIGINT, istat);
 	signal(SIGQUIT, qstat);
+#endif
+	signal(SIGINT, istat);
 	return status;
 }
 
@@ -2135,8 +2218,11 @@ gawk_popen(const char *cmd, struct redirect *rp)
 {
 	int p[2];
 	int pid;
-#ifdef __EMX__
+#if defined(__EMX__) || defined(__MINGW32__)
 	int save_stdout;
+#ifdef __MINGW32__
+	char *qcmd = NULL;
+#endif
 #endif
 
 	/*
@@ -2150,7 +2236,7 @@ gawk_popen(const char *cmd, struct redirect *rp)
 	if (pipe(p) < 0)
 		fatal(_("cannot open pipe `%s' (%s)"), cmd, strerror(errno));
 
-#ifdef __EMX__
+#if defined(__EMX__) || defined(__MINGW32__)
 	rp->iop = NULL;
 	save_stdout = dup(1); /* save stdout */
 	if (save_stdout == -1) {
@@ -2172,8 +2258,14 @@ gawk_popen(const char *cmd, struct redirect *rp)
 	
 	os_close_on_exec(p[0], cmd, "pipe", "from"); /* pipe output: input of the parent process */
 	os_close_on_exec(save_stdout, cmd, "pipe", "from"); /* saved stdout of the parent process */
-	
+
+#ifdef __EMX__
 	pid = spawnl(P_NOWAIT, "/bin/sh", "sh", "-c", cmd, NULL);
+#else  /* __MINGW32__ */
+	pid = spawnl(P_NOWAIT, getenv("ComSpec"), "cmd.exe", "/c",
+		     qcmd = quote_cmd(cmd), NULL);
+	efree(qcmd);
+#endif
 	
 	/* restore stdout */
 	close(1);
@@ -2183,7 +2275,7 @@ gawk_popen(const char *cmd, struct redirect *rp)
 	}
 	close(save_stdout);
 
-#else /* NOT __EMX__ */
+#else /* NOT __EMX__, NOT __MINGW32__ */
 	if ((pid = fork()) == 0) {
 		if (close(1) == -1)
 			fatal(_("close of stdout in child failed (%s)"),
@@ -2195,20 +2287,22 @@ gawk_popen(const char *cmd, struct redirect *rp)
 		execl("/bin/sh", "sh", "-c", cmd, NULL);
 		_exit(errno == ENOENT ? 127 : 126);
 	}
-#endif /* NOT __EMX__ */
+#endif /* NOT __EMX__, NOT __MINGW32__ */
 
 	if (pid == -1) {
 		close(p[0]); close(p[1]);
 		fatal(_("cannot create child process for `%s' (fork: %s)"), cmd, strerror(errno));
 	}
 	rp->pid = pid;
-#ifndef __EMX__
+#if !defined(__EMX__) && !defined(__MINGW32__)
 	if (close(p[1]) == -1) {
 		close(p[0]);
 		fatal(_("close of pipe failed (%s)"), strerror(errno));
 	}
 #endif
 	os_close_on_exec(p[0], cmd, "pipe", "from");
+	if ((BINMODE & BINMODE_INPUT) != 0)
+		os_setbinmode(p[0], O_BINARY);
 	rp->iop = iop_alloc(p[0], cmd, 0);
 	find_input_parser(rp->iop);
 	iop_finish(rp->iop);
@@ -2255,7 +2349,7 @@ gawk_popen(const char *cmd, struct redirect *rp)
 
 	os_restore_mode(fileno(stdin));
 	current = popen(cmd, binmode("r"));
-	if ((BINMODE & 1) != 0)
+	if ((BINMODE & BINMODE_INPUT) != 0)
 		os_setbinmode(fileno(stdin), O_BINARY);
 	if (current == NULL)
 		return NULL;
@@ -2295,7 +2389,7 @@ gawk_pclose(struct redirect *rp)
 
 #endif	/* PIPES_SIMULATED */
 
-/* do_getline --- read in a line, into var and with redirection */
+/* do_getline_redir --- read in a line, into var and with redirection */
 
 NODE *
 do_getline_redir(int into_variable, enum redirval redirtype)
@@ -2637,11 +2731,18 @@ find_source(const char *src, struct stat *stb, int *errcode, int is_extlib)
 int
 srcopen(SRCFILE *s)
 {
+	int fd = INVALID_HANDLE;
+
 	if (s->stype == SRC_STDIN)
-		return fileno(stdin);
-	if (s->stype == SRC_FILE || s->stype == SRC_INC)
-		return devopen(s->fullpath, "r");
-	return INVALID_HANDLE;
+		fd = fileno(stdin);
+	else if (s->stype == SRC_FILE || s->stype == SRC_INC)
+		fd = devopen(s->fullpath, "r");
+
+	/* set binary mode so that debugger byte offset calculations will be right */
+	if (fd != INVALID_HANDLE)
+		os_setbinmode(fd, O_BINARY);
+
+	return fd;
 }
 
 /* input parsers, mainly for use by extension functions */
@@ -2872,12 +2973,18 @@ iop_alloc(int fd, const char *name, int errno_val)
 	memset(iop, '\0', sizeof(IOBUF));
 	iop->public.fd = fd;
 	iop->public.name = name;
-	iop->read_func = ( ssize_t(*)() ) read;
+	iop->public.read_func = ( ssize_t(*)() ) read;
 	iop->valid = false;
 	iop->errcode = errno_val;
 
 	if (fd != INVALID_HANDLE)
 		fstat(fd, & iop->public.sbuf);
+#if defined(__EMX__) || defined(__MINGW32__)
+	else if (errno_val == EISDIR) {
+		iop->public.sbuf.st_mode = (_S_IFDIR | _S_IRWXU);
+		iop->public.fd = FAKE_FD_VALUE;
+	}
+#endif
 
 	return iop;
 }
@@ -2897,7 +3004,19 @@ iop_finish(IOBUF *iop)
 				iop->errcode = EISDIR;
 			else {
 				iop->errcode = EIO;
-				(void) close(iop->public.fd);
+				/*
+				 * Extensions can supply values that are not
+				 * INVALID_HANDLE but that are also not real
+				 * file descriptors. So check the fd before
+				 * trying to close it, which avoids errors
+				 * on some operating systems.
+				 *
+				 * The fcntl call works for Windows, too.
+				 */
+#if defined(F_GETFL)
+				if (fcntl(iop->public.fd, F_GETFL) >= 0)
+#endif
+					(void) close(iop->public.fd);
 				iop->public.fd = INVALID_HANDLE;
 			}
 			/*
@@ -3338,7 +3457,7 @@ get_a_record(char **out,        /* pointer to pointer to data */
 
         /* fill initial buffer */
 	if (has_no_data(iop) || no_data_left(iop)) {
-		iop->count = iop->read_func(iop->public.fd, iop->buf, iop->readsize);
+		iop->count = iop->public.read_func(iop->public.fd, iop->buf, iop->readsize);
 		if (iop->count == 0) {
 			iop->flag |= IOP_AT_EOF;
 			return EOF;
@@ -3377,10 +3496,12 @@ get_a_record(char **out,        /* pointer to pointer to data */
 			recm.rt_start = iop->off + recm.len;
 
 		/* read more data, break if EOF */
-#define min(x, y) (x < y ? x : y)
+#ifndef MIN
+#define MIN(x, y) (x < y ? x : y)
+#endif
 		/* subtract one in read count to leave room for sentinel */
 		room_left = iop->end - iop->dataend - 1;
-		amt_to_read = min(iop->readsize, room_left);
+		amt_to_read = MIN(iop->readsize, room_left);
 
 		if (amt_to_read < iop->readsize) {
 			grow_iop_buffer(iop);
@@ -3391,7 +3512,7 @@ get_a_record(char **out,        /* pointer to pointer to data */
 
 			/* recalculate amt_to_read */
 			room_left = iop->end - iop->dataend - 1;
-			amt_to_read = min(iop->readsize, room_left);
+			amt_to_read = MIN(iop->readsize, room_left);
 		}
 		while (amt_to_read + iop->readsize < room_left)
 			amt_to_read += iop->readsize;
@@ -3401,10 +3522,10 @@ get_a_record(char **out,        /* pointer to pointer to data */
 		 * POSIX limits read to SSIZE_MAX. There are (bizarre)
 		 * systems where this amount is small.
 		 */
-		amt_to_read = min(amt_to_read, SSIZE_MAX);
+		amt_to_read = MIN(amt_to_read, SSIZE_MAX);
 #endif
 
-		iop->count = iop->read_func(iop->public.fd, iop->dataend, amt_to_read);
+		iop->count = iop->public.read_func(iop->public.fd, iop->dataend, amt_to_read);
 		if (iop->count == -1) {
 			*errcode = errno;
 			iop->flag |= IOP_AT_EOF;
@@ -3558,9 +3679,9 @@ pty_vs_pipe(const char *command)
 		return false;
 	val = in_PROCINFO(command, "pty", NULL);
 	if (val) {
-		if (val->flags & MAYBE_NUM)
+		if ((val->flags & MAYBE_NUM) != 0)
 			(void) force_number(val);
-		if (val->flags & NUMBER)
+		if ((val->flags & NUMBER) != 0)
 			return ! iszero(val);
 		else
 			return (val->stlen != 0);
@@ -3700,7 +3821,10 @@ get_read_timeout(IOBUF *iop)
 	} else
 		tmout = read_default_timeout;	/* initialized from env. variable in init_io() */
 
-	iop->read_func = tmout > 0 ? read_with_timeout : ( ssize_t(*)() ) read;
+	/* overwrite read routine only if an extension has not done so */
+	if ((iop->public.read_func == ( ssize_t(*)() ) read) && tmout > 0)
+		iop->public.read_func = read_with_timeout;
+
 	return tmout;
 }
 
@@ -3712,21 +3836,38 @@ get_read_timeout(IOBUF *iop)
 static ssize_t
 read_with_timeout(int fd, char *buf, size_t size)
 {
-#if ! defined(__MINGW32__) && ! defined(VMS)
+#if ! defined(VMS)
 	fd_set readfds;
 	struct timeval tv;
+#ifdef __MINGW32__
+	/*
+	 * Only sockets can be read with a timeout.  Also, the FD_*
+	 * macros work on SOCKET type, not on int file descriptors.
+	 */
+	SOCKET s = valid_socket(fd);
+
+	if (!s)
+		return read(fd, buf, size);
+#else
+	int s = fd;
+#endif
 
 	tv.tv_sec = read_timeout / 1000;
 	tv.tv_usec = 1000 * (read_timeout - 1000 * tv.tv_sec);
 
 	FD_ZERO(& readfds);
-	FD_SET(fd, & readfds);
+	FD_SET(s, & readfds);
 
 	errno = 0;
+	/*
+	 * Note: the 1st arg of 'select' is ignored on MS-Windows, so
+	 * it's not a mistake to pass fd+1 there, although we use
+	 * sockets, not file descriptors.
+	 */
 	if (select(fd + 1, & readfds, NULL, NULL, & tv) < 0)
 		return -1;
 
-	if (FD_ISSET(fd, & readfds))
+	if (FD_ISSET(s, & readfds))
 		return read(fd, buf, size);
 	/* else
 		timed out */
@@ -3738,9 +3879,9 @@ read_with_timeout(int fd, char *buf, size_t size)
 	errno = EAGAIN;
 #endif
 	return -1;
-#else  /* __MINGW32__ || VMS */
+#else  /* VMS */
 	return read(fd, buf, size);
-#endif	/* __MINGW32__ || VMS */
+#endif	/* VMS */
 }
 
 /*
@@ -3776,9 +3917,18 @@ gawk_ferror(FILE *fp, void *opaque)
 static int
 gawk_fclose(FILE *fp, void *opaque)
 {
+	int result;
+#ifdef __MINGW32__
+	SOCKET s = valid_socket (fileno(fp));
+#endif
 	(void) opaque;
 
-	return fclose(fp);
+	result =  fclose(fp);
+#ifdef __MINGW32__
+	if (s && closesocket(s) == SOCKET_ERROR)
+		result = -1;
+#endif
+	return result;
 }
 
 

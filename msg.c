@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2001, 2003, 2010
+ * Copyright (C) 1986, 1988, 1989, 1991-2001, 2003, 2010-2013
  * the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
@@ -172,6 +172,9 @@ final_exit(int status)
 {
 	/* run any extension exit handlers */
 	run_ext_exit_handlers(status);
+
+	/* we could close_io() here */
+	close_extensions();
 
 	exit(status);
 }

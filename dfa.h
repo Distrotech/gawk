@@ -1,5 +1,5 @@
 /* dfa.h - declarations for GNU deterministic regexp compiler
-   Copyright (C) 1988, 1998, 2007, 2009-2012 Free Software Foundation, Inc.
+   Copyright (C) 1988, 1998, 2007, 2009-2013 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -17,6 +17,9 @@
    51 Franklin Street - Fifth Floor, Boston, MA  02110-1301, USA */
 
 /* Written June, 1988 by Mike Haertel */
+
+#include <regex.h>
+#include <stddef.h>
 
 /* Element of a list of strings, at least one of which is known to
    appear in any R.E. matching the DFA. */

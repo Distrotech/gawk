@@ -1,5 +1,5 @@
 /* dfa.c - deterministic extended regexp routines for GNU
-   Copyright (C) 1988, 1998, 2000, 2002, 2004-2005, 2007-2012 Free Software
+   Copyright (C) 1988, 1998, 2000, 2002, 2004-2005, 2007-2013 Free Software
    Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify
@@ -21,6 +21,7 @@
    Modified July, 1988 by Arthur David Olson to assist BMG speedups  */
 
 #include <config.h>
+
 #include <assert.h>
 #include <ctype.h>
 #include <stdio.h>
@@ -42,6 +43,8 @@
 #include "missing_d/gawkbool.h"
 #endif /* HAVE_STDBOOL_H */
 
+#include "dfa.h"
+
 
 #define STREQ(a, b) (strcmp (a, b) == 0)
 
@@ -62,8 +65,8 @@
 #include "mbsupport.h"          /* defines MBS_SUPPORT to 1 or 0, as appropriate */
 #if MBS_SUPPORT
 /* We can handle multibyte strings. */
-#include <wchar.h>
-#include <wctype.h>
+# include <wchar.h>
+# include <wctype.h>
 #endif
 
 #ifdef GAWK
@@ -79,8 +82,6 @@
 # include <langinfo.h>
 #endif
 
-#include "regex.h"
-#include "dfa.h"
 #include "xalloc.h"
 
 #ifdef GAWK
@@ -90,6 +91,14 @@ is_blank (int c)
    return (c == ' ' || c == '\t');
 }
 #endif /* GAWK */
+
+#ifdef LIBC_IS_BORKED
+extern int gawk_mb_cur_max;
+#undef MB_CUR_MAX
+#define MB_CUR_MAX gawk_mb_cur_max
+#undef mbrtowc
+#define mbrtowc(a, b, c, d) (-1)
+#endif
 
 /* HPUX, define those as macros in sys/param.h */
 #ifdef setbit
@@ -479,6 +488,7 @@ static void regexp (void);
     (sizeof (t) == 1 ? xzalloc (n) : xcalloc (n, sizeof (t)))
 
 #define CALLOC(p, n) do { (p) = XCALLOC (n, *(p)); } while (0)
+#undef MALLOC	/* Irix defines this */
 #define MALLOC(p, n) do { (p) = XNMALLOC (n, *(p)); } while (0)
 #define REALLOC(p, n) do {(p) = xnrealloc (p, n, sizeof (*(p))); } while (0)
 
@@ -791,6 +801,10 @@ using_utf8 (void)
       utf8 = (STREQ (nl_langinfo (CODESET), "UTF-8"));
 #else
       utf8 = 0;
+#endif
+#ifdef LIBC_IS_BORKED
+      if (gawk_mb_cur_max == 1)
+	utf8 = 0;
 #endif
     }
 
@@ -1833,13 +1847,12 @@ copytoks (size_t tindex, size_t ntokens)
 {
   size_t i;
 
-  for (i = 0; i < ntokens; ++i)
-    {
-      addtok (dfa->tokens[tindex + i]);
-      /* Update index into multibyte csets.  */
-      if (MB_CUR_MAX > 1 && dfa->tokens[tindex + i] == MBCSET)
-        dfa->multibyte_prop[dfa->tindex - 1] = dfa->multibyte_prop[tindex + i];
-    }
+  if (MB_CUR_MAX > 1)
+    for (i = 0; i < ntokens; ++i)
+      addtok_mb(dfa->tokens[tindex + i], dfa->multibyte_prop[tindex + i]);
+  else
+    for (i = 0; i < ntokens; ++i)
+      addtok_mb(dfa->tokens[tindex + i], 3);
 }
 
 static void

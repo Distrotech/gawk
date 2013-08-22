@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -27,20 +27,17 @@
 
 extern FILE *output_fp;
 extern NODE **fmt_list;          /* declared in eval.c */
-extern array_ptr str_array_func[];
-extern array_ptr cint_array_func[];
-extern array_ptr int_array_func[];
 
 static size_t SUBSEPlen;
 static char *SUBSEP;
 static char indent_char[] = "    ";
 
 static NODE **null_lookup(NODE *symbol, NODE *subs);
-static NODE **null_afunc(NODE *symbol, NODE *subs);
 static NODE **null_dump(NODE *symbol, NODE *subs);
-static array_ptr null_array_func[] = {
-	(array_ptr) 0,
-	(array_ptr) 0,
+static afunc_t null_array_func[] = {
+	(afunc_t) 0,
+	(afunc_t) 0,
+	null_length,
 	null_lookup,
 	null_afunc,
 	null_afunc,
@@ -48,31 +45,28 @@ static array_ptr null_array_func[] = {
 	null_afunc,
 	null_afunc,
 	null_dump,
+	(afunc_t) 0,
 };
 
 #define MAX_ATYPE 10
 
-static array_ptr *atypes[MAX_ATYPE];
-static int num_atypes = 0;
+static afunc_t *array_types[MAX_ATYPE];
+static int num_array_types = 0;
 
-/*
- * register_array_func --- add routines to handle arrays.
- *
- *	index 0 : initialization.
- *	index 1 : check if index is compatible.
- *	index 8 : array dump, memory and other statistics (do_adump).
- */
- 
+/* array func to index mapping */
+#define AFUNC(F) (F ## _ind)
+
+/* register_array_func --- add routines to handle arrays */
 
 int
-register_array_func(array_ptr *afunc)
+register_array_func(afunc_t *afunc)
 {
-	if (afunc && num_atypes < MAX_ATYPE) {
-		if (afunc != str_array_func && ! afunc[1])
+	if (afunc && num_array_types < MAX_ATYPE) {
+		if (afunc != str_array_func && ! afunc[AFUNC(atypeof)])
 			return false;
-		atypes[num_atypes++] = afunc;
-		if (afunc[0])	/* execute init routine if any */
-			(void) (*afunc[0])(NULL, NULL);
+		array_types[num_array_types++] = afunc;
+		if (afunc[AFUNC(ainit)])	/* execute init routine if any */
+			(void) (*afunc[AFUNC(ainit)])(NULL, NULL);
 		return true;
 	}
 	return false;
@@ -108,54 +102,64 @@ make_array()
 }		
 
 
-/* init_array --- (re)initialize an array node */
+/* null_array --- force symbol to be an empty typeless array */
 
 void
-init_array(NODE *symbol)
+null_array(NODE *symbol)
 {
 	symbol->type = Node_var_array;
 	symbol->array_funcs = null_array_func;
 	symbol->buckets = NULL;
 	symbol->table_size = symbol->array_size = 0;
 	symbol->array_capacity = 0;
+	symbol->flags = 0;
 
 	assert(symbol->xarray == NULL);
-	/* symbol->xarray = NULL; */
 
-	/* flags, vname, parent_array not (re)initialized */
+	/* vname, parent_array not (re)initialized */
 }
 
 
-/* null_lookup: assign type to an empty array. */
+/* null_lookup --- assign type to an empty array. */
 
 static NODE **
 null_lookup(NODE *symbol, NODE *subs)
 {
 	int i;
-	array_ptr *afunc = NULL;
+	afunc_t *afunc = NULL;
 
 	assert(symbol->table_size == 0);
 
-	/* Check which array type wants to accept this sub; traverse
+	/*
+	 * Check which array type wants to accept this sub; traverse
 	 * array type list in reverse order.
 	 */
-	for (i = num_atypes - 1; i >= 1; i--) {
-		afunc = atypes[i];
-		if (afunc[1](symbol, subs) != NULL)
+	for (i = num_array_types - 1; i >= 1; i--) {
+		afunc = array_types[i];
+		if (afunc[AFUNC(atypeof)](symbol, subs) != NULL)
 			break;
 	}
 	if (i == 0 || afunc == NULL)
-		afunc = atypes[0];	/* default is str_array_func */
+		afunc = array_types[0];	/* default is str_array_func */
 	symbol->array_funcs = afunc;
 
 	/* We have the right type of array; install the subscript */
 	return symbol->alookup(symbol, subs);
 }
 
+/* null_length --- default function for array length interface */ 
 
-/* null_afunc --- dummy function for an empty array */
+NODE **
+null_length(NODE *symbol, NODE *subs ATTRIBUTE_UNUSED)
+{
+	static NODE *tmp;
+	tmp = symbol;
+	return & tmp;
+}
 
-static NODE **
+/* null_afunc --- default function for array interface */
+
+NODE **
 null_afunc(NODE *symbol ATTRIBUTE_UNUSED, NODE *subs ATTRIBUTE_UNUSED)
 {
 	return NULL;
@@ -317,14 +321,14 @@ array_vname(const NODE *symbol)
 
 
 /*
- *  get_array --- proceed to the actual Node_var_array,
+ *  force_array --- proceed to the actual Node_var_array,
  *	change Node_var_new to an array.
  *	If canfatal and type isn't good, die fatally,
  *	otherwise return the final actual value.
  */
 
 NODE *
-get_array(NODE *symbol, bool canfatal)
+force_array(NODE *symbol, bool canfatal)
 {
 	NODE *save_symbol = symbol;
 	bool isparam = false;
@@ -338,7 +342,8 @@ get_array(NODE *symbol, bool canfatal)
 
 	switch (symbol->type) {
 	case Node_var_new:
-		init_array(symbol);
+		symbol->xarray = NULL;	/* make sure union is as it should be */
+		null_array(symbol);
 		symbol->parent_array = NULL;	/* main array has no parent */
 		/* fall through */
 	case Node_var_array:
@@ -432,7 +437,8 @@ concat_exp(int nargs, bool do_subsep)
 }
 
 
-/* adjust_fcall_stack: remove subarray(s) of symbol[] from
+/*
+ * adjust_fcall_stack: remove subarray(s) of symbol[] from
  *	function call stack.
  */
 
@@ -480,7 +486,8 @@ adjust_fcall_stack(NODE *symbol, int nsubs)
 			&& symbol->parent_array != NULL
 			&& nsubs > 0
 		) {
-			/* 'symbol' is a subarray, and 'r' is the same subarray:
+			/*
+			 * 'symbol' is a subarray, and 'r' is the same subarray:
 			 *
 			 *   function f(c, d) { delete c[0]; .. }
 			 *   BEGIN { a[0][0] = 1; f(a, a[0]); .. }
@@ -491,9 +498,8 @@ adjust_fcall_stack(NODE *symbol, int nsubs)
 			 *   BEGIN { a[0][0] = 1; f(a[0], a[0]); ...}  
 			 */
 
-			init_array(r);
+			null_array(r);
 			r->parent_array = NULL;
-			r->flags = 0;
 			continue;
 		}			
 
@@ -501,7 +507,8 @@ adjust_fcall_stack(NODE *symbol, int nsubs)
 		for (n = n->parent_array; n != NULL; n = n->parent_array) {
 			assert(n->type == Node_var_array);
 			if (n == symbol) {
-				/* 'r' is a subarray of 'symbol':
+				/*
+				 * 'r' is a subarray of 'symbol':
 				 *
 				 *    function f(c, d) { delete c; .. use d as array .. }
 				 *    BEGIN { a[0][0] = 1; f(a, a[0]); .. }
@@ -509,9 +516,8 @@ adjust_fcall_stack(NODE *symbol, int nsubs)
 				 *    BEGIN { a[0][0][0][0] = 1; f(a[0], a[0][0][0]); .. }
 				 *
 				 */
-				init_array(r);
+				null_array(r);
 				r->parent_array = NULL;
-				r->flags = 0;
 				break;
 			}
 		}
@@ -626,14 +632,13 @@ void
 do_delete_loop(NODE *symbol, NODE **lhs)
 {
 	NODE **list;
-	NODE fl;
+	NODE akind;
 
-	if (array_empty(symbol))
+	akind.flags = AINDEX|ADELETE;	/* need a single index */
+	list = symbol->alist(symbol, & akind);
+
+	if (assoc_empty(symbol))
 		return;
-
-	fl.flags = AINDEX|ADELETE;	/* need a single index */
-	list = symbol->alist(symbol, & fl);
-	assert(list != NULL);
 
 	unref(*lhs);
 	*lhs = list[0];
@@ -755,7 +760,8 @@ do_adump(int nargs)
 	static NODE ndump;
 	long depth = 0;
 
-	/* depth < 0, no index and value info.
+	/*
+	 * depth < 0, no index and value info.
 	 *       = 0, main array index and value info; does not descend into sub-arrays.
 	 *       > 0, descends into 'depth' sub-arrays, and prints index and value info.
 	 */
@@ -780,11 +786,11 @@ do_adump(int nargs)
 /* asort_actual --- do the actual work to sort the input array */
 
 static NODE *
-asort_actual(int nargs, SORT_CTXT ctxt)
+asort_actual(int nargs, sort_context_t ctxt)
 {
 	NODE *array, *dest = NULL, *result;
 	NODE *r, *subs, *s;
-	NODE **list = NULL, **ptr;
+	NODE **list = NULL, **ptr, **lhs;
 	unsigned long num_elems, i;
 	const char *sort_str;
 
@@ -833,11 +839,11 @@ asort_actual(int nargs, SORT_CTXT ctxt)
 		}
 	}
 
-	num_elems = array->table_size;
-	if (num_elems > 0)	/* sorting happens inside assoc_list */
-		list = assoc_list(array, sort_str, ctxt);
+	/* sorting happens inside assoc_list */
+	list = assoc_list(array, sort_str, ctxt);
 	DEREF(s);
 
+	num_elems = assoc_length(array);
 	if (num_elems == 0 || list == NULL) {
  		/* source array is empty */
  		if (dest != NULL && dest != array)
@@ -866,7 +872,11 @@ asort_actual(int nargs, SORT_CTXT ctxt)
 
 		for (i = 1, ptr = list; i <= num_elems; i++, ptr += 2) {
 			subs = make_number(i);
-			*assoc_lookup(result, subs) = *ptr;
+			lhs = assoc_lookup(result, subs);
+			unref(*lhs);
+			*lhs = *ptr;
+			if (result->astore != NULL)
+				(*result->astore)(result, subs);
 			unref(subs);
 		}
 	} else {
@@ -882,9 +892,11 @@ asort_actual(int nargs, SORT_CTXT ctxt)
 			/* value node */
 			r = *ptr++;
 
-			if (r->type == Node_val)
-				*assoc_lookup(result, subs) = dupnode(r);
-			else {
+			if (r->type == Node_val) {
+				lhs = assoc_lookup(result, subs);
+				unref(*lhs);
+				*lhs = dupnode(r);
+			} else {
 				NODE *arr;
 				arr = make_array();
 				subs = force_string(subs);
@@ -892,8 +904,12 @@ asort_actual(int nargs, SORT_CTXT ctxt)
 				subs->stptr = NULL;
 				subs->flags &= ~STRCUR;
 				arr->parent_array = array; /* actual parent, not the temporary one. */
-				*assoc_lookup(result, subs) = assoc_copy(r, arr);
+				lhs = assoc_lookup(result, subs);
+				unref(*lhs);
+				*lhs = assoc_copy(r, arr);
 			}
+			if (result->astore != NULL)
+				(*result->astore)(result, subs);
 			unref(subs);
 		}
 	}
@@ -1226,14 +1242,14 @@ sort_user_func(const void *p1, const void *p2)
 /* assoc_list -- construct, and optionally sort, a list of array elements */  
 
 NODE **
-assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
+assoc_list(NODE *symbol, const char *sort_str, sort_context_t sort_ctxt)
 {
 	typedef int (*qsort_compfunc)(const void *, const void *);
 
 	static const struct qsort_funcs {
 		const char *name;
 		qsort_compfunc comp_func;
-		enum assoc_list_flags flags;
+		assoc_kind_t kind;
 	} sort_funcs[] = {
 { "@ind_str_asc",	sort_up_index_string,	AINDEX|AISTR|AASC },
 { "@ind_num_asc",	sort_up_index_number,	AINDEX|AINUM|AASC },
@@ -1248,25 +1264,22 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 { "@unsorted",		0,			AINDEX },
 };
 
-	/* N.B.: AASC and ADESC are hints to the specific array types.
+	/*
+	 * N.B.: AASC and ADESC are hints to the specific array types.
 	 *	See cint_list() in cint_array.c.
 	 */
 
 	NODE **list;
-	NODE fl;
+	NODE akind;
 	unsigned long num_elems, j;
 	int elem_size, qi;
 	qsort_compfunc cmp_func = 0;
 	INSTRUCTION *code = NULL;
 	extern int currule;
 	int save_rule = 0;
+	assoc_kind_t assoc_kind = 0;
 	
-	num_elems = symbol->table_size;
-	if (num_elems == 0)
-		return NULL;
-
 	elem_size = 1;
-	fl.flags = 0;
 
 	for (qi = 0, j = sizeof(sort_funcs)/sizeof(sort_funcs[0]); qi < j; qi++) {
 		if (strcmp(sort_funcs[qi].name, sort_str) == 0)
@@ -1275,15 +1288,15 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 
 	if (qi < j) {
 		cmp_func = sort_funcs[qi].comp_func;
-		fl.flags = sort_funcs[qi].flags;
+		assoc_kind = sort_funcs[qi].kind;
 
 		if (symbol->array_funcs != cint_array_func)
-			fl.flags &= ~(AASC|ADESC);
+			assoc_kind &= ~(AASC|ADESC);
 
-		if (sort_ctxt != SORTED_IN || (fl.flags & AVALUE) != 0) {
+		if (sort_ctxt != SORTED_IN || (assoc_kind & AVALUE) != 0) {
 			/* need index and value pair in the list */
 
-			fl.flags |= (AINDEX|AVALUE);
+			assoc_kind |= (AINDEX|AVALUE);
 			elem_size = 2;
 		}
 
@@ -1291,8 +1304,7 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 		NODE *f;
 		const char *sp;	
 
-		for (sp = sort_str; *sp != '\0'
-		     && ! isspace((unsigned char) *sp); sp++)
+		for (sp = sort_str; *sp != '\0' && ! isspace((unsigned char) *sp); sp++)
 			continue;
 
 		/* empty string or string with space(s) not valid as function name */
@@ -1306,7 +1318,7 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 		cmp_func = sort_user_func;
 
 		/* need index and value pair in the list */
-		fl.flags |= (AVALUE|AINDEX);
+		assoc_kind |= (AVALUE|AINDEX);
 		elem_size = 2;
 
 		/* make function call instructions */
@@ -1316,7 +1328,8 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 		(code + 1)->expr_count = 4;	/* function takes 4 arguments */
 		code->nexti = bcalloc(Op_stop, 1, 0);	
 
-		/* make non-redirected getline, exit, `next' and `nextfile' fatal in
+		/*
+		 * make non-redirected getline, exit, `next' and `nextfile' fatal in
 		 * callback function by setting currule in interpret()
 		 * to undefined (0).
 		 */
@@ -1327,10 +1340,14 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 		PUSH_CODE(code);
 	}
 
-	list = symbol->alist(symbol, & fl);
+	akind.flags = (unsigned int) assoc_kind;	/* kludge */
+	list = symbol->alist(symbol, & akind);
+	assoc_kind = (assoc_kind_t) akind.flags;	/* symbol->alist can modify it */
 
-	if (list == NULL || ! cmp_func || (fl.flags & (AASC|ADESC)) != 0)
+	if (list == NULL || ! cmp_func || (assoc_kind & (AASC|ADESC)) != 0)
 		return list;	/* empty list or unsorted, or list already sorted */
+
+	num_elems = assoc_length(symbol);
 
 	qsort(list, num_elems, elem_size * sizeof(NODE *), cmp_func); /* shazzam! */
 
@@ -1341,7 +1358,7 @@ assoc_list(NODE *symbol, const char *sort_str, SORT_CTXT sort_ctxt)
 		bcfree(code);                   /* Op_func_call */
 	}
 
-	if (sort_ctxt == SORTED_IN && (fl.flags & (AINDEX|AVALUE)) == (AINDEX|AVALUE)) {
+	if (sort_ctxt == SORTED_IN && (assoc_kind & (AINDEX|AVALUE)) == (AINDEX|AVALUE)) {
 		/* relocate all index nodes to the first half of the list. */
 		for (j = 1; j < num_elems; j++)
 			list[j] = list[2 * j];

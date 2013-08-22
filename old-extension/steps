@@ -1,0 +1,10 @@
+# what to do under linux to make dl.so
+# Sun Nov 25 21:40:49 IST 2012
+
+gcc -fPIC -shared -Wall -DGAWK -DHAVE_CONFIG_H -c -O -g -I.. spec_array.c
+gcc -fPIC -shared -Wall -DGAWK -DHAVE_CONFIG_H -c -O -g -I.. sparr.c
+gcc -fPIC -shared -Wall -DGAWK -DHAVE_CONFIG_H -c -O -g -I.. bindarr.c
+gcc -fPIC -shared -Wall -DGAWK -DHAVE_CONFIG_H -c -O -g -I.. fileop.c
+gcc -o sparr.so -shared sparr.o spec_array.o
+gcc -o bindarr.so -shared bindarr.o
+gcc -o fileop.so -shared fileop.o

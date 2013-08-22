@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 2004, 2010, 2011 the Free Software Foundation, Inc.
+ * Copyright (C) 2004, 2010, 2011, 2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -38,7 +38,7 @@ extern int gprintf(FILE *fp, const char *format, ...);
 extern jmp_buf pager_quit_tag;
 extern bool pager_quit_tag_valid;
 
-extern int output_is_tty;
+extern bool output_is_tty;
 extern int input_fd;
 extern bool input_from_tty;
 extern FILE *out_fp;

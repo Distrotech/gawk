@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -39,7 +39,8 @@ extern NODE **is_integer(NODE *symbol, NODE *subs);
 static int NHAT = 10; 
 static long THRESHOLD;
 
-/* What is the optimium NHAT ? timing results suggest that 10 is a good choice,
+/*
+ * What is the optimium NHAT ? timing results suggest that 10 is a good choice,
  * although differences aren't that significant for > 10.
  */
 
@@ -57,9 +58,10 @@ static NODE **cint_dump(NODE *symbol, NODE *ndump);
 static void cint_print(NODE *symbol);
 #endif
 
-array_ptr cint_array_func[] = {
+afunc_t cint_array_func[] = {
 	cint_array_init,
 	is_uinteger,
+	null_length,
 	cint_lookup,
 	cint_exists,
 	cint_clear,
@@ -67,6 +69,7 @@ array_ptr cint_array_func[] = {
 	cint_list,
 	cint_copy,
 	cint_dump,
+	(afunc_t) 0,
 };
 
 static inline int cint_hash(long k);
@@ -79,7 +82,7 @@ static NODE **tree_exists(NODE *tree, long k);
 static void tree_clear(NODE *tree);
 static int tree_remove(NODE *symbol, NODE *tree, long k);
 static void tree_copy(NODE *newsymb, NODE *tree, NODE *newtree);
-static long tree_list(NODE *tree, NODE **list, unsigned int flags);
+static long tree_list(NODE *tree, NODE **list, assoc_kind_t assoc_kind);
 static inline NODE **tree_find(NODE *tree, long k, int i);
 static void tree_info(NODE *tree, NODE *ndump, const char *aname);
 static size_t tree_kilobytes(NODE *tree);
@@ -92,7 +95,7 @@ static inline NODE **leaf_exists(NODE *array, long k);
 static void leaf_clear(NODE *array);
 static int leaf_remove(NODE *symbol, NODE *array, long k);
 static void leaf_copy(NODE *newsymb, NODE *array, NODE *newarray);
-static long leaf_list(NODE *array, NODE **list, unsigned int flags);
+static long leaf_list(NODE *array, NODE **list, assoc_kind_t assoc_kind);
 static void leaf_info(NODE *array, NODE *ndump, const char *aname);
 #ifdef ARRAYDEBUG
 static void leaf_print(NODE *array, size_t bi, int indent_level);
@@ -140,16 +143,21 @@ static const long power_two_table[] = {
  *
  */
 
-/* cint_array_init ---  check relevant environment variables */
+/* cint_array_init ---  array initialization routine */
 
 static NODE **
 cint_array_init(NODE *symbol ATTRIBUTE_UNUSED, NODE *subs ATTRIBUTE_UNUSED)
 {
-	long newval;
+	if (symbol == NULL) {
+		long newval;
 
-	if ((newval = getenv_long("NHAT")) > 1 && newval < INT32_BIT)
-		NHAT = newval;
-	THRESHOLD = power_two_table[NHAT + 1];
+		/* check relevant environment variables */
+		if ((newval = getenv_long("NHAT")) > 1 && newval < INT32_BIT)
+			NHAT = newval;
+		THRESHOLD = power_two_table[NHAT + 1];
+	} else
+		null_array(symbol);
+
 	return (NODE **) ! NULL;
 }
 
@@ -235,13 +243,11 @@ xinstall:
 
 	symbol->table_size++;
 	if (xn == NULL) {
-		extern array_ptr int_array_func[];
-		extern array_ptr str_array_func[];
-
 		xn = symbol->xarray = make_array();
 		xn->vname = symbol->vname;	/* shallow copy */
 
-		/* Avoid using assoc_lookup(xn, subs) which may lead
+		/*
+		 * Avoid using assoc_lookup(xn, subs) which may lead
 		 * to infinite recursion.
 		 */
 
@@ -300,7 +306,7 @@ cint_clear(NODE *symbol, NODE *subs ATTRIBUTE_UNUSED)
 	}
 
 	efree(symbol->nodes);
-	init_array(symbol);	/* re-initialize symbol */
+	symbol->ainit(symbol, NULL);	/* re-initialize symbol */
 	return NULL;
 }
 
@@ -337,7 +343,7 @@ cint_remove(NODE *symbol, NODE *subs)
 
 	if (xn == NULL && symbol->table_size == 0) {
 		efree(symbol->nodes);
-		init_array(symbol);	/* re-initialize array 'symbol' */
+		symbol->ainit(symbol, NULL);	/* re-initialize array 'symbol' */
 	} else if(xn != NULL && symbol->table_size == xn->table_size) {
 		/* promote xn to symbol */
 
@@ -416,15 +422,16 @@ cint_list(NODE *symbol, NODE *t)
 	unsigned long k = 0, num_elems, list_size;
 	size_t j, ja, jd;
 	int elem_size = 1;
+	assoc_kind_t assoc_kind;
 
 	num_elems = symbol->table_size;
 	if (num_elems == 0)
 		return NULL;
-
-	if ((t->flags & (AINDEX|AVALUE|ADELETE)) == (AINDEX|ADELETE))
+	assoc_kind = (assoc_kind_t) t->flags;
+	if ((assoc_kind & (AINDEX|AVALUE|ADELETE)) == (AINDEX|ADELETE))
 		num_elems = 1;
 
-	if ((t->flags & (AINDEX|AVALUE)) == (AINDEX|AVALUE))
+	if ((assoc_kind & (AINDEX|AVALUE)) == (AINDEX|AVALUE))
 		elem_size = 2;
 	list_size = num_elems * elem_size;
 
@@ -432,7 +439,8 @@ cint_list(NODE *symbol, NODE *t)
 		xn = symbol->xarray;
 		list = xn->alist(xn, t);
 		assert(list != NULL);
-		t->flags &= ~(AASC|ADESC);
+		assoc_kind &= ~(AASC|ADESC);
+		t->flags = (unsigned int) assoc_kind;
 		if (num_elems == 1 || num_elems == xn->table_size)
 			return list;
 		erealloc(list, NODE **, list_size * sizeof(NODE *), "cint_list");
@@ -440,18 +448,20 @@ cint_list(NODE *symbol, NODE *t)
 	} else
 		emalloc(list, NODE **, list_size * sizeof(NODE *), "cint_list");
 
-
-	if ((t->flags & AINUM) == 0)	/* not sorting by "index num" */
-		t->flags &= ~(AASC|ADESC);
+	if ((assoc_kind & AINUM) == 0) {
+		/* not sorting by "index num" */
+		assoc_kind &= ~(AASC|ADESC);
+		t->flags = (unsigned int) assoc_kind;
+	}
 
 	/* populate it with index in ascending or descending order */
 
 	for (ja = NHAT, jd = INT32_BIT - 1; ja < INT32_BIT && jd >= NHAT; ) {
-		j = (t->flags & ADESC) ? jd-- : ja++;
+		j = (assoc_kind & ADESC) != 0 ? jd-- : ja++;
 		tn = symbol->nodes[j];
 		if (tn == NULL)
 			continue;
-		k += tree_list(tn, list + k, t->flags);
+		k += tree_list(tn, list + k, assoc_kind);
 		if (k >= list_size)
 			return list;
 	}
@@ -471,7 +481,6 @@ cint_dump(NODE *symbol, NODE *ndump)
 	AWKNUM kb = 0;
 	extern AWKNUM int_kilobytes(NODE *symbol);
 	extern AWKNUM str_kilobytes(NODE *symbol);
-	extern array_ptr int_array_func[];
 
 	indent_level = ndump->alevel;
 
@@ -565,7 +574,8 @@ cint_hash(long k)
 
 	/* Find the Floor(log base 2 of 32-bit integer) */
 
-	/* Warren Jr., Henry S. (2002). Hacker's Delight.
+	/*
+	 * Warren Jr., Henry S. (2002). Hacker's Delight.
 	 * Addison Wesley. pp. pp. 215. ISBN 978-0201914658.
 	 *
 	 *	r = 0;
@@ -577,7 +587,8 @@ cint_hash(long k)
 	 */
 
 
-	/* Slightly different code copied from:
+	/*
+	 * Slightly different code copied from:
 	 *
 	 * http://www-graphics.stanford.edu/~seander/bithacks.html
 	 * Bit Twiddling Hacks
@@ -872,7 +883,7 @@ tree_find(NODE *tree, long k, int i)
 /* tree_list --- return a list of items in the HAT */
 
 static long
-tree_list(NODE *tree, NODE **list, unsigned int flags)
+tree_list(NODE *tree, NODE **list, assoc_kind_t assoc_kind)
 {
 	NODE *tn;
 	size_t j, cj, hsize;
@@ -885,15 +896,15 @@ tree_list(NODE *tree, NODE **list, unsigned int flags)
 		hsize /= 2;
 
 	for (j = 0; j < hsize; j++) {
-		cj = (flags & ADESC) ? (hsize - 1 - j) : j;
+		cj = (assoc_kind & ADESC) != 0 ? (hsize - 1 - j) : j;
 		tn = tree->nodes[cj];
 		if (tn == NULL)
 			continue;
 		if (tn->type == Node_array_tree)
-			k += tree_list(tn, list + k, flags);
+			k += tree_list(tn, list + k, assoc_kind);
 		else
-			k += leaf_list(tn, list + k, flags);
-		if ((flags & ADELETE) != 0 && k >= 1)
+			k += leaf_list(tn, list + k, assoc_kind);
+		if ((assoc_kind & ADELETE) != 0 && k >= 1)
 			return k;
 	}
 	return k;
@@ -1000,7 +1011,7 @@ tree_print(NODE *tree, size_t bi, int indent_level)
 		hsize /= 2;
 	fprintf(output_fp, "%4lu:%s[%4lu:%-4lu]\n",
 			(unsigned long) bi,
-			(tree->flags & HALFHAT) ? "HH" : "H",
+			(tree->flags & HALFHAT) != 0 ? "HH" : "H",
 			(unsigned long) hsize, (unsigned long) tree->table_size);
 
 	for (j = 0; j < hsize; j++) {
@@ -1017,9 +1028,10 @@ tree_print(NODE *tree, size_t bi, int indent_level)
 
 /*--------------------- leaf (linear 1-D) array --------------------*/
 
-/* leaf_lookup --- find an integer subscript in the array; Install it if
-	it isn't there.
-*/
+/*
+ * leaf_lookup --- find an integer subscript in the array; Install it if
+ *	it isn't there.
+ */
 
 static inline NODE **
 leaf_lookup(NODE *symbol, NODE *array, long k, long size, long base)
@@ -1138,7 +1150,7 @@ leaf_copy(NODE *newsymb, NODE *array, NODE *newarray)
 /* leaf_list --- return a list of items */
 
 static long
-leaf_list(NODE *array, NODE **list, unsigned int flags)
+leaf_list(NODE *array, NODE **list, assoc_kind_t assoc_kind)
 {
 	NODE *r, *subs;
 	long num, i, ci, k = 0;
@@ -1146,14 +1158,14 @@ leaf_list(NODE *array, NODE **list, unsigned int flags)
 	static char buf[100];
 
 	for (i = 0; i < size; i++) {
-		ci = (flags & ADESC) ? (size - 1 - i) : i;
+		ci = (assoc_kind & ADESC) != 0 ? (size - 1 - i) : i;
 		r = array->nodes[ci];
 		if (r == NULL)
 			continue;
 
 		/* index */
 		num = array->array_base + ci;
-		if (flags & AISTR) {
+		if ((assoc_kind & AISTR) != 0) {
 			sprintf(buf, "%ld", num); 
 			subs = make_string(buf, strlen(buf));
 			subs->numbr = num;
@@ -1165,16 +1177,16 @@ leaf_list(NODE *array, NODE **list, unsigned int flags)
 		list[k++] = subs;
 
 		/* value */
-		if (flags & AVALUE) {
+		if ((assoc_kind & AVALUE) != 0) {
 			if (r->type == Node_val) {
-				if ((flags & AVNUM) != 0)
+				if ((assoc_kind & AVNUM) != 0)
 					(void) force_number(r);
-				else if ((flags & AVSTR) != 0)
+				else if ((assoc_kind & AVSTR) != 0)
 					r = force_string(r);
 			}
 			list[k++] = r;
 		}
-		if ((flags & ADELETE) != 0 && k >= 1)
+		if ((assoc_kind & ADELETE) != 0 && k >= 1)
 			return k;
 	}
 

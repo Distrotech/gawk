@@ -3,7 +3,7 @@
  */
 
 /*
- * Copyright (C) 2012
+ * Copyright (C) 2012, 2013
  * the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
@@ -537,6 +537,7 @@ test_array_param(int nargs, awk_value_t *result)
 	awk_value_t new_array;
 	awk_value_t arg0;
 
+	(void) nargs;		/* silence warnings */
 	make_number(0.0, result);
 
 	if (! get_argument(0, AWK_UNDEFINED, & arg0)) {
@@ -615,6 +616,7 @@ test_scalar(int nargs, awk_value_t *result)
 	awk_value_t new_value, new_value2;
 	awk_value_t the_scalar;
 
+	(void) nargs;		/* silence warnings */
 	make_number(0.0, result);
 
 	if (! sym_lookup("the_scalar", AWK_SCALAR, & the_scalar)) {
@@ -661,6 +663,7 @@ test_scalar_reserved(int nargs, awk_value_t *result)
 	awk_value_t new_value;
 	awk_value_t the_scalar;
 
+	(void) nargs;		/* silence warnings */
 	make_number(0.0, result);
 
 	/* look up a reserved variable - should pass */
@@ -682,6 +685,53 @@ test_scalar_reserved(int nargs, awk_value_t *result)
 
 	make_number(1.0, result);
 
+out:
+	return result;
+}
+
+/*
+BEGIN {
+	print "line 1" > "testexttmp.txt"
+	print "line 2" > "testexttmp.txt"
+	print "line 3" > "testexttmp.txt"
+	close("testexttmp.txt")
+	ARGV[1] = "testexttmp.txt"
+	ARGC = 2
+	getline
+	getline
+	getline		# now NR should be 3
+#	system("rm testexttmp.txt")
+	ret = test_indirect_vars()	# should get correct value of NR
+	printf("test_indirect_var() return %d\n", ret)
+	delete ARGV[1]
+}
+*/
+
+/* test_indirect_vars --- test that access to NR, NF, get correct vales */
+
+static awk_value_t *
+test_indirect_vars(int nargs, awk_value_t *result)
+{
+	awk_value_t value;
+	char *name = "NR";
+
+	(void) nargs;		/* silence warnings */
+	assert(result != NULL);
+	make_number(0.0, result);
+
+	/* system("rm testexttmp.txt") */
+	(void) unlink("testexttmp.txt");
+
+	if (sym_lookup(name, AWK_NUMBER, & value))
+		printf("test_indirect_var: sym_lookup of %s passed\n", name);
+	else {
+		printf("test_indirect_var: sym_lookup of %s failed\n", name);
+		goto out;
+	}
+
+	printf("test_indirect_var: value of NR is %g\n", value.num_value);
+
+	make_number(1.0, result);
 out:
 	return result;
 }
@@ -780,6 +830,7 @@ static awk_ext_func_t func_table[] = {
 	{ "print_do_lint", print_do_lint, 0 },
 	{ "test_scalar", test_scalar, 1 },
 	{ "test_scalar_reserved", test_scalar_reserved, 0 },
+	{ "test_indirect_vars", test_indirect_vars, 0 },
 };
 
 /* init_testext --- additional initialization function */
@@ -806,8 +857,8 @@ BEGIN {
 */
 
 	/* install some variables */
-	if (! sym_constant("answer_num", make_number(42, & value)))
-		printf("testext: sym_constant(\"answer_num\") failed!\n");
+	if (! sym_update("answer_num", make_number(42, & value)))
+		printf("testext: sym_update(\"answer_num\") failed!\n");
 
 	if (! sym_update("message_string",
 			make_const_string(message, strlen(message), & value)))

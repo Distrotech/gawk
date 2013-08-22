@@ -1,3 +1,59 @@
+2013-06-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkmisc.c (init_sockets): New dummy function.
+
+2013-05-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vms-conf.h: Remove obsolete HAVE_ST_BLKSIZE.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2012-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vmsbuild.com (REL, PATCHLVL): Move to 4.1.0.
+	* descrip.mms (REL, PATCHLVL): Move to 4.1.0.
+	* vms-conf.h (VERSION, PACKAGE_VERSION, PACKAGE_STRING): Move to 4.1.0.
+
+2013-04-19         Anders Wallin         <anders_s_wallin@yahoo.se>
+
+	* vmstest.com: Updated to match main test/Makefile.
+
+2012-12-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.0.2: Release tar ball made.
+
+2012-12-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vmstest.com (paramuninitglobal): New test.
+
+2012-12-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vmsbuild.com (REL, PATCHLVL): Move to 4.0.2.
+	* descrip.mms (REL, PATCHLVL): Move to 4.0.2.
+	* vms-conf.h (VERSION, PACKAGE_VERSION, PACKAGE_STRING): Move to 4.0.2.
+
+2012-12-18         John E. Malmberg	<wb8tyw@qsl.net>
+
+	* descrip.mms: Make the build procedure run on a default directory
+	that is on a VMS logical name search list.
+	* vmstest.com: Make the tests run on a default directory that is on
+	a VMS logical name search list.
+
+2012-12-13         Anders Wallin         <anders_s_wallin@yahoo.se>
+
+	* descrip.mms: Update to handle removal of pgawk and dgawk,
+	workaround for MMS bug
+
+2012-12-09         Anders Wallin         <anders_s_wallin@yahoo.se>
+
+	* vmstest.com: Updated to match main test/Makefile.
+
+2012-12-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vms_gawk.c (CmdName): Force to just "GAWK".
+
 2012-11-24         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* vmstest.com: Fix typo in applying previous patch.

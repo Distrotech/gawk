@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 2012, the Free Software Foundation, Inc.
+ * Copyright (C) 2012, 2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -152,6 +152,12 @@ typedef struct awk_input {
 			char **rt_start, size_t *rt_len);
 
 	/*
+	 * No argument prototype on read_func to allow for older systems
+	 * whose headers are not up to date.
+	 */
+	ssize_t (*read_func)();
+
+	/*
 	 * The close_func is called to allow the parser to free private data.
 	 * Gawk itself will close the fd unless close_func first sets it to
 	 * INVALID_HANDLE.
@@ -257,7 +263,7 @@ typedef struct awk_two_way_processor {
 
 /* Current version of the API. */
 enum {
-	GAWK_API_MAJOR_VERSION = 0,
+	GAWK_API_MAJOR_VERSION = 1,
 	GAWK_API_MINOR_VERSION = 0
 };
 
@@ -337,7 +343,7 @@ typedef struct awk_element {
 		AWK_ELEMENT_DELETE = 1		/* set by extension if
 						   should be deleted */
 	} flags;
-	awk_value_t	index;
+	awk_value_t	index;			/* guaranteed to be a string! */
 	awk_value_t	value;
 } awk_element_t;
 
@@ -544,11 +550,6 @@ typedef struct gawk_api {
 				const char *name,
 				awk_value_t *value);
 
-	/* Install a constant value. Intended to be used only with scalars. */
-	awk_bool_t (*api_sym_constant)(awk_ext_id_t id,
-				const char *name,
-				awk_value_t *value);
-
 	/*
 	 * A ``scalar cookie'' is an opaque handle that provide access
 	 * to a global variable or array. It is an optimization that
@@ -707,8 +708,6 @@ typedef struct gawk_api {
 	(api->api_sym_lookup_scalar(ext_id, scalar_cookie, wanted, result))
 #define sym_update(name, value) \
 	(api->api_sym_update(ext_id, name, value))
-#define sym_constant(name, value) \
-	(api->api_sym_constant(ext_id, name, value))
 #define sym_update_scalar(scalar_cookie, value) \
 	(api->api_sym_update_scalar)(ext_id, scalar_cookie, value)
 

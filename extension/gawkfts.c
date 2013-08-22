@@ -39,12 +39,14 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 #include <config.h>
 #endif
 
+#define _BSD_SOURCE
+
+#include <limits.h>
 /* #include "namespace.h" */
 #ifndef ZOS_USS
 #include <sys/param.h>
 #else
 #include <stdio.h>
-#include <limits.h>
 #endif /* ZOS_USS */
 #include <sys/stat.h>
 
@@ -57,11 +59,28 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 #include <string.h>
 #include <unistd.h>
 
+#include "gawkdirfd.h"
+
+#if ! defined(S_ISREG) && defined(S_IFREG)
+#define	S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
 /*
 #if ! HAVE_NBTOOL_CONFIG_H
 #define	HAVE_STRUCT_DIRENT_D_NAMLEN
 #endif
 */
+
+#ifndef MAX
+static int MAX(int x, int y)
+{
+	if (x > y)
+		return x;
+
+	return y;
+}
+#endif
+
 
 static FTSENT	*fts_alloc(FTS *, const char *, size_t);
 static FTSENT	*fts_build(FTS *, int);
@@ -535,7 +554,7 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 int
 fts_set(FTS *sp, FTSENT *p, int instr)
 {
-
+	(void) sp;	/* silence warnings */
 	_DIAGASSERT(sp != NULL);
 	_DIAGASSERT(p != NULL);
 

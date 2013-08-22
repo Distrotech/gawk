@@ -48,7 +48,9 @@ BEGIN {
 /^CHECK_MPFR *=/,/[^\\]$/ {
 	gsub(/(^CHECK_MPFR *=|\\$)/,"")
 	for (i = 1; i <= NF; i++)
+	{
 		mpfr[$i]
+	}
 	next
 }
 
@@ -94,20 +96,21 @@ function generate(x,	s)
 		delete lint_old[x]
 	}
 	if (x".in" in files) {
-		s = s " < $(srcdir)/$@.in"
+		s = s " < \"$(srcdir)\"/$@.in"
 		delete files[x".in"]
 	}
 
 	printf "\t@echo $@\n"
-	printf "\t@AWKPATH=$(srcdir) $(AWK) -f $@.awk %s >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@\n", s
 
 	if (x in mpfr) {
 		delete mpfr[x]
-		printf "\t@-if test -z \"$$AWKFLAGS\" ; then $(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@ ; else \\\n"
-		printf "\t$(CMP) $(srcdir)/$@-mpfr.ok _$@ && rm -f _$@ ; \\\n"
+		printf "\t@AWKPATH=\"$(srcdir)\" $(AWK) $(AWKFLAGS) -f $@.awk %s >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@\n", s
+		printf "\t@-if test -z \"$$AWKFLAGS\" ; then $(CMP) \"$(srcdir)\"/$@.ok _$@ && rm -f _$@ ; else \\\n"
+		printf "\t$(CMP) \"$(srcdir)\"/$@-mpfr.ok _$@ && rm -f _$@ ; \\\n"
 		printf "\tfi\n\n"
 	} else {
-		printf "\t@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@\n\n"
+		printf "\t@AWKPATH=\"$(srcdir)\" $(AWK) -f $@.awk %s >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@\n", s
+		printf "\t@-$(CMP) \"$(srcdir)\"/$@.ok _$@ && rm -f _$@\n\n"
 	}
 }
 

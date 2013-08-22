@@ -1,3 +1,216 @@
+2013-08-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am: Quote $(srcdir) everywhere so that tests can run
+	in locations with spaces in their names (think Windows or Mac OS X).
+	* Gentests: Ditto for when creating Maketests file.
+
+2013-07-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (mbprintf4): New test.
+	* mbprintf4.awk, mbprintf4.in, mbprintf4.ok: New files.
+	Test cases from Nethox <nethox@gmail.com>.
+
+2013-06-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (dfamb1): New test.
+	* dfamb1.awk, dfamb1.in, dfamb1.ok: New files.
+	Test case from Steven Daniels <stevendaniels88@gmail.com>.
+
+2013-06-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (clos1way): Move to here since Maketests gets
+	regenerated whenever Makefile.am is touched.
+
+2013-06-22	Eli Zaretskii  <eliz@gnu.org>
+
+	* Maketests (clos1way): Set LC_ALL=C, since clos1way.awk no longer
+	does.
+
+2013-06-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (exit2): New test.
+	* exit2.awk, exit2.ok: New files.
+
+2013-06-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* clos1way.awk: Don't use features of Posix shells, to allow this
+	test to work on Windows.
+
+	* beginfile2.sh: Leave one blank between the left quote and the
+	following slash.  Use non-absolute name for a non-existent file.
+	This is to avoid breakage on Windows due to MSYS transformation of
+	Posix style /foo/bar absolute file names.
+
+	* beginfile2.ok: Adapt to changes in beginfile2.sh.
+
+2013-05-30         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (profile4, profile5): New tests.
+	* profile4.awk, profile4.in, profile5.awk, profile5.in: New files.
+
+2013-05-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (mpfr-tests, shlib-tests): Propogate Eli's changes
+	and comment of 2013-05-14 to here, so that they get passed into
+	Makefile.in whenever Makefile.am is modified.
+
+2013-05-14  Eli Zaretskii  <eliz@gnu.org>
+
+	* Makefile.in (mpfr-tests, shlib-tests): Add a blank character
+	between ' and /FOO/ in Gawk command lines, for the benefit of
+	testing under MSYS Bash.
+
+	* filefuncs.awk (BEGIN): Call 'stat' on gawkapi.o, not on gawk,
+	which does not exist on systems that produce gawk.exe.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-05-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* symtab9.awk: Don't remove test file in END rule, breaks on Windows.
+	* Makefile.am (symtab9): Add explicit rule and remove test file file.
+
+2013-04-19         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (LOCALES): New variable split out from AWK.
+	(AWK): Adjust.
+	(next): Add LOCALES to the test so that it will pass everywhere.
+	Thanks to Juergen Kahrs for the report.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am: Prettify the lists of tests.
+	(GENTESTS_UNUSED): Bring the list up to date.
+
+2013-03-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (readdir): Add a check for GNU/Linux and NFS directory
+	and issue a warning if so.
+	(fts): Ditto for IRIX - can't check for NFS so just print the message.
+	(fnmatch.awk, fnmatch.ok): Improve portability.
+
+2013-03-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (readdir): Add -a to ls options. -f does not
+	automatically mean -a on all systems.
+	* jarebug.sh: Send error output of locale to /dev/null in case
+	it doesn't exist.
+
+2013-03-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (colonwarn): New test.
+	* colonwarn.awk, colonwarn.in, colonwarn.ok: New files.
+
+2013-02-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* parseme.ok: Update after change in grammar. Now with new and
+	improved error message!
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am: Move functab4 into shlib tests, since it uses
+	@load. Thanks to Anders Wallin for the report.
+	(shlib-tests): Check --version output for "API" and run tests
+	if there.
+
+2013-01-31         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am: To decide whether to run MPFR tests, use the output
+	of gawk --version instead of the automake TEST_MPFR conditional (which
+	has now been removed from configure.ac).
+
+2013-01-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (EXTRA_DIST): Add all the mpfr test files. Duh.
+	(reginttrad): Use $(srcdir)/$@.awk. Double Duh.
+
+2013-01-27         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am: Add mpfr tests if MPFR is available.
+
+2013-01-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (reginttrad): New test.
+	* reginttrad.awk, reginttrad.ok: New files.
+
+2013-01-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Fix tests to work with make diffout:
+
+	* rtlenmb.ok: New file.
+	* Makefile.am (clobber, mmap8k, rtlenmb): Tests adjusted.
+	(EXTRA_DIST): Add rtlenmb.ok.
+
+2013-01-15         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Gentests: Remove a debugging printf.
+
+2013-01-15         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am (readdir): Try to protect against failure on filesystems
+	lacking type information by invoking readdir.awk before readdir0.awk
+	and passing the results of readdir to readdir0 for inspection.
+	* readdir0.awk: Analyze the results of the readdir extension.
+	If all file types are set to "u", we infer that this filesystem lacks
+	type information.
+
+2013-01-14         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (rand): Let Gentests create the test.
+	(fmtspcl): Add $(AWKFLAGS).
+	* Gentests: For MPFR tests, add $(AWKFLAGS) on the command line.
+	* mpfr-rand.ok: Updated.
+
+2013-01-14         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* Makefile.am (symtab8): Use grep to remove FILENAME from the output
+	so the test will succeed when building outside the source tree.
+	* symtab8.ok: Remove FILENAME.
+
+2013-01-10         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* inplace.1.in, inplace.2.in, inplace.in, inplace1.1.ok, inplace1.2.ok,
+	inplace1.ok, inplace2.1.bak.ok, inplace2.1.ok, inplace2.2.bak.ok,
+	inplace2.2.ok, inplace2.ok, inplace3.1.bak.ok, inplace3.1.ok,
+	inplace3.2.bak.ok, inplace3.2.ok, inplace3.ok: New files.
+	* Makefile.am (EXTRA_DIST): Add new files.
+	(SHLIB_TESTS): Add inplace1, inplace2, and inplace3.
+	(inplace1, inplace2, inplace3): New tests.
+
+2012-12-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* assignconst.awk, assignconst.ok: Removed.
+	* Makefile.am (EXTRA_DIST): Removed assignconst.awk, assignconst.ok.
+	(SHLIB_TESTS): Removed assignconst.
+	(assignconst): Removed test.
+
+2012-12-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.0.2: Release tar ball made.
+
+2012-12-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (paramuninitglobal): New test.
+	* paramuninitglobal.awk, paramuninitglobal.ok: New files.
+	Thanks to John Haque.
+
+2012-12-19         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* symtab9.awk, symtab9.ok: New files.
+	* Makefile.am (EXTRA_DIST): Add new files.
+	(symtab9): New test.
+	* symtab1.ok, testext.ok: Updated.
+
+2012-12-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* symtab7.awk, symtab7.in, symtab7.ok, symtab8.awk, symtab8.in,
+	symtab8.ok: New files.
+	* Makefile.am (EXTRA_DIST): Add new files.
+	(symtab7, symtab8): New tests.
+	Thanks to Assaf Gordon <gordon@cshl.edu>.
+
 2012-11-19         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* Makefile.am (readdir): Add a 'this could fail message'.

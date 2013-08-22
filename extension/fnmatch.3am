@@ -1,4 +1,4 @@
-.TH FNMATCH 3am "Aug 08 2012" "Free Software Foundation" "GNU Awk Extension Modules"
+.TH FNMATCH 3am "Jan 15 2013" "Free Software Foundation" "GNU Awk Extension Modules"
 .SH NAME
 fnmatch \- compare a string against a filename wildcard
 .SH SYNOPSIS
@@ -14,7 +14,7 @@ extension provides an AWK interface to the
 .IR fnmatch (3)
 routine.  It adds a single function named
 .BR fnmatch() ,
-one constant
+one predefined variable
 .RB ( FNM_NOMATCH ),
 and an array of flag values named
 .BR FNM .
@@ -68,7 +68,11 @@ Corresponds to the
 flag as defined in
 .IR fnmatch (3).
 .PP
-... .SH NOTES
+.SH NOTES
+Nothing prevents AWK code from changing the predefined
+variabale
+.BR FNM_NOMATCH ,
+but doing so may cause strange results.
 ... .SH BUGS
 .SH EXAMPLE
 .ft CW
@@ -84,6 +88,7 @@ if (fnmatch("*.a", "foo.c", flags) == FNM_NOMATCH)
 .IR "GAWK: Effective AWK Programming" ,
 .IR filefuncs (3am),
 .IR fork (3am),
+.IR inplace (3am),
 .IR ordchr (3am),
 .IR readdir (3am),
 .IR readfile (3am),
@@ -96,7 +101,7 @@ if (fnmatch("*.a", "foo.c", flags) == FNM_NOMATCH)
 Arnold Robbins,
 .BR arnold@skeeve.com .
 .SH COPYING PERMISSIONS
-Copyright \(co 2012
+Copyright \(co 2012, 2013,
 Free Software Foundation, Inc.
 .PP
 Permission is granted to make and distribute verbatim copies of

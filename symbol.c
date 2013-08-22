@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -55,11 +55,11 @@ init_symbol_table()
 {
 	getnode(global_table);
 	memset(global_table, '\0', sizeof(NODE));
-	init_array(global_table);
+	null_array(global_table);
 
 	getnode(param_table);
 	memset(param_table, '\0', sizeof(NODE));
-	init_array(param_table);
+	null_array(param_table);
 
 	installing_specials = true;
 	func_table = install_symbol(estrdup("FUNCTAB", 7), Node_var_array);
@@ -280,7 +280,7 @@ make_symbol(char *name, NODETYPE type)
 	getnode(r);
 	memset(r, '\0', sizeof(NODE));
 	if (type == Node_var_array)
-		init_array(r);
+		null_array(r);
 	else if (type == Node_var)
 		r->var_value = dupnode(Nnull_string);
 	r->vname = name;
@@ -366,46 +366,51 @@ typedef enum { FUNCTION = 1, VARIABLE } SYMBOL_TYPE;
 /* get_symbols --- return a list of optionally sorted symbols */
  
 static NODE **
-get_symbols(SYMBOL_TYPE what, int sort)
+get_symbols(SYMBOL_TYPE what, bool sort)
 {
 	int i;
 	NODE **table;
 	NODE **list;
 	NODE *r;
-	long j, count = 0;
+	long count = 0;
 	long max;
 	NODE *the_table;
 
+	/*
+	 * assoc_list() returns an array with two elements per awk array
+	 * element. Elements i and i+1 in the C array represent the key
+	 * and value of element j in the awk array. Thus the loops use += 2
+	 * to go through the awk array.
+	 */
+
 	if (what == FUNCTION) {
-		count = func_count;
 		the_table = func_table;
-
 		max = the_table->table_size * 2;
-		list = assoc_list(the_table, "@unsorted", ASORTI);
-		emalloc(table, NODE **, (count + 1) * sizeof(NODE *), "symbol_list");
 
-		for (i = j = 0; i < max; i += 2) {
+		list = assoc_list(the_table, "@unsorted", ASORTI);
+		emalloc(table, NODE **, (func_count + 1) * sizeof(NODE *), "get_symbols");
+
+		for (i = count = 0; i < max; i += 2) {
 			r = list[i+1];
 			if (r->type == Node_ext_func)
 				continue;
 			assert(r->type == Node_func);
-			table[j++] = r;
+			table[count++] = r;
 		}
 	} else {	/* what == VARIABLE */
-		the_table = symbol_table;
-		count = var_count;
-
 		update_global_values();
 
+		the_table = symbol_table;
 		max = the_table->table_size * 2;
-		list = assoc_list(the_table, "@unsorted", ASORTI);
-		emalloc(table, NODE **, (count + 1) * sizeof(NODE *), "symbol_list");
 
-		for (i = j = 0; i < max; i += 2) {
+		list = assoc_list(the_table, "@unsorted", ASORTI);
+		emalloc(table, NODE **, (var_count + 1) * sizeof(NODE *), "get_symbols");
+
+		for (i = count = 0; i < max; i += 2) {
 			r = list[i+1];
 			if (r->type == Node_val)	/* non-variable in SYMTAB */
 				continue;
-			table[j++] = r;
+			table[count++] = r;
 		}
 	}
 
@@ -429,7 +434,7 @@ variable_list()
 /* function_list --- list of functions */
 
 NODE **
-function_list(int sort)
+function_list(bool sort)
 {
 	return get_symbols(FUNCTION, sort);
 }
@@ -449,7 +454,7 @@ print_vars(NODE **table, int (*print_func)(FILE *, const char *, ...), FILE *fp)
 			continue;
 		print_func(fp, "%s: ", r->vname);
 		if (r->type == Node_var_array)
-			print_func(fp, "array, %ld elements\n", r->table_size);
+			print_func(fp, "array, %ld elements\n", assoc_length(r));
 		else if (r->type == Node_var_new)
 			print_func(fp, "untyped variable\n");
 		else if (r->type == Node_var)
@@ -549,7 +554,7 @@ load_symbols()
 
 	getnode(sym_array);
 	memset(sym_array, '\0', sizeof(NODE));	/* PPC Mac OS X wants this */
-	init_array(sym_array);
+	null_array(sym_array);
 
 	unref(*aptr);
 	*aptr = sym_array;

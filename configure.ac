@@ -1,7 +1,7 @@
 dnl
 dnl configure.ac --- autoconf input file for gawk
 dnl
-dnl Copyright (C) 1995-2012 the Free Software Foundation, Inc.
+dnl Copyright (C) 1995-2013 the Free Software Foundation, Inc.
 dnl
 dnl This file is part of GAWK, the GNU implementation of the
 dnl AWK Programming Language.
@@ -23,7 +23,7 @@ dnl
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([GNU Awk], 4.0.71, bug-gawk@gnu.org, gawk)
+AC_INIT([GNU Awk], 4.1.0, bug-gawk@gnu.org, gawk)
 
 # This is a hack. Different versions of install on different systems
 # are just too different. Chuck it and use install-sh.
@@ -40,7 +40,7 @@ then
 fi
 
 AC_PREREQ(2.69)
-AM_INIT_AUTOMAKE([1.12 dist-xz])
+AM_INIT_AUTOMAKE([1.13 dist-xz dist-lzip])
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -118,20 +118,16 @@ dnl	need -D_SYSV3 for ISC
 	CFLAGS="$CFLAGS -D_SYSV3"
 fi
 
+dnl check for systems where libc is borked for regex handling
+case `uname` in
+MirBSD | MirOS)
+	AC_DEFINE([LIBC_IS_BORKED], 1, [libc is broken for regex handling])
+	;;
+esac
+
 dnl Set the programming language for checks. Fortunately,
 dnl this only needs to be set once, since everything is in C.
 AC_LANG([C])
-
-dnl Cygwin doesn't like to get libs with full paths
-dnl since that overrides linking against DLLs.
-case `(uname) 2> /dev/null` in
-*CYGWIN*)
-	with_libiconv_prefix=no
-	with_libintl_prefix=no
-	;;
-*)
-	;;
-esac
 
 dnl initialize GNU gettext
 AM_GNU_GETTEXT([external])
@@ -155,6 +151,9 @@ then
 else
 	AC_CHECK_HEADERS(strings.h)
 fi
+
+dnl Check cross compiling
+AM_CONDITIONAL([TEST_CROSS_COMPILE], [test "x$build_alias" != "x$host_alias"])
 
 dnl checks for typedefs
 AC_TYPE_PID_T
@@ -275,7 +274,7 @@ esac
 AC_CHECK_FUNCS(atexit btowc fmod getgrent getgroups grantpt \
 	isascii iswctype iswlower iswupper mbrlen \
 	memcmp memcpy memcpy_ulong memmove memset \
-	memset_ulong mkstemp setenv setlocale setsid snprintf strchr \
+	memset_ulong mkstemp posix_openpt setenv setlocale setsid snprintf strchr \
 	strerror strftime strncasecmp strcoll strtod strtoul \
 	system tmpfile towlower towupper tzset usleep wcrtomb \
 	wcscoll wctype)
@@ -284,19 +283,32 @@ AC_FUNC_MBRTOWC
 
 dnl check for dynamic linking
 dnl This is known to be very primitive
+dnl On MirBSD (and probably other systems), don't even try.
+case `uname` in
+MirBSD | MirOS)
+	: ;;
+*)
 AC_CHECK_HEADER(dlfcn.h,
 	[
 	# Check this separately. Some systems have dlopen
 	# in libc. Notably freebsd and cygwin.
 	# HP-NSK has it in zrldsrl
 	AC_SEARCH_LIBS(dlopen, dl zrldsrl, gawk_have_dlopen=yes, gawk_have_dlopen=no)
-	# Only do DYNAMIC if we have the lip. z/OS (some versions) have
+	# Only do DYNAMIC if we have the lib. z/OS (some versions) have
 	# the header but not the lib, apparently
 	if test "$gawk_have_dlopen" = yes
 	then
 		AC_DEFINE([DYNAMIC], 1, [dynamic loading is possible])
+		# Add -export-dynamic for old extensions. Only works for GCC
+		if test "$GCC" = yes &&
+		   uname | $EGREP -i 'linux|freebsd' > /dev/null
+		then
+			LDFLAGS="$LDFLAGS -export-dynamic"
+		fi
 	fi
 ])
+	;;
+esac
 
 dnl check for how to use getpgrp
 dnl have to hardwire it for VMS POSIX. Sigh.
@@ -341,13 +353,13 @@ dnl check for sockets
 GAWK_AC_LIB_SOCKETS
 
 dnl check for readline support
-GNUPG_CHECK_READLINE
+GAWK_CHECK_READLINE
 
 dnl check for mpfr support
 GNUPG_CHECK_MPFR
 
 dnl checks for structure members
-AC_STRUCT_ST_BLKSIZE
+AC_CHECK_MEMBERS([struct stat.st_blksize])
 AC_HEADER_TIME
 AC_STRUCT_TM
 AC_STRUCT_TIMEZONE

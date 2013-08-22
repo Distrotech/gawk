@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2012 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -111,7 +111,7 @@ efwrite(const void *ptr,
 		goto wrerror;
 	if (flush
 	  && ((fp == stdout && output_is_tty)
-	      || (rp != NULL && (rp->flag & RED_NOBUF)))) {
+	      || (rp != NULL && (rp->flag & RED_NOBUF) != 0))) {
 		if (rp != NULL) {
 			rp->output.gawk_fflush(fp, rp->output.opaque);
 			if (rp->output.gawk_ferror(fp, rp->output.opaque))
@@ -220,7 +220,7 @@ do_fflush(int nargs)
 	status = -1;
 	if (rp != NULL) {
 		if ((rp->flag & (RED_WRITE|RED_APPEND)) == 0) {
-			if (rp->flag & RED_PIPE)
+			if ((rp->flag & RED_PIPE) != 0)
 				warning(_("fflush: cannot flush: pipe `%s' opened for reading, not writing"),
 					file);
 			else
@@ -514,6 +514,7 @@ do_length(int nargs)
 	tmp = POP();
 	if (tmp->type == Node_var_array) {
 		static bool warned = false;
+		unsigned long size;
 
 		if (do_posix)
 			fatal(_("length: received array argument"));
@@ -521,7 +522,15 @@ do_length(int nargs)
 			warned = true;
 			lintwarn(_("`length(array)' is a gawk extension"));
 		}
-		return make_number((AWKNUM) tmp->table_size);
+
+		/*
+		 * Support for deferred loading of array elements requires that
+		 * we use the array length interface even though it isn't 
+		 * necessary for the built-in array types.
+		 */
+
+		size = assoc_length(tmp);
+		return make_number(size);
 	}
 
 	assert(tmp->type == Node_val);
@@ -1044,7 +1053,7 @@ check_pos:
 			/* user input that looks numeric is numeric */
 			if ((arg->flags & (MAYBE_NUM|NUMBER)) == MAYBE_NUM)
 				(void) force_number(arg);
-			if (arg->flags & NUMBER) {
+			if ((arg->flags & NUMBER) != 0) {
 				uval = get_number_uj(arg);
 #if MBS_SUPPORT
 				if (gawk_mb_cur_max > 1) {
@@ -1088,6 +1097,7 @@ out0:
 			 * used to work? 6/2003.)
 			 */
 			cp = arg->stptr;
+			prec = 1;
 #if MBS_SUPPORT
 			/*
 			 * First character can be multiple bytes if
@@ -1099,17 +1109,14 @@ out0:
 
 				memset(& state, 0, sizeof(state));
 				count = mbrlen(cp, arg->stlen, & state);
-				if (count == 0
-				    || count == (size_t)-1
-				    || count == (size_t)-2)
-					goto out2;
-				prec = count;
-				goto pr_tail;
+				if (count > 0) {
+					prec = count;
+					/* may need to increase fw so that padding happens, see pr_tail code */
+					if (fw > 0)
+						fw += count - 1;
+				}
 			}
-out2:
-			;
 #endif
-			prec = 1;
 			goto pr_tail;
 		case 's':
 			need_format = false;
@@ -1412,9 +1419,14 @@ mpf1:
 			copy_count = prec;
 			if (fw == 0 && ! have_prec)
 				;
-			else if (gawk_mb_cur_max > 1 && (cs1 == 's' || cs1 == 'c')) {
-				assert(cp == arg->stptr || cp == cpbuf);
-				copy_count = mbc_byte_count(arg->stptr, prec);
+			else if (gawk_mb_cur_max > 1) {
+				if (cs1 == 's') {
+					assert(cp == arg->stptr || cp == cpbuf);
+					copy_count = mbc_byte_count(arg->stptr, prec);
+				}
+				/* prec was set by code for %c */
+				/* else
+					copy_count = prec; */
 			}
 			bchunk(cp, copy_count);
 			while (fw > prec) {
@@ -1573,7 +1585,7 @@ printf_common(int nargs)
 	int i;
 	NODE *r, *tmp;
 
-	assert(nargs <= max_args);
+	assert(nargs > 0 && nargs <= max_args);
 	for (i = 1; i <= nargs; i++) {
 		tmp = args_array[nargs - i] = POP();
 		if (tmp->type == Node_var_array) {
@@ -1596,6 +1608,10 @@ NODE *
 do_sprintf(int nargs)
 {
 	NODE *r;
+
+	if (nargs == 0)
+		fatal(_("sprintf: no arguments"));
+
 	r = printf_common(nargs);
 	if (r == NULL)
 		gawk_exit(EXIT_FATAL);
@@ -1638,8 +1654,10 @@ do_printf(int nargs, int redirtype)
 		rp = redirect(redir_exp, redirtype, & errflg);
 		if (rp != NULL)
 			fp = rp->output.fp;
-	} else
+	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
+	else
+		fp = stdout;
 
 	tmp = printf_common(nargs);
 	if (redir_exp != NULL) {
@@ -2034,7 +2052,7 @@ do_system(int nargs)
 		ret = system(cmd);
 		if (ret != -1)
 			ret = WEXITSTATUS(ret);
-		if ((BINMODE & 1) != 0)
+		if ((BINMODE & BINMODE_INPUT) != 0)
 			os_setbinmode(fileno(stdin), O_BINARY);
 
 		cmd[tmp->stlen] = save;
@@ -2064,8 +2082,10 @@ do_print(int nargs, int redirtype)
 		rp = redirect(redir_exp, redirtype, & errflg);
 		if (rp != NULL)
 			fp = rp->output.fp;
-	} else
+	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
+	else
+		fp = stdout;
 
 	for (i = 1; i <= nargs; i++) {
 		tmp = args_array[i] = POP();
@@ -2472,6 +2492,9 @@ do_match(int nargs)
 					lhs = assoc_lookup(dest, sub);
 					unref(*lhs);
 					*lhs = it;
+					/* execute post-assignment routine if any */
+					if (dest->astore != NULL)
+						(*dest->astore)(dest, sub);
 					unref(sub);
 
 					sprintf(buff, "%d", ii);
@@ -2495,6 +2518,8 @@ do_match(int nargs)
 					lhs = assoc_lookup(dest, sub);
 					unref(*lhs);
 					*lhs = it;
+					if (dest->astore != NULL)
+						(*dest->astore)(dest, sub);
 					unref(sub);
 	
 					memcpy(buf, buff, ilen);
@@ -2508,6 +2533,8 @@ do_match(int nargs)
 					lhs = assoc_lookup(dest, sub);
 					unref(*lhs);
 					*lhs = it;
+					if (dest->astore != NULL)
+						(*dest->astore)(dest, sub);
 					unref(sub);
 				}
 			}
@@ -2750,7 +2777,7 @@ set_how_many:
 			repllen--;
 			ampersands++;
 		} else if (*scan == '\\') {
-			if (flags & GENSUB) {	/* gensub, behave sanely */
+			if ((flags & GENSUB) != 0) {	/* gensub, behave sanely */
 				if (isdigit((unsigned char) scan[1])) {
 					ampersands++;
 					scan++;
@@ -2943,7 +2970,7 @@ done:
 	}
 
 	/* For a string literal, must not change the original string. */
-	if (flags & LITERAL)
+	if ((flags & LITERAL) != 0)
 		DEREF(t);
 	else if (matches > 0) {
 		unref(*lhs);

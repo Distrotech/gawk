@@ -1,3 +1,647 @@
+2013-08-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* str_array.c (env_store): If the new value being stored is NULL,
+	pass in "" instead. Avoids core dump on Mac OS X.
+	Thanks to Hermann Peifer for the bug report.
+
+2013-08-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* nonposix.h: New file. Contains FAKE_FD_VALUE.
+	* awk.h: Include it if MinGW or EMX.
+	* Makefile.am (base_sources): Add nonposix.h.
+
+2013-08-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Reflect updates to ENVIRON into the real environment.
+
+	* awk.h (init_env_array): Add declaration.
+	* main.c (load_environ): Call init_env_array.
+	* str_array.c (env_remove, env_store, env_clear, init_env_array):
+	New functions.
+	(env_array_func): New array vtable.
+
+2013-08-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* array.c (force_array): Set symbol->xarray to NULL before
+	initing the array if it was Node_var_new.
+	(null_array): Restore assert, undoing change of 2013-05-27.
+
+2013-08-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* debug.c (print_memory): Fix whitespace / indentation.
+
+2013-07-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (FAKE_FD_VALUE): Move definition from here ...
+	* awk.h (FAKE_FD_VALUE): ... to here. Fixes compilation on MinGW.
+
+2013-07-08         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (get_a_record): Change `min' to `MIN' for consistency with
+	other files and general practice.
+
+2013-07-04         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* gawkapi.h (awk_element_t): Add comment indicating that the array
+	element index will always be a string!
+	* gawkapi.c (api_flatten_array): When converting the index to an awk
+	value, request a string conversion, since we want the indices to
+	appear as strings to the extensions.  This makes the call to
+	force_string redundant, since node_to_awk_value does that internally
+	when we request a string.
+
+2013-07-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (format_tree): Fixes for %c with multibyte characters
+	and field width > 1. Bugs reported by Nethox <nethox@gmail.com>.
+
+2013-07-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* profile.c (pp_string): Add a call to chksize and fix another.
+	Avoids valgrind errors on profile5 test. Thanks to Andrew
+	Schorr for the report.
+
+2013-06-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y: Minor whitespace cleanup, remove redundant ifdef.
+
+2013-06-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c (copytoks): Rewrite to call addtok_mb() directly. Avoids
+	problems with multibyte characters inside character sets.
+	Thanks to Steven Daniels <stevendaniels88@gmail.com> for reporting
+	the problem.  Much thanks to Mike Haertel <mike@ducky.net> for the
+	analysis and fix.
+
+2013-06-24  Eli Zaretskii  <eliz@gnu.org>
+
+	* io.c: Move #include "popen.h" out of the HAVE_SOCKETS condition,
+	as this is needed for non-sockets builds as well.  See
+	http://lists.gnu.org/archive/html/bug-gawk/2013-06/msg00014.html
+	for the details of the problem this caused.
+
+2013-06-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c: Add ifdefs for VMS so that it will compile again.
+	Thanks to Anders Wallin.
+
+2013-06-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* debug.c (print_lines): Move setting of binary mode to after all
+	the messing with the fd. Simplifies code some.
+	* io.c (srcopen): Rearrange so that can add call to setbinmode
+	here too. This fixes the debugger and makes reading source
+	files a little faster. Thanks again to Corinna Vinschen.
+
+2013-06-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* debug.c (print_lines): Set binary mode so that calculation of the
+	byte offsets will be right. Thanks to Corinna Vinschen for the
+	direction.
+
+2013-06-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* re.c (check_bracket_exp): Remove warning about ranges being
+	locale dependent, since they aren't anymore.
+
+2013-06-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (iop_finish): Change fstat call to fcntl/F_GETFL per
+	Eli Z., for Windows.
+
+2013-06-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* eval.c (unwind_stack): If exiting, don't worry about strange stuff
+	on the stack.
+
+	Unrelated:
+
+	* awk.h (init_sockets): Declare.
+	* io.c (init_io): Remove ifdef around call.
+
+2013-06-01  Eli Zaretskii  <eliz@gnu.org>
+
+	* io.c (SHUT_RD) [SD_RECEIVE]: Define to SD_RECEIVE.
+	(SHUT_WR) [SD_SEND]: Define to SD_SEND.
+	(SHUT_RDWR) [SD_BOTH]: Define to SD_BOTH.
+	(FD_TO_SOCKET, closemaybesocket) [!FD_TO_SOCKET]: New macros.
+	(SOCKET_TO_FD, SOCKET) [!SOCKET_TO_FD]: New macros.
+	(PIPES_SIMULATED): Define only for DJGPP.
+	(pipe) [__MINGW32__]: Define to call _pipe, unless PIPES_SIMULATED
+	is defined.
+	(init_io) [HAVE_SOCKETS]: Call init_sockets.
+	(iop_close, socketopen): Call closemaybesocket instead of close.
+	(redirect) [__MINGW32__]: Call wait_any with a non-zero argument.
+	(devopen) [__EMX__ || __MINGW32__]: Don't call stat on network
+	pseudo-filenames.
+	(two_way_open) [HAVE_SOCKETS]: Switch input and output to binary
+	mode if appropriate.
+	(two_way_open) [!PIPES_SIMULATED]: Use the __EMX__ code for MinGW
+	as well.
+	[__MINGW32__] Call spawnl to invoke $ComSpec and pass it a
+	suitably quoted command line.
+	(two_way_open) [__MINGW32__]: Wait only for a specified process
+	ID.  If successful, update the exit status of the exited process.
+	Don't use signals that are undefined on MinGW.
+	(two_way_open) [!PIPES_SIMULATED]: Use the __EMX__ code for MinGW
+	as well.
+	(min): Define only if not already defined.
+	(read_with_timeout) [__MINGW32__]: Allow reading from sockets with
+	timeout.
+	(gawk_fclose) [__MINGW32__]: Close the underlying socket as well.
+
+	* getopt.c: Include stdlib.h for MinGW as well.
+
+2013-05-30         Arnold D. Robbins     <arnold@skeeve.com>
+
+	More profiling fixes:
+
+	* profile.c (pprint): For Op_in_array, parenthesize subscript if
+	the precedence is lower. E.g.:  (c = tolower(foo)) in ARRAY.
+	(prec_level): Merge cases for precedence of 5.
+	(parenthesize): Simplify, as in 3.1.8. Avoids stuff like
+	`(x == 1 && (z ==2 && (q == 4 && w == 7)))'.
+
+	Unrelated:
+
+	* io.c (iop_finish): fstat the fd before closing it to avoid
+	errors on some operating systems. Thanks to Eli Zaretskii
+	for the report.
+
+2013-05-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* profile.c (pp_group3): Renamed from pp_concat. Change all calls.
+	(is_binary): Change return type to bool.
+	(is_scalar): New function.
+	(pp_concat): New function to handle concatenation operator better.
+	(pprint): Call it at case Op_concat. Fix Op_K_delete if multiple
+	indexes to separate with "][".
+	General: Add leading comments as needed.
+
+2013-05-28         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* main.c (main): Add minor hack to not run code if pretty printing
+	and undocumented env var GAWK_NO_PP_RUN exists.
+	* profile.c (pp_string): Explicitly print NUL chars as \000.
+
+2013-05-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac (AM_INIT_AUTOMAKE): Add dist-lzip to quiet
+	outside maintainer warnings.
+
+	Unrelated:
+
+	* configure.ac (AC_STRUCT_ST_BLKSIZE): Replaced with call to
+	AC_CHECK_MEMBERS.
+
+	Unrelated:
+
+	* array.c (null_array): Remove the assert and just clear
+	symbol->xarray.
+
+2013-05-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* getopt.c: For Mac OS X, also include <stdlib.h> to avoid
+	some compiler warnings.
+
+2013-05-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkapi.h [FAKE_FD_VALUE]: Moved from here to ...
+	* io.c [FAKE_FD_VALAUE]: here.
+
+2013-05-14  Eli Zaretskii  <eliz@gnu.org>
+
+	* io.c (devopen) [__EMX__ || __MINGW32__]: Produce EISDIR on MinGW
+	when an attempt to open() a directory fails.
+	(two_way_open) [__EMX__ || __MINGW32__]: When trying to open() a
+	directory fails with EISDIR, assign FAKE_FD_VALUE to the file
+	descriptor and attributes of a directory to its mode bits.  This
+	is needed to support the readdir extension.
+
+	* gawkapi.h (FAKE_FD_VALUE): New macro, used in io.h and in
+	extension/gawkdirfd.h.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (snode): Make it a fatal error to use a regexp constant
+	as the second argument of index(). Thanks to Christopher Durant
+	<christopher.durant@marquesa.net> and Brian Kernighan for the report
+	and the advice.
+
+2013-04-28  Eli Zaretskii  <eliz@gnu.org>
+
+	* io.c (redirect): Remove the HACK that called close_one when
+	errno was zero in the MinGW build.  This prevents failure in
+	several tests in the test suite, e.g., closebad.
+
+2013-04-28         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bootstrap.sh: Fix a comment.
+
+2013-04-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (do_getline_redir): Fix the leading comment.
+
+2013-04-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* main.c (load_procinfo): Add PROCINFO entries for API major
+	and minor versions.
+
+2013-04-21         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* missing: Update from Automake 1.13.1.
+
+2013-04-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Fix a typo.
+
+2013-04-17         Corinna Vinschen      <vinschen@redhat.com>
+
+	* configure.ac: Remove special casing for cygwin for libiconv
+	and libintl.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bootstrap.sh: Touch gawk.texi too. Update copyright.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.c: Regenerated from bison 2.7.1.
+	* command.c: Ditto.
+	* dfa.h, dfa.c: Minor edits to sync with GNU grep.
+	* gettext.h: Sync with gettext 0.18.2.1.
+	* random.h: Remove obsolete __P macro and use. Update copyright year.
+	* Makefile.am, array.c, builtin.c, cint_array.c, cmd.h, debug.c,
+	eval.c, ext.c, field.c, gawkapi.c, gawkapi.h, gettext.h, int_array.c,
+	interpret.h, msg.c, node.c, profile.c, re.c, replace.c, str_array.c,
+	symbol.c: Update copyright year.
+
+	Update to automake 1.13.1:
+
+	* configure.ac (AM_INIT_AUTOMAKE): Update version.
+	* configure, Makefile.in, aclocal.m4, awklib/Makefile.in,
+	doc/Makefile.in, test/Makefile.in: Regenerated.
+
+	* getopt.c, getopt.h, getopt1.c, getopt_int.h: Sync with GLIBC.
+
+2013-04-14         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (check_funcs): Fix logic of test for called but
+	not defined warning. Thanks to Scott Deifik for the bug report.
+
+2013-04-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* profile.c (print_lib_list): Send final newline to prof_fp
+	instead of stdout.  Thanks to Hermann Peifer for the bug report.
+
+2013-03-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (SUBDIRS): Move extension back into the middle of
+	the list so that `make check' without a prior `make' works.
+
+	Unrelated:
+
+	* main.c (main): Move env_lc into ifdef for LIBC_IS_BORKED.
+
+2013-03-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	For systems where libc is borked (MirBSD, maybe others).
+
+	* dfa.c: Force use of gawk_mb_cur_max instead of MB_CUR_MAX and make
+	mbrtowc a macro that always fails.
+	(using_utf8): Force utf8 to be 0 if libc borked and gawk_mb_cur_max
+	is one.
+	* main.c (main): If libc is borked and LC_ALL or LANG exist in the
+	environment and are set to "C" or "c", force gawk_mb_cur_max to one.
+
+2013-03-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* re.c (check_bracket_exp): Make handling of embedded ] in
+	regexp smarter. Thanks to Ed Morton <mortoneccc@comcast.net>
+	for reporting the bug.
+
+2013-03-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Don't build extensions if API isn't supported:
+
+	* Makefile.am (SUBDIRS): Move extension directory to last in case
+	building the extensions is not supported.
+	* configure.ac: Add check for MirBSD and don't even try to run the
+	checks for DYNAMIC if so.
+
+	Check for systems (MirBSD) where libc doesn't understand not
+	to use UTF-8 for LC_ALL=C.
+
+	* configure.ac (LIBC_IS_BORKED): AC_DEFINE if needed.
+	* regcomp.c (init_dfa): Change logic as needed if LIBC_IS_BORKED.
+
+2013-02-28         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Cause profiling / pretty printing to include a list of
+	loaded extensions. Thanks to Hermann Peifer for the bug report.
+
+	* awk.h (srcfiles): Add declaration.
+	* profile.c (print_lib_list): New function.
+	(dump_prog): Call it.
+
+2013-02-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (expression_list): In case of error return the list
+	instead of NULL so that snode gets something it can count.
+
+2013-02-12         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bisonfix.awk: Comment out code for fixing contined #if
+	statements. It is likely not needed anymore. Leave it there in
+	case I'm wrong.
+
+2013-02-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (printf_common): Move nargs > 0 check into assert.
+	(do_sprintf): Add nargs check and fatal message to here.
+
+2013-02-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* main.c (main): Remove undocumented -m option which was for
+	compatibility with BWK awk. His awk dropped it back in 2007.
+
+2013-02-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Add Automake test for cross compiling.
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regcomp.c, regex.c, regex_internal.c, regexec.c: Update
+	copyright years to sync with GLIBC.
+
+	From: http://www.sourceware.org/ml/libc-alpha/2013-01/msg00967.html,
+	by Andreas Schwab <schwab@suse.de>:
+
+	* regexec.c (extend_buffers): Add parameter min_len.
+	(check_matching): Pass minimum needed length.
+	(clean_state_log_if_needed): Likewise.
+	(get_subexp): Likewise.`
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Include "dfa.h" which includes regex.h after limits.h
+	so that RE_DUP_MAX gets the correct value. Especially needed on
+	OpenVMS. Thanks to Anders Wallin.
+
+	* main.c (version): Print out API version numbers if DYNAMIC.
+	Helpful also for knowing if to run the shlib tests.
+
+	* configure: Regenerated after change in m4/readline.m4.
+
+2013-01-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* PROBLEMS: Removed. It is no longer needed.
+	* Makefile.am (EXTRA_DIST): Remove PROBLEMS from list.
+
+2013-01-31         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* configure.ac: Remove TEST_MPFR conditional added in last patch.
+	We will instead test for MPFR capability by looking at the output
+	from gawk --version.
+
+2013-01-27         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* configure.ac: Add MPFR test for use in test/Makefile.am.
+
+2013-01-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (parms_shadow): Change int param to bool.
+	* cmd.h (output_is_tty): Sync type with rest of code (is bool).
+	* dfa.c (MALLOC): Undef first, for Irix.
+	* Makefile.am (LDADD): Use LIBREADLINE and LIBMPFR instead of
+	automake substitutions.
+	* configure.ac (AC_INIT): Version bump.
+	(GAWK_CHECK_READLINE): Renamed from GNUPG_CHECK_READLINE.
+
+2013-01-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awk.h (list_functions): Change parameter to bool.
+	* symbol.c (list_functions): Ditto.
+	(get_symbols): Change sort parameter to bool. Additional
+	code cleanup.
+
+2013-01-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* symbol.c (get_symbols): Reset count after each loop to only
+	sort the actual items retrieved. Thanks to Hermann Peifer (by
+	way of Andrew Schorr) for reporting the bug.  Also add some
+	commentary and fix function name in emalloc calls.
+
+2013-01-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* re.c (regexflags2str): New routine.
+	(resetup): If do_intervals, also turn on RE_NO_BK_BRACES.
+	Thanks to Yan Lei <yanl.fnst@cn.fujitsu.com> for the
+	bug report.
+
+2013-01-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Fix a problem with include ordering to get ptrdiff_t definition,
+	showed up on Debian Lenny. Reported by Manuel Collado.
+	Fix brought over from grep.
+
+	* dfa.h: Include regex.h and stddef.h directly.
+	* dfa.c: Adjust includes.
+
+2013-01-11         John Haque            <j.eh@mchsi.com>
+
+	* awk.h (do_mpfr_rshift): Renamed from do_mpfr_rhift.
+	* awkgram.y (do_mpfr_rshift): Renamed from do_mpfr_rhift.
+	* mpfr.c (_tz1, _tz2, _mpz1, _mpz2, mpz1, mpz2, get_bit_ops,
+	free_bit_ops): Removed.
+	(init_mpfr): Remove calls to mpz_init.
+	(get_intval, free_intval): New functions.
+	(do_mpfr_rshift, do_mpfr_lshift): Rework code.
+	(do_mpfr_and, do_mpfr_or, do_mpfr_xor): Accept two or more arguments
+	to match regular functions.
+
+2013-01-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bisonfix.awk: Adjust ARGV / ARGC to force reading of standard
+	input; apparently needed for Mac OS X. Thanks to Akim Demaille
+	for the report.
+
+2013-01-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (redirect, two_way_open): Set the name field in the
+	awk_input_buf_t and awk_output_buf_t structures, as needed.
+	Thanks to Manuel Collado for the report.
+
+2013-01-05         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regex_internal.h (struct re_dfa_t): Restore ifdefs around
+	__libc_lock_define, they really were needed. Bleah.
+
+2013-01-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Sync with GLIBC regex files.
+
+	* regex_internal.h (struct re_dfa_t): Remove ifdefs around
+	__libc_lock_define since it's already defined to empty in non-LIBC
+	case.
+	* regexec.c (check_node_accept_bytes): Restore decl with use from
+	GLIBC code since this is LIBC case.
+
+2012-12-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (do_print, do_printf): Use output_fp as default
+	output for print/printf only if running under the debugger.
+	Otherwise use stdout as Brian, Peter, and Al intended.
+
+2012-12-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Remove sym-constant from API after discussions with John
+	Haque and Andy Schorr.
+
+	* gawkapi.h (api_sym_constant): Removed field in API struct.
+	(sym_constant): Remove macro.
+	* gawkapi.c (set_constant, api_sym_update, api_sym_constant): Removed.
+	(sym_update_real): Renamed to api_sym_update(). is_const parameter
+	removed and code adjusted.
+
+2012-12-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.0.2: Release tar ball made.
+
+2012-12-23         John Haque      <j.eh@mchsi.com>
+
+	* eval.c (r_get_lhs): Node_array_ref. If original is Node_var,
+	don't assign null-string as value.
+	* ext.c (get_argument): Node_array_ref. Check if already a scalar.
+
+2011-12-23         John Haque      <j.eh@mchsi.com>
+
+	* awkgram.y (is_deferred_variable): New function.
+	(func_install): Call it.
+	* eval.c (r_interpret): Op_push_arg. Check for uninitialized scalar.
+
+2012-12-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (tokentab): Whitespace fix for "include".
+	* builtin.c (printf_common): Do a fatal error if no args to printf()
+	or sprintf().
+
+2012-12-19         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* bootstrap.sh: Touch extension/aclocal.m4 also.
+
+	Unrelated: Extend input parser API:
+
+	* awk.h (IOBUF): Remove read_func pointer.
+	* gawkapi.h (awk_input_buf_t): Move it to here.
+	* io.c (iop_alloc, get_a_record, get_read_timeout): Adjust code.
+
+	Unrelated: Make sure that variables like NF, NR, FNR are
+	accessable correctly both through SYMTAB and through API.
+
+	* gawkapi.c (api_sym_lookup): Call update_global_values().
+	(api_sym_lookup_scalar): Ditto.
+	* interpret.h (Op_subscript, Op_subscript_lhs): Ditto.
+	* main.c (update_global_values): Adjust comment.
+
+	Unrelated: Fix --disable-lint so that everything compiles.
+
+	* main.c (main): Move case lable inside ifdef.
+	* awkgram.y (isnoeffect): Add ifdefs around declaration, use,
+	and function body.
+
+	Unrelated: Restore building with tcc.
+
+	* awk.h (AFUNC): Move to array.c which is the only place its used.
+	(ainit_ind, atypeof_ind, etc.): New macros for use in array.c
+	* array.c (AFUNC): Change to use F##_ind. Works with tcc and other
+	compilers.
+	* configure.ac: Only add -export-dynamic flag if compiling with gcc.
+
+2012-12-18         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* gawkapi.c (sym_update_real): If setting a scalar variable that exists
+	already in an undefined state with type set to Node_var_new, we must
+	update the type to Node_var if the new value is not undefined.
+
+2012-12-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (tokentab): "extension" needs to be inside ifdef DYNAMIC.
+	Thanks to Anders Wallin for finding this.
+
+2012-12-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* debug.c (do_set_var): Fix last remaining `*assoc_lookup() = x'.
+
+2012-12-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Infrastructure Updates:
+
+	* awkgram.c, command.c: Regenerated with bison 2.7.
+	* config.guess, config.sub, depcomp: Updated from automake 1.12.6.
+
+2012-12-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Clean up BINMODE to use symbolic values.
+
+	* awk.h (enum binmode_values): New enum.
+	* eval.c (set_BINMODE): Use them.
+	* io.c (binmode, close_rp, gawk_popen): Ditto.
+	* main.c (main): Ditto.
+	* builtin.c (do_system): Ditto.
+
+	Unrelated:
+
+	* configure.ac: Look for posix_openpt
+	* io.c (two_way_open): Use posix_openpt if it's available.
+	Thanks to Christian Weisgerber <naddy@mips.inka.de> for
+	the changes.
+
+	Also unrelated:
+
+	* regex.c: Don't include <sys/param.h> on VMS. Thanks to
+	Anders Wallin.
+
+	Also unrelated:
+
+	* ext.c (is_letter, is_identifier_char): New functions. Don't use
+	<ctype.h> functions since those could rely on the locale.
+	(make_builtin): Adjust test for valid name to call the new
+	functions and return false instead of throwing a fatal error.
+	(make_old_builtin): Adjust test for valid name to call the new
+	function.
+	* awk.h (is_identchar): Move from here, ...
+	* awkgram.y (is_identchar): ... to here. This is safe, since
+	the locale is C during parsing the program.
+
+	Also unrelated: Make all checks for bitflags being set consistent
+	in case we should wish to switch them to macro calls:
+
+	* awkgram.y, builtin.c, cint_array.c, debug.c, eval.c, gawkapi.c,
+	int_array.c, io.c, mpfr.c, node.c, profile.c, str_array.c: Fix
+	as needed.
+
+2012-12-07         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (tokentab): `fflush()' is now in POSIX, remove the
+	RESX flag. This was the last use, so delete the flag.
+	(yylex): Don't check RESX.
+
+	Thanks to Nathan Weeks <weeks@iastate.edu> for helping make this
+	happen.
+
+2012-12-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* interpret.h: For op_assign_concat, if both strings
+	have WSTRCUR, then do the realloc() and append for the
+	wide string too.  Thanks to Janis Papanagnou
+	<janis_papanagnou@hotmail.com> for the discussion in
+	comp.lang.awk.
+
 2012-11-30         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* regcomp.c, regex.c, regex_internal.h, regexec.c: Sync
@@ -24,6 +668,105 @@
 
 	* builtin.c (do_fflush): Make fflush() and fflush("") both
 	flush everything. See the comment in the code.
+
+2012-11-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awk.h (Node_old_ext_func, Op_old_ext_func): New enum values.
+	* configure.ac: Use -export-dynamic if supported for old extension
+	mechanism.
+	* eval.c (nodeytpes): Add Node_old_ext_func.
+	(optypetab): Add Op_old_ext_func.
+	* ext.c (make_old_ext_builtin): "New" function.
+	* interpret.h: Special case Op_old_ext_builtin. Add checks for
+	Node_old_ext_func.
+	* msg.c: Adjust placement of a comment.
+
+2012-05-02         John Haque      <j.eh@mchsi.com>
+
+	* str_array.c (str_copy): Initialize next pointer in the linked list
+	to avoid memory corruption.
+	* int_array.c (int_copy): Ditto.
+
+2012-04-21         John Haque      <j.eh@mchsi.com>
+
+	Shutdown routine for a dynamic extension.
+
+	* awk.h (SRCFILE): New field fini_func.
+	* ext.c (load_ext): Takes an additional argument to look up and
+	save the clean up routine in SRCFILE struct. 
+	(INIT_FUNC, FINI_FUNC): Defines for default init and fini routine
+	names.
+	(do_ext): Use default for the name of the init or fini routine if
+	one is not supplied. Adjust call to load_ext().
+	(close_extensions): Execute fini routines.
+	* interpret.h (Op_at_exit): Call close_extensions().
+	* msg.c (gawk_exit): Ditto.
+	* debug.c (close_all): Ditto.
+	* main.c (main): Adjust call to load_ext().
+	* awkgram.y (tokentab): Specify 2nd and 3rd optional arguments
+	for the extension() built-in.
+
+	Unrelated:
+
+	* interpret.h (Op_arrayfor_init): Use assoc_length for array size. 
+	
+2012-04-19         John Haque      <j.eh@mchsi.com>
+
+	Enhanced array interface to support transparent implementation
+	using external storage and ...
+
+	* awk.h (astore): Optional post-assignment store routine for
+	array subscripts.
+	(Op_subscript_assign): New opcode to support the store routine.
+	(alength): New array interface routine for array length.
+	(assoc_length): New macro.
+	(assoc_empty): Renamed from array_empty.
+	* awkgram.y (snode): Append Op_subscript_assign opcode if
+	(g)sub variable is an array element.
+	(mk_getline): Same for getline variable.
+	(mk_assignment): Same if assigning to an array element.
+	* field.c (set_element): Call store routine if needed.
+	* builtin.c (do_match): Ditto.
+	(do_length): Use length routine for array size.
+	* symbol.c (print_vars): Ditto.
+	* array.c (null_length): Default function for array length interface.
+	(asort_actual):	Call store routine if defined.
+	(asort_actual, assoc_list): Use length routine for array size.
+	(null_array_func): Add length and store routine entries.
+	* str_array.c (str_array_func): Same.
+	* cint_array.c (cint_array_func): Same.
+	* int_array.c (int_array_func): Same. 
+	* eval.c (optypetab): Add Op_subscript_assign.
+	* profile.c (pprint): Add case Op_subscript_assign.
+	* interpret.h (set_array, set_idx): New variables to keep track
+	of an array element with store routine.
+	(Op_sub_array, Op_subscript_lhs, Op_store_sub, Op_subscript_assign):
+	Add code to handle array store routine.
+	* debug.c (print_symbol, print_array, cmp_val, watchpoint_triggered,
+	initialize_watch_item): Use length routine for array size.
+
+	* awk.h (assoc_kind_t): New typedef for enum assoc_list_flags.
+	(sort_context_t): Renamed from SORT_CONTEXT.
+	* array.c (asort_actual, assoc_sort): Adjust.
+	* cint_array.c (cint_list, tree_list, leaf_list): Adjust.
+	* int_array.c (int_list): Adjust.
+	* str_array.c (str_list): Adjust.
+
+2012-04-18         John Haque      <j.eh@mchsi.com>
+
+	* awk.h (atypeof, AFUNC): New macros.
+	(afunc_t): Renamed typedef from array_ptr.
+	* array.c (register_array_func, null_lookup): Use AFUNC macro
+	instead of hard-coded index for array functions.
+	(asort_actual): Unref null array elements before overwriting.
+	(force_array): Renamed from get_array.
+	(null_array): Renamed from init_array. Also initialize flags to 0.
+	(array_types): Renamed from atypes.
+	(num_array_types): Renamed from num_atypes.
+	* interpret.h (r_interpret): In case Op_sub_array, unref null array element.
+	* str_array.c (str_array_init): Reworked for (re)initialization of array.
+	* int_array.c (int_array_init): Ditto.
+	* cint_array.c (cint_array_init): Ditto.
 
 2012-11-24         Arnold D. Robbins     <arnold@skeeve.com>
 
@@ -112,6 +855,11 @@
 	Here too. Sigh again.
 
 	* gawkapi.h: Minor documentation edits.
+
+2012-11-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (do_fflush): Make fflush() and fflush("") both
+	flush everything. See the comment in the code.
 
 2012-10-28         Arnold D. Robbins     <arnold@skeeve.com>
 
@@ -1073,7 +1821,7 @@
 2012-06-19         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* main.c (main): Do setlocale to "C" if --characters-as-bytes.
-	Thanks to "SP" <sp0sp0sp@gmail.com> for the bug report.
+	Thanks to "SP" for the bug report.
 
 2012-05-09         Arnold D. Robbins     <arnold@skeeve.com>
 

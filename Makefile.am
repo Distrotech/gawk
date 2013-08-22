@@ -1,7 +1,7 @@
 #
 # Makefile.am --- automake input file for gawk
 #
-# Copyright (C) 2000-2011 the Free Software Foundation, Inc.
+# Copyright (C) 2000-2013 the Free Software Foundation, Inc.
 #
 # This file is part of GAWK, the GNU implementation of the
 # AWK Programming Language.
@@ -39,7 +39,6 @@ EXTRA_DIST = \
 	NEWS \
 	NEWS.0 \
 	POSIX.STD \
-	PROBLEMS \
 	README_d \
 	bisonfix.awk \
 	config.guess \
@@ -114,6 +113,7 @@ base_sources = \
 	mpfr.c \
 	msg.c \
 	node.c \
+	nonposix.h \
 	profile.c \
 	protos.h \
 	random.c \
@@ -130,7 +130,7 @@ base_sources = \
 gawk_SOURCES = $(base_sources)
 
 # Get extra libs as needed, Automake will supply LIBINTL and SOCKET_LIBS.
-LDADD = $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) @LIBREADLINE@ @LIBMPFR@
+LDADD = $(LIBSIGSEGV) $(LIBINTL) $(SOCKET_LIBS) $(LIBREADLINE) $(LIBMPFR)
 
 # Directory for gawk's data files. Automake supplies datadir.
 pkgdatadir = $(datadir)/awk

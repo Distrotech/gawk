@@ -1,6 +1,14 @@
-2012-12-05         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+2013-08-22         Andrew J. Schorr     <aschorr@telemetry-investments.com>
 
 	* ltmain.sh: Remove libtool support.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-04-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* missing: Updated from Automake 1.13.1.
 
 2012-07-30         Arnold D. Robbins     <arnold@skeeve.com>
 

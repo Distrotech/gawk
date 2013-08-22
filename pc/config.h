@@ -2,7 +2,9 @@
 /* pc/config.h.  Generated automatically by pc/config.sed.  */
 
 /* dynamic loading is possible */
-#undef DYNAMIC
+#ifdef _WIN32
+#define DYNAMIC 1
+#endif
 
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
@@ -57,7 +59,9 @@
 #define HAVE_FMOD 1
 
 /* have getaddrinfo */
-#undef HAVE_GETADDRINFO
+#ifdef __MINGW32__
+#define HAVE_GETADDRINFO 1
+#endif
 
 /* Define to 1 if you have the `getgrent' function. */
 #undef HAVE_GETGRENT
@@ -178,13 +182,16 @@
 #define HAVE_MKTIME 1
 
 /* Define to 1 if you have fully functional mpfr and gmp libraries. */
-#undef HAVE_MPFR
+/* #undef HAVE_MPFR */
 
 /* Define to 1 if you have the <netdb.h> header file. */
 #undef HAVE_NETDB_H
 
 /* Define to 1 if you have the <netinet/in.h> header file. */
 #undef HAVE_NETINET_IN_H
+
+/* Define to 1 if you have the `posix_openpt' function. */
+#undef HAVE_POSIX_OPENPT
 
 /* Define to 1 if you have the `setenv' function. */
 #if defined(__MINGW32__) || defined(__DJGPP__)
@@ -205,10 +212,14 @@
 #endif
 
 /* newer systems define this type here */
-#undef HAVE_SOCKADDR_STORAGE
+#ifdef __MINGW32__
+#define HAVE_SOCKADDR_STORAGE 1
+#endif
 
 /* we have sockets on this system */
-#undef HAVE_SOCKETS
+#ifdef __MINGW32__
+#define HAVE_SOCKETS 1
+#endif
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #define HAVE_STDARG_H 1
@@ -279,10 +290,6 @@
 
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_ZONE
-
-/* Define to 1 if your `struct stat' has `st_blksize'. Deprecated, use
-   `HAVE_STRUCT_STAT_ST_BLKSIZE' instead. */
-#undef HAVE_ST_BLKSIZE
 
 /* Define to 1 if you have the `system' function. */
 #define HAVE_SYSTEM 1
@@ -403,6 +410,9 @@
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
 
+/* libc is broken for regex handling */
+#undef LIBC_IS_BORKED
+
 /* disable lint checks */
 #undef NO_LINT
 
@@ -416,7 +426,7 @@
 #define PACKAGE_NAME "GNU Awk"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "GNU Awk 4.0.71"
+#define PACKAGE_STRING "GNU Awk 4.1.0"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "gawk"
@@ -425,7 +435,7 @@
 #define PACKAGE_URL "http://www.gnu.org/software/gawk/"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.0.71"
+#define PACKAGE_VERSION "4.1.0"
 
 /* Define to 1 if *printf supports %F format */
 #undef PRINTF_HAS_F_FORMAT
@@ -487,7 +497,7 @@
 
 
 /* Version number of package */
-#define VERSION "4.0.71"
+#define VERSION "4.1.0"
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE
@@ -595,6 +605,13 @@
 
 #ifndef __DJGPP__
 #define HAVE_POPEN_H 1
+#endif
+
+#if defined(__DJGPP__)
+typedef unsigned int uint32_t;
+typedef int int32_t;
+#define INT32_MAX INT_MAX
+#define INT32_MIN INT_MIN
 #endif
 
 #if defined(__EMX__)
