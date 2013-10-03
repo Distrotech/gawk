@@ -21,7 +21,27 @@
 
 #include <config.h>
 
-#if !defined(HAVE_DIRFD) && !defined(HAVE_DECL_DIRFD)
+#ifndef ENOTSUP
+# define ENOTSUP ENOSYS
+#endif
+
+/*
+ * This is for fake directory file descriptors on systems that don't
+ * allow to open() a directory.
+ *
+ * Including a header from the main gawk source to share the definition
+ * of FAKE_FD_VALUE is the least of all evils that I can see.
+ *
+ * Unlike the main gawk code base, this include is NOT dependant
+ * upon MinGW or EMX.
+ */
+#include "../nonposix.h"
+
+#ifndef DIR_TO_FD
+# define DIR_TO_FD(d) (FAKE_FD_VALUE)
+#endif
+
+#if !defined(HAVE_DIRFD) && (!defined(HAVE_DECL_DIRFD) || HAVE_DECL_DIRFD == 0)
 int
 dirfd (DIR *dir_p)
 {

@@ -635,6 +635,7 @@ out0:
 			 * used to work? 6/2003.)
 			 */
 			cp = arg->stptr;
+			spec.prec = 1;
 #if MBS_SUPPORT
 			/*
 			 * First character can be multiple bytes if
@@ -646,17 +647,14 @@ out0:
 
 				memset(& state, 0, sizeof(state));
 				count = mbrlen(cp, arg->stlen, & state);
-				if (count == 0
-				    || count == (size_t)-1
-				    || count == (size_t)-2)
-					goto out2;
-				spec.prec = count;
-				goto pr_tail;
+				if (count > 0) {
+					spec.prec = count;
+					/* may need to increase fw so that padding happens, see pr_tail code */
+					if (spec.fw > 0)
+						spec.fw += count - 1;
+				}
 			}
-out2:
-			;
 #endif
-			spec.prec = 1;
 			goto pr_tail;
 		case 's':
 			need_format = false;
@@ -678,9 +676,14 @@ out2:
 			copy_count = spec.prec;
 			if (spec.fw == 0 && ! spec.have_prec)
 				;
-			else if (gawk_mb_cur_max > 1 && (cs1 == 's' || cs1 == 'c')) {
-				assert(cp == arg->stptr || cp == CPBUF);
-				copy_count = mbc_byte_count(arg->stptr, spec.prec);
+			else if (gawk_mb_cur_max > 1) {
+				if (cs1 == 's') {
+					assert(cp == arg->stptr || cp == CPBUF);
+					copy_count = mbc_byte_count(arg->stptr, spec.prec);
+				}
+				/* prec was set by code for %c */
+				/* else
+					copy_count = prec; */
 			}
 
 			bchunk(outb, cp, copy_count);

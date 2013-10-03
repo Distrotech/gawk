@@ -652,7 +652,7 @@ statement
 			$$ = list_prepend(ip, $1);
 			bcfree($4);
 		} /* else
-				$1 and $4 are NULLs */
+			$1 and $4 are NULLs */
 	  }
 	| LEX_FOR '(' NAME LEX_IN simple_variable r_paren opt_nls statement
 	  {
@@ -1238,11 +1238,23 @@ expression_list
 	| error
 	  { $$ = NULL; }
 	| expression_list error
-	  { $$ = NULL; }
+	  {
+		/*
+		 * Returning the expression list instead of NULL lets
+		 * snode get a list of arguments that it can count.
+		 */
+		$$ = $1;
+	  }
 	| expression_list error exp
-	  { $$ = NULL; }
+	  {
+		/* Ditto */
+		$$ = mk_expression_list($1, $3);
+	  }
 	| expression_list comma error
-	  { $$ = NULL; }
+	  {
+		/* Ditto */
+		$$ = $1;
+	  }
 	;
 
 /* Expressions, not including the comma operator.  */
@@ -3918,6 +3930,12 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 				ip->opcode = Op_push_array;
 		}
 	}
+	else if (r->builtin == do_index) {
+		arg = subn->nexti->lasti->nexti;	/* 2nd arg list */
+		ip = arg->lasti;
+		if (ip->opcode == Op_match_rec)
+			fatal(_("index: regexp constant as second argument is not allowed"));
+	}
 #ifdef ARRAYDEBUG
 	else if (r->builtin == do_adump) {
 		ip = subn->nexti->lasti;
@@ -4272,17 +4290,18 @@ check_funcs()
  
 	for (i = 0; i < HASHSIZE; i++) {
 		for (fp = ftable[i]; fp != NULL; fp = fp->next) {
-			if (fp->defined == 0 && ! fp->extension) {
 #ifdef REALLYMEAN
-				/* making this the default breaks old code. sigh. */
+			/* making this the default breaks old code. sigh. */
+			if (fp->defined == 0 && ! fp->extension) {
 				error(
 		_("function `%s' called but never defined"), fp->name);
 				errcount++;
+			}
 #else
+			if (do_lint && fp->defined == 0 && ! fp->extension)
 				lintwarn(
 		_("function `%s' called but never defined"), fp->name);
 #endif
-			}
 
 			if (do_lint && fp->used == 0 && ! fp->extension) {
 				lintwarn(_("function `%s' defined but never called directly"),
@@ -5193,10 +5212,8 @@ add_lint(INSTRUCTION *list, LINTTYPE linttype)
 				;
 
 			if (do_lint) {		/* compile-time warning */
-#ifndef NO_LINT
 				if (isnoeffect(ip->opcode))
 					lintwarn_ln(ip->source_line, ("statement may have no effect"));
-#endif
 			}
 
 			if (ip->opcode == Op_push) {		/* run-time warning */

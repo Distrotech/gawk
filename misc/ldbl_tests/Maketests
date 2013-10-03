@@ -190,6 +190,11 @@ delfunc:
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
+dfamb1:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
 dfastress:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -201,6 +206,11 @@ dynlj:
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
 eofsplit:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
+exit2:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
@@ -465,6 +475,11 @@ nfldstr:
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
+nfloop:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
 nfneg:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -651,6 +666,11 @@ prt1eval:
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
 prtoeval:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
+randtest:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
@@ -920,6 +940,16 @@ backw:
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
+beginfile2:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
+colonwarn:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
 clos1way:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -1145,6 +1175,11 @@ regx8bit:
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
+reginttrad:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
 rstest6:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -1238,6 +1273,11 @@ asorti:
 fmttest:
 	@echo $@
 	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
+
+mbprintf4:
+	@echo $@
+	@AWKPATH=$(TESTDIR) $(AWK) -f $@.awk  < $(TESTDIR)/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) $(TESTDIR)/$@.ok _$@ && rm -f _$@
 
 rebt8b2:

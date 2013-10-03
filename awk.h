@@ -206,6 +206,10 @@ typedef void *stackoverflow_context_t;
 #define stackoverflow_install_handler(catchstackoverflow, extra_stack, STACK_SIZE) 0
 #endif
 
+#if defined(__EMX__) || defined(__MINGW32__)
+#include "nonposix.h"
+#endif /* defined(__EMX__) || defined(__MINGW32__) */
+
 /* use this as lintwarn("...")
    this is a hack but it gives us the right semantics */
 #define lintwarn (*(set_loc(__FILE__, __LINE__),lintfunc))
@@ -421,6 +425,7 @@ typedef struct exp_node {
 #		define	MPFN	0x0800       /* arbitrary-precision floating-point number */
 #		define	MPZN	0x1000       /* arbitrary-precision integer */
 #		define	NO_EXT_SET 0x2000    /* extension cannot set a value for this variable */
+#		define	NULL_FIELD 0x4000    /* this is the null field */
 
 /* type = Node_var_array */
 #		define	ARRAYMAXED	0x4000       /* array is at max size */
@@ -1155,6 +1160,8 @@ extern bool field0_valid;
 
 extern int do_flags;
 
+extern SRCFILE *srcfiles; /* source files */
+
 enum do_flag_values {
 	DO_LINT_INVALID	= 0x0001,	/* only warn about invalid */
 	DO_LINT_ALL	= 0x0002,	/* warn about all things */
@@ -1399,7 +1406,7 @@ extern NODE *do_aoption(int nargs);
 extern NODE *do_asort(int nargs);
 extern NODE *do_asorti(int nargs);
 extern unsigned long (*hash)(const char *s, size_t len, unsigned long hsize, size_t *code);
-
+extern void init_env_array(NODE *env_node);
 /* awkgram.c */
 extern NODE *variable(int location, char *name, NODETYPE type);
 extern int parse_program(INSTRUCTION **pcode);
@@ -1534,6 +1541,7 @@ extern int ispath(const char *file);
 extern int isdirpunct(int c);
 
 /* io.c */
+extern void init_sockets(void);
 extern void init_io(void);
 extern void register_input_parser(awk_input_parser_t *input_parser);
 extern void register_output_wrapper(awk_output_wrapper_t *wrapper);

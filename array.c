@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -111,12 +111,14 @@ null_array(NODE *symbol)
 	symbol->table_size = symbol->array_size = 0;
 	symbol->array_capacity = 0;
 	symbol->flags = 0;
+
 	assert(symbol->xarray == NULL);
+
 	/* vname, parent_array not (re)initialized */
 }
 
 
-/* null_lookup: assign type to an empty array. */
+/* null_lookup --- assign type to an empty array. */
 
 static NODE **
 null_lookup(NODE *symbol, NODE *subs)
@@ -338,6 +340,7 @@ force_array(NODE *symbol, bool canfatal)
 
 	switch (symbol->type) {
 	case Node_var_new:
+		symbol->xarray = NULL;	/* make sure union is as it should be */
 		null_array(symbol);
 		symbol->parent_array = NULL;	/* main array has no parent */
 		/* fall through */
@@ -818,6 +821,8 @@ asort_actual(int nargs, sort_context_t ctxt)
  		/* source array is empty */
  		if (dest != NULL && dest != array)
  			assoc_clear(dest);
+		if (list != NULL)
+			efree(list);
  		return make_number((AWKNUM) 0);
  	}
 

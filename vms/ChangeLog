@@ -1,3 +1,30 @@
+2013-08-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vms-conf.h (RE_TOKEN_INIT_BUG): Remove define (change of
+	Feb 19 2005) since it's no longer needed.
+
+2013-06-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkmisc.c (init_sockets): New dummy function.
+
+2013-05-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vms-conf.h: Remove obsolete HAVE_ST_BLKSIZE.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2012-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* vmsbuild.com (REL, PATCHLVL): Move to 4.1.0.
+	* descrip.mms (REL, PATCHLVL): Move to 4.1.0.
+	* vms-conf.h (VERSION, PACKAGE_VERSION, PACKAGE_STRING): Move to 4.1.0.
+
+2013-04-19         Anders Wallin         <anders_s_wallin@yahoo.se>
+
+	* vmstest.com: Updated to match main test/Makefile.
+
 2012-12-24         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* 4.0.2: Release tar ball made.

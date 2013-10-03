@@ -2,8 +2,7 @@
    NOTE: getopt is part of the C library, so if you don't know what
    "Keep this file name-space clean" means, talk to drepper@gnu.org
    before changing it!
-   Copyright (C) 1987-1996,1998-2004,2008,2009,2010,2011
-   Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    This file is part of the GNU C Library.
 
    The GNU C Library is free software; you can redistribute it and/or
@@ -58,11 +57,12 @@
 
 /* This needs to come after some library #include
    to get __GNU_LIBRARY__ defined.  */
-#if defined (__GNU_LIBRARY__) || defined (__CYGWIN__) || defined(__DJGPP__)
+#if defined (__GNU_LIBRARY__) || defined (__CYGWIN__) || defined(__DJGPP__) || defined(__APPLE__) || defined(__MINGW32__)
 /* Don't include stdlib.h for
  * non-GNU C libraries
  * non-Cygwin
  * non-DJGPP
+ * non-MinGW
  * because some of them contain conflicting prototypes for getopt.  */
 # include <stdlib.h>
 # include <unistd.h>
@@ -236,7 +236,7 @@ exchange (char **argv, struct _getopt_data *d)
 	{
 	  /* Bottom segment is the short one.  */
 	  int len = middle - bottom;
-	  register int i;
+	  int i;
 
 	  /* Swap it with the top part of the top segment.  */
 	  for (i = 0; i < len; i++)
@@ -253,7 +253,7 @@ exchange (char **argv, struct _getopt_data *d)
 	{
 	  /* Top segment is the short one.  */
 	  int len = top - middle;
-	  register int i;
+	  int i;
 
 	  /* Swap it with the bottom part of the bottom segment.  */
 	  for (i = 0; i < len; i++)
@@ -574,7 +574,7 @@ _getopt_internal_r (int argc, char *const *argv, const char *optstring,
 		     || pfound->flag != p->flag
 		     || pfound->val != p->val)
 	      {
-	      /* Second or later nonexact match found.  */
+		/* Second or later nonexact match found.  */
 		struct option_list *newp = malloc (sizeof (*newp));
 		newp->p = p;
 		newp->needs_free = 1;
@@ -614,19 +614,19 @@ _getopt_internal_r (int argc, char *const *argv, const char *optstring,
 		  fputc_unlocked ('\n', fp);
 
 		  if (__builtin_expect (fclose (fp) != EOF, 1))
-		{
-		  _IO_flockfile (stderr);
+		    {
+		      _IO_flockfile (stderr);
 
-		  int old_flags2 = ((_IO_FILE *) stderr)->_flags2;
-		  ((_IO_FILE *) stderr)->_flags2 |= _IO_FLAGS2_NOTCANCEL;
+		      int old_flags2 = ((_IO_FILE *) stderr)->_flags2;
+		      ((_IO_FILE *) stderr)->_flags2 |= _IO_FLAGS2_NOTCANCEL;
 
-		  __fxprintf (NULL, "%s", buf);
+		      __fxprintf (NULL, "%s", buf);
 
-		  ((_IO_FILE *) stderr)->_flags2 = old_flags2;
-		  _IO_funlockfile (stderr);
+		      ((_IO_FILE *) stderr)->_flags2 = old_flags2;
+		      _IO_funlockfile (stderr);
 
-		  free (buf);
-		}
+		      free (buf);
+		    }
 		}
 #else
 	      fprintf (stderr,
@@ -1106,8 +1106,8 @@ _getopt_internal_r (int argc, char *const *argv, const char *optstring,
 	  }
 
       no_longs:
-	  d->__nextchar = NULL;
-	  return 'W';	/* Let the application handle it.   */
+	d->__nextchar = NULL;
+	return 'W';	/* Let the application handle it.   */
       }
     if (temp[1] == ':')
       {

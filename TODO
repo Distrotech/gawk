@@ -1,4 +1,4 @@
-Sun Dec 16 18:04:50 IST 2012
+Thu May  9 15:31:55 IDT 2013
 ============================
 
 There were too many files tracking different thoughts and ideas for
@@ -24,18 +24,13 @@ Minor Cleanups and Code Improvements
 
 	regex.h - remove underscores in param names
 
-	Add tests for patches in emails (?? - not sure now what this
-	referred to)
-
 	Consider removing use of and/or need for the protos.h file.
-
-	Consider moving var_value info into Node_var itself
-	to reduce memory usage.
-
-	Add macros for working with flags instead of using & and | directly.
 
 	Review the bash source script for working with shared libraries in
 	order to nuke the use of libtool.
+
+	Enhance profiling to save comments in a byte-code that does nothing
+	but that can be used when pretty printing the program.
 
 Minor New Features
 ------------------
@@ -43,6 +38,8 @@ Minor New Features
 	Enhance extension/fork.c waitpid to allow the caller to specify
 	the options.  And add an optional array argument to wait and
 	waitpid in which to return exit status information.
+
+	Add a readfile() function in awk from mail.
 
 	Consider relaxing the strictness of --posix.
 
@@ -53,6 +50,7 @@ Minor New Features
 
 Major New Features
 ------------------
+
 	Think about how to generalize indirect access. Manuel Collado
 	suggests things like
 
@@ -65,11 +63,18 @@ Major New Features
 		indirect calls of extension functions
 		indirect through array elements, not just scalar variables
 
+	Fix the early chapters in the doc with more up-to-date examples.
+	No-one uses Bulletin Board Systems anymore.
+
 	Rework management of array index storage. (Partially DONE.)
 
 	Consider using an atom table for all string array indices.
 
 	DBM storage of awk arrays. Try to allow multiple dbm packages.
+
+	?? Some way to make regexp constants first class citizens
+		- Assign to variables
+		- Pass to functions
 
 	?? A RECLEN variable for fixed-length record input. PROCINFO["RS"]
 	would be "RS" or "RECLEN" depending upon what's in use.
@@ -79,18 +84,19 @@ Major New Features
 
 Things To Think About That May Never Happen
 -------------------------------------------
+
+	Consider making shadowed variables a warning and not
+	a fatal warning when --lint=fatal.
+
+	Similar for extra parameters in a function call.
+
 	?? Scope IDs for IPv6 addresses ??
 
 	??? Gnulib
 
-	Consider making shadowed variables a warning and not
-	a fatal warning when -lint=fatal.
-
-	Similar for extra parameters in a function call.
-
 	Look at code coverage tools, like S2E: https://s2e.epfl.ch/
 	
-	Try running with diehard: http://www.diehard-software.org,
+	Try running with diehard. See http://www.diehard-software.org,
 	https://github.com/emeryberger/DieHard
 
 	Change from dlopen to using the libltdl library (i.e. lt_dlopen).
@@ -208,11 +214,15 @@ Done in 4.1:
 	Consider really implementing BWK awk SYMTAB for seeing what
 	global variables are defined.
 
-Things To Think About That May Never Happen
--------------------------------------------
-
 Things That We Decided We Will Never Do
 ---------------------------------------
+
+	Consider moving var_value info into Node_var itself to reduce
+	memory usage. This would break all uses of get_lhs in the
+	code. It's too sweeping a change.
+
+	Add macros for working with flags instead of using & and |
+	directly.
 
 Code Review
 -----------
