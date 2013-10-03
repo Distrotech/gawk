@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2012 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -490,7 +490,6 @@ do_length(int nargs)
 	DEREF(tmp);
 	return make_number((AWKNUM) len);
 }
-
 
 /* printf_common --- common code for sprintf and printf */
 
@@ -1058,7 +1057,7 @@ do_print_rec(int nargs, int redirtype)
 
 	f0 = fields_arr[0];
 
-	if (do_lint && f0 == Nnull_string)
+	if (do_lint && (f0->flags & NULL_FIELD) != 0)
 		lintwarn(_("reference to uninitialized field `$%d'"), 0);
 
 	efwrite(f0->stptr, sizeof(char), f0->stlen, fp, "print", rp, false);
@@ -1204,7 +1203,6 @@ do_toupper(int nargs)
 	DEREF(t1);
 	return t2;
 }
-
 
 /* do_match --- match a regexp, set RSTART and RLENGTH,
  * 	optional third arg is array filled with text of
@@ -1747,13 +1745,16 @@ set_how_many:
 done:
 	DEREF(s);
 
-	if ((matches == 0 || (flags & LITERAL) != 0) && buf != NULL)
+	if ((matches == 0 || (flags & LITERAL) != 0) && buf != NULL) {
 		efree(buf); 
+		buf = NULL;
+	}
 
 	if (flags & GENSUB) {
 		if (matches > 0) {
 			/* return the result string */
 			DEREF(t);
+			assert(buf != NULL);
 			return make_str_node(buf, textlen, ALREADY_MALLOCED);	
 		}
 

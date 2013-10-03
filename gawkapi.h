@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 2012, the Free Software Foundation, Inc.
+ * Copyright (C) 2012, 2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -263,7 +263,7 @@ typedef struct awk_two_way_processor {
 
 /* Current version of the API. */
 enum {
-	GAWK_API_MAJOR_VERSION = 0,
+	GAWK_API_MAJOR_VERSION = 1,
 	GAWK_API_MINOR_VERSION = 0
 };
 
@@ -343,7 +343,7 @@ typedef struct awk_element {
 		AWK_ELEMENT_DELETE = 1		/* set by extension if
 						   should be deleted */
 	} flags;
-	awk_value_t	index;
+	awk_value_t	index;			/* guaranteed to be a string! */
 	awk_value_t	value;
 } awk_element_t;
 

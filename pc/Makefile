@@ -68,6 +68,9 @@ MAK = $(MAKE) $(MAKEFILE)
 #prefix =
 prefix = c:/gnu
 pkgdatadir = $(prefix)/lib/awk
+pkgextensiondir = $(prefix)/lib/gawk
+DEFLIBPATH = "\"$(pkgextensiondir)\""
+SHLIBEXT = "\"dll\""
 #
 # Define the install method. Method 1 is Unix-like (and requires cat
 # and cp); method 2 uses gawk and batch files.
@@ -155,41 +158,43 @@ LMINGW32 = $(CC) $(LF) -o $@ $(GAWKOBJS) $(LF2)
 mingw32:
 	$(MAK) all \
 	CC=gcc O=.o CF="-D__USE_MINGW_ANSI_STDIO -O2 -gdwarf-2 -g3" \
-	OBJ=popen.o LNK=LMINGW32 LF="-gdwarf-2 -g3" LF2=-lmsvcp60 RSP=
+	OBJ=popen.o LNK=LMINGW32 LF="-gdwarf-2 -g3" \
+        LF2="-lws2_32 -lmsvcp60" RSP=
 
 mingw32-readline:
 	$(MAK) all \
 	CC=gcc O=.o \
 	CF="-D__USE_MINGW_ANSI_STDIO -DHAVE_LIBREADLINE -O2 -gdwarf-2 -g3" \
 	OBJ=popen.o LNK=LMINGW32 LF="-gdwarf-2 -g3" \
-	LF2="-lreadline -lmsvcp60 -Wl,--enable-auto-import" RSP=
+	LF2="-lreadline -lws2_32 -lmsvcp60 -Wl,--enable-auto-import" RSP=
 
 mingw32-mpfr:
 	$(MAK) all \
 	CC=gcc O=.o \
 	CF="-D__USE_MINGW_ANSI_STDIO -DHAVE_MPFR -O2 -gdwarf-2 -g3" \
 	OBJ=popen.o LNK=LMINGW32 LF="-gdwarf-2 -g3" \
-	LF2="-lmpfr -lgmp -lmsvcp60 -Wl,--enable-auto-import" RSP=
+	LF2="-lmpfr -lgmp -lws2_32 -lmsvcp60 -Wl,--enable-auto-import" RSP=
 
 mingw32-readline-mpfr:
 	$(MAK) all \
 	CC=gcc O=.o \
 	CF="-D__USE_MINGW_ANSI_STDIO -DHAVE_LIBREADLINE -DHAVE_MPFR -O2 -gdwarf-2 -g3" \
 	OBJ=popen.o LNK=LMINGW32 LF="-gdwarf-2 -g3" \
-	LF2="-lmpfr -lgmp -lreadline -lmsvcp60 -Wl,--enable-auto-import" RSP=
+	LF2="-lmpfr -lgmp -lreadline -lws2_32 -lmsvcp60 -Wl,--enable-auto-import" RSP=
 
 # Define BIND for BINDless compiles, otherwise $($(BIND)) may break.
 BIND = EMPTY
 PBIND = EMPTY
 EMPTY=
 
-CFLAGS = $(CF) -DGAWK -I. -DHAVE_CONFIG_H
+CFLAGS = $(CF) -DGAWK -I. -DHAVE_CONFIG_H -DDEFLIBPATH=$(DEFLIBPATH) -DSHLIBEXT=$(SHLIBEXT)
 
 # object files
 AWKOBJS1  = array$O builtin$O eval$O field$O floatcomp$O gawkmisc$O io$O main$O
 AWKOBJS2  = ext$O msg$O node$O profile$O re$O replace$O version$O symbol$O
 AWKOBJS3  = debug$O cint_array$O int_array$O mpfr$O str_array$O command$O
-AWKOBJS = $(AWKOBJS1) $(AWKOBJS2) $(AWKOBJS3)
+AWKOBJS4  = gawkapi$O
+AWKOBJS = $(AWKOBJS1) $(AWKOBJS2) $(AWKOBJS3) $(AWKOBJS4)
 
 ALLOBJS = $(AWKOBJS) awkgram$O getid$O $(OBJ)
 
@@ -216,6 +221,8 @@ gawk.exe:: $(GAWKOBJS) $(RSP)
 $(RSPFILE) : $(GAWKOBJS)
 	echo $(AWKOBJS1)$P > $@
 	echo $(AWKOBJS2)$P >> $@
+	echo $(AWKOBJS3)$P >> $@
+	echo $(AWKOBJS4)$P >> $@
 	echo awkgram$O getid$O $(OBJ) $(LIBOBJS)$P >> $@
 
 # Notes to dependencies:
@@ -236,11 +243,11 @@ command$O debug$O:	cmd.h
 
 dfa$O:		xalloc.h
 
-gawkmisc$O:	pc/gawkmisc.pc
+gawkmisc$O:	pc/gawkmisc.pc socket.h
 
 getopt$O getopt1$O :	getopt_int.h
 
-io$O:		popen.h
+io$O:		popen.h socket.h in.h
 
 regex$O:	regcomp.c regexec.c regex_internal.h
 
@@ -255,8 +262,10 @@ awkgram.c:	awkgram.y
 
 alloca$O:	alloca.c
 
+popen$O:	popen.h
 
 install: install$(install)
+	-$(MAKE) -C extension install-extensions
 
 install1:
 	echo extproc sh $(prefix)/bin/igawk.cmd > igawk.cmd
@@ -280,6 +289,7 @@ install2:
 
 install-strip: install$(install)
 	strip "$(prefix)/bin"/*.exe
+	-$(MAKE) -C extension $@
 
 clean:
 	-rm -rf gawk *.exe gawk.map *.o *.obj core a.out $(RSPFILE) $(PRSPFILE) $(DRSPFILE) $(DYN_EXP)

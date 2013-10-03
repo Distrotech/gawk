@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2012
+ * Copyright (C) 2012, 2013
  * the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
@@ -60,6 +60,10 @@ int plugin_is_GPL_compatible;
 #endif
 #if defined(HAVE_NANOSLEEP) && defined(HAVE_TIME_H)
 #include <time.h>
+#endif
+#if defined(HAVE_GETSYSTEMTIMEASFILETIME)
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #endif
 
 /*
@@ -160,10 +164,17 @@ do_sleep(int nargs, awk_value_t *result)
 			/* probably interrupted */
 			update_ERRNO_int(errno);
 	}
+#elif defined(HAVE_GETSYSTEMTIMEASFILETIME)
+	{
+		DWORD milliseconds = secs * 1000;
+
+		Sleep (milliseconds);
+		rc = 0;
+	}
 #else
 	/* no way to sleep on this platform */
 	rc = -1;
-	update_ERRNO_str(_("sleep: not supported on this platform"));
+	update_ERRNO_string(_("sleep: not supported on this platform"));
 #endif
 
 	return make_number(rc, result);

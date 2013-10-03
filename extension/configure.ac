@@ -1,7 +1,7 @@
 dnl
 dnl configure.ac --- autoconf input file for gawk
 dnl
-dnl Copyright (C) 2012 the Free Software Foundation, Inc.
+dnl Copyright (C) 2012, 2013 the Free Software Foundation, Inc.
 dnl
 dnl This file is part of GAWK, the GNU implementation of the
 dnl AWK Programming Language.
@@ -23,7 +23,7 @@ dnl
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([GNU Awk Bundled Extensions], 4.0.73, bug-gawk@gnu.org, gawk-extensions)
+AC_INIT([GNU Awk Bundled Extensions], 4.1.0, bug-gawk@gnu.org, gawk-extensions)
 
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_AUX_DIR([build-aux])
@@ -38,6 +38,8 @@ AM_INIT_AUTOMAKE([-Wall -Werror])
 AM_GNU_GETTEXT([external])
 AM_GNU_GETTEXT_VERSION([0.18.1])
 
+dnl checks for structure members
+AC_CHECK_MEMBERS([struct stat.st_blksize])
 
 AM_PROG_AR
 AC_SYS_LARGEFILE
@@ -64,7 +66,8 @@ else
 	AC_MSG_RESULT([no])
 fi
 
-AC_CHECK_HEADERS(dirent.h fnmatch.h time.h sys/time.h sys/select.h)
+AC_HEADER_MAJOR
+AC_CHECK_HEADERS(dirent.h fnmatch.h limits.h time.h sys/time.h sys/select.h sys/param.h)
 
 AC_CHECK_FUNCS(fdopendir fnmatch gettimeofday \
 		getdtablesize nanosleep select GetSystemTimeAsFileTime)
@@ -78,4 +81,15 @@ AC_C_INLINE
 AC_CONFIG_HEADERS([config.h:configh.in])
 
 AC_CONFIG_FILES(Makefile)
+AC_OUTPUT_COMMANDS([
+case `uname` in
+MirBSD | MirOS | "OS/390")
+	cat << \EOF > Makefile
+all dist check clean distclean install uninstall distcheck:
+	@exit 0
+EOF
+	;;
+*)
+esac
+])dnl
 AC_OUTPUT

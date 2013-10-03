@@ -268,6 +268,17 @@ main(int argc, char **argv)
 	 */
 	gawk_mb_cur_max = MB_CUR_MAX;
 	/* Without MBS_SUPPORT, gawk_mb_cur_max is 1. */
+#ifdef LIBC_IS_BORKED
+{
+	const char *env_lc;
+
+	env_lc = getenv("LC_ALL");
+	if (env_lc == NULL)
+		env_lc = getenv("LANG");
+	if (env_lc != NULL && env_lc[1] == '\0' && tolower(env_lc[0]) == 'c')
+		gawk_mb_cur_max = 1;
+}
+#endif
 
 	/* init the cache for checking bytes if they're characters */
 	init_btowc_cache();
@@ -706,6 +717,9 @@ out:
 
 	if (do_debug)
 		debug_prog(code_block);
+	else if (do_pretty_print && ! do_debug && getenv("GAWK_NO_PP_RUN") != NULL)
+		/* hack to run pretty printer only. need a better solution */
+		;
 	else
 		interpret(code_block);
 
@@ -1079,6 +1093,10 @@ load_environ()
 	 */
 	path_environ("AWKPATH", defpath);
 	path_environ("AWKLIBPATH", deflibpath);
+
+	/* set up array functions */
+	init_env_array(ENVIRON_node);
+
 	return ENVIRON_node;
 }
 
@@ -1108,6 +1126,11 @@ load_procinfo()
 
 	if (numbr_hndlr != & awknum_hndlr && numbr_hndlr->load_procinfo)
 		numbr_hndlr->load_procinfo();
+
+#ifdef DYNAMIC
+	update_PROCINFO_num("api_major", GAWK_API_MAJOR_VERSION);
+	update_PROCINFO_num("api_minor", GAWK_API_MINOR_VERSION);
+#endif
 
 #ifdef GETPGRP_VOID
 #define getpgrp_arg() /* nothing */

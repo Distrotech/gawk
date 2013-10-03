@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2011 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -150,10 +150,14 @@ cint_array_init(NODE *symbol ATTRIBUTE_UNUSED, NODE *subs ATTRIBUTE_UNUSED)
 {
 	if (symbol == NULL) {
 		long newval;
+		size_t nelems = (sizeof(power_two_table) / sizeof(power_two_table[0]));
 
 		/* check relevant environment variables */
 		if ((newval = getenv_long("NHAT")) > 1 && newval < INT32_BIT)
 			NHAT = newval;
+		/* don't allow overflow off the end of the table */
+		if (NHAT >= nelems)
+			NHAT = nelems - 2;
 		THRESHOLD = power_two_table[NHAT + 1];
 	} else
 		null_array(symbol);

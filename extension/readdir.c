@@ -10,7 +10,7 @@
  */
 
 /*
- * Copyright (C) 2012 the Free Software Foundation, Inc.
+ * Copyright (C) 2012, 2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -44,15 +44,24 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef HAVE_LIMITS_H
+#include <limits.h>
+#endif
+
 #ifdef HAVE_DIRENT_H
 #include <dirent.h>
 #else
 #error Cannot compile the dirent extension on this system!
 #endif
 
-#include "gawkdirfd.h"
+#ifdef __MINGW32__
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
 
 #include "gawkapi.h"
+
+#include "gawkdirfd.h"
 
 #include "gettext.h"
 #define _(msgid)  gettext(msgid)
@@ -77,9 +86,10 @@ typedef struct open_directory {
 /* ftype --- return type of file as a single character string */
 
 static const char *
-ftype(struct dirent *entry)
+ftype(struct dirent *entry, const char *dirname)
 {
 #ifdef DT_BLK
+	(void) dirname;		/* silence warnings */
 	switch (entry->d_type) {
 	case DT_BLK:	return "b";
 	case DT_CHR:	return "c";
@@ -92,7 +102,65 @@ ftype(struct dirent *entry)
 	case DT_UNKNOWN: return "u";
 	}
 #else
+	char fname[PATH_MAX];
+	struct stat sbuf;
+
+	strcpy(fname, dirname);
+	strcat(fname, "/");
+	strcat(fname, entry->d_name);
+	if (stat(fname, &sbuf) == 0) {
+		if (S_ISBLK(sbuf.st_mode))
+			return "b";
+		if (S_ISCHR(sbuf.st_mode))
+			return "c";
+		if (S_ISDIR(sbuf.st_mode))
+			return "d";
+		if (S_ISFIFO(sbuf.st_mode))
+			return "p";
+		if (S_ISREG(sbuf.st_mode))
+			return "f";
+#ifdef S_ISLNK
+		if (S_ISLNK(sbuf.st_mode))
+			return "l";
+#endif
+#ifdef S_ISSOCK
+		if (S_ISSOCK(sbuf.st_mode))
+			return "s";
+#endif
+	}
 	return "u";
+#endif
+}
+
+/* get_inode --- get the inode of a file */
+#ifdef ZOS_USS
+static long
+#else
+static long long
+#endif
+get_inode(struct dirent *entry, const char *dirname)
+{
+#ifdef __MINGW32__
+	char fname[PATH_MAX];
+	HANDLE fh;
+	BY_HANDLE_FILE_INFORMATION info;
+
+	sprintf(fname, "%s\\%s", dirname, entry->d_name);
+	fh = CreateFile(fname, 0, 0, NULL, OPEN_EXISTING,
+			FILE_FLAG_BACKUP_SEMANTICS, NULL);
+	if (fh == INVALID_HANDLE_VALUE)
+		return 0;
+	if (GetFileInformationByHandle(fh, &info)) {
+		long long inode = info.nFileIndexHigh;
+
+		inode <<= 32;
+		inode += info.nFileIndexLow;
+		return inode;
+	}
+	return 0;
+#else
+	(void) dirname;		/* silence warnings */
+	return entry->d_ino;
 #endif
 }
 
@@ -107,6 +175,11 @@ dir_get_record(char **out, awk_input_buf_t *iobuf, int *errcode,
 	int len;
 	open_directory_t *the_dir;
 	const char *ftstr;
+#ifdef ZOS_USS
+	unsigned long ino;
+#else
+	unsigned long long ino;
+#endif
 
 	/*
 	 * The caller sets *errcode to 0, so we should set it only if an
@@ -129,21 +202,22 @@ dir_get_record(char **out, awk_input_buf_t *iobuf, int *errcode,
 		return EOF;
 	}
 
-#ifdef ZOS_USS
-	len = sprintf(the_dir->buf, "%lu/%s",
-			(unsigned long) dirent->d_ino,
-			dirent->d_name);
+	ino = get_inode (dirent, iobuf->name);
+
+#if defined(ZOS_USS)
+	len = sprintf(the_dir->buf, "%lu/%s", ino, dirent->d_name);
+#elif __MINGW32__
+	len = sprintf(the_dir->buf, "%I64u/%s", ino, dirent->d_name);
 #else
-	len = sprintf(the_dir->buf, "%llu/%s",
-			(unsigned long long) dirent->d_ino,
-			dirent->d_name);
+	len = sprintf(the_dir->buf, "%llu/%s", ino, dirent->d_name);
 #endif
 
-	ftstr = ftype(dirent);
+	ftstr = ftype(dirent, iobuf->name);
 	len += sprintf(the_dir->buf + len, "/%s", ftstr);
 
 	*out = the_dir->buf;
 
+	*rt_start = NULL;
 	*rt_len = 0;	/* set RT to "" */
 	return len;
 }

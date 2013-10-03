@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 2004, 2010, 2011 the Free Software Foundation, Inc.
+ * Copyright (C) 2004, 2010-2013 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -108,6 +108,12 @@ static BREAKPOINT breakpoints = { &breakpoints, &breakpoints, 0 };
 /* do_save -- save command */
 static int sess_history_base = 0;
 #endif
+
+#ifndef HAVE_HISTORY_LIST
+#define HIST_ENTRY void
+#define history_list()	NULL
+#endif
+
 
 /* 'list' command */
 static int last_printed_line = 0;
@@ -536,6 +542,9 @@ print_lines(char *src, int start_line, int nlines)
 			return -1;
 		}
 	}
+
+	/* set binary mode so that byte offset calculations will be right */
+	os_setbinmode(s->fd, O_BINARY);
 
 	if (s->line_offset == NULL && find_lines(s) != 0)
 		return -1;
@@ -2060,12 +2069,18 @@ find_rule(char *src, long lineno)
 {
 	INSTRUCTION *rp;
 
-	assert(lineno > 0);
-	for (rp = rule_list->nexti; rp != NULL; rp = rp->nexti) {
-		if ((rp - 1)->source_file == src
-				&& lineno >= (rp + 1)->first_line
-				&& lineno <= (rp + 1)->last_line)
-			return (rp - 1);
+	if (lineno == 0) {
+		for (rp = rule_list->nexti; rp != NULL; rp = rp->nexti) {
+			if ((rp - 1)->source_file == src && (rp - 1)->source_line > 0)
+				return (rp - 1);
+		}
+	} else {
+		for (rp = rule_list->nexti; rp != NULL; rp = rp->nexti) {
+			if ((rp - 1)->source_file == src
+					&& lineno >= (rp + 1)->first_line
+					&& lineno <= (rp + 1)->last_line)
+				return (rp - 1);
+		}
 	}
 	return NULL;
 }
@@ -3654,42 +3669,42 @@ static void
 print_memory(NODE *m, NODE *func, Func_print print_func, FILE *fp)
 {
 	switch (m->type) {
-		case Node_val:
-			if (m == Nnull_string)
-				print_func(fp, "Nnull_string");
-			else if ((m->flags & NUMBER) != 0)
-				print_func(fp, "%s", fmt_number("%0.17g", m));
-			else if ((m->flags & STRING) != 0)
-				pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
-			else if ((m->flags & NUMCUR) != 0)
-				print_func(fp, "%s", fmt_number("%0.17g", m));
-			else if ((m->flags & STRCUR) != 0)
-				pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
-			else
-				print_func(fp, "-?-");
-			print_func(fp, " [%s]", flags2str(m->flags));
-			break;
+	case Node_val:
+		if (m == Nnull_string)
+			print_func(fp, "Nnull_string");
+		else if ((m->flags & NUMBER) != 0)
+			print_func(fp, "%s", fmt_number("%0.17g", m));
+		else if ((m->flags & STRING) != 0)
+			pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
+		else if ((m->flags & NUMCUR) != 0)
+			print_func(fp, "%s", fmt_number("%0.17g", m));
+		else if ((m->flags & STRCUR) != 0)
+			pp_string_fp(print_func, fp, m->stptr, m->stlen, '"', false);
+		else
+			print_func(fp, "-?-");
+		print_func(fp, " [%s]", flags2str(m->flags));
+		break;
 
-		case Node_regex:
-			pp_string_fp(print_func, fp, m->re_exp->stptr, m->re_exp->stlen, '/', false);
-			break;
+	case Node_regex:
+		pp_string_fp(print_func, fp, m->re_exp->stptr, m->re_exp->stlen, '/', false);
+		break;
 
-		case Node_dynregex:
-			break;
-			
-		case Node_param_list:
-			assert(func != NULL);
-			print_func(fp, "%s", func->fparms[m->param_cnt].param);
-			break;
+	case Node_dynregex:
+		break;
+		
+	case Node_param_list:
+		assert(func != NULL);
+		print_func(fp, "%s", func->fparms[m->param_cnt].param);
+		break;
 
-		case Node_var:
-		case Node_var_new:
-		case Node_var_array:
-			print_func(fp, "%s", m->vname);
-			break;
+	case Node_var:
+	case Node_var_new:
+	case Node_var_array:
+		print_func(fp, "%s", m->vname);
+		break;
 
-		default:
-			print_func(fp, "?");  /* can't happen */
+	default:
+		print_func(fp, "?");  /* can't happen */
 	}
 }
 
@@ -4036,7 +4051,7 @@ do_dump_instructions(CMDARG *arg, int cmd ATTRIBUTE_UNUSED)
 int
 do_save(CMDARG *arg, int cmd ATTRIBUTE_UNUSED)
 {
-#ifdef HAVE_LIBREADLINE
+#if defined(HAVE_LIBREADLINE) && defined(HAVE_HISTORY_LIST)
 	FILE *fp;
 	HIST_ENTRY **hist_list;
 	int i;
@@ -4260,11 +4275,6 @@ serialize_subscript(char *buf, int buflen, struct list_item *item)
 static void
 serialize(int type)
 {
-#ifndef HAVE_LIBREADLINE
-#define HIST_ENTRY void
-#define history_list()	NULL
-#endif
-
 	static char *buf = NULL;
 	static int buflen = 0;
 	int bl;
@@ -4378,7 +4388,7 @@ enlarge_buffer:
 			cndn = &wd->cndn;
 			break;
 		case HISTORY:
-#ifdef HAVE_LIBREADLINE
+#if defined(HAVE_LIBREADLINE) && defined(HAVE_HISTORY_LIST)
 			h = (HIST_ENTRY *) ptr;
 			nchar = strlen(h->line);
 			if (nchar >= buflen - bl)

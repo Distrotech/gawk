@@ -71,6 +71,17 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 #endif
 */
 
+#ifndef MAX
+static int MAX(int x, int y)
+{
+	if (x > y)
+		return x;
+
+	return y;
+}
+#endif
+
+
 static FTSENT	*fts_alloc(FTS *, const char *, size_t);
 static FTSENT	*fts_build(FTS *, int);
 static void	 fts_free(FTSENT *);
@@ -543,7 +554,7 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 int
 fts_set(FTS *sp, FTSENT *p, int instr)
 {
-
+	(void) sp;	/* silence warnings */
 	_DIAGASSERT(sp != NULL);
 	_DIAGASSERT(p != NULL);
 
