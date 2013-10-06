@@ -1240,11 +1240,6 @@ fmttest:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
-mbprintf4:
-	@echo $@
-	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
-	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
-
 rebt8b2:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@

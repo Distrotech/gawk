@@ -1539,6 +1539,12 @@ mbprintf3::
 	$(AWK) -f "$(TESTDIR)"/$@.awk "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >> _$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
+mbprintf4::
+	@echo $@
+	@GAWKLOCALE=en_US.UTF-8 ; export GAWKLOCALE ; \
+	$(AWK) -f "$(TESTDIR)"/$@.awk "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >> _$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
 mbfw1::
 	@echo $@
 	@GAWKLOCALE=en_US.UTF-8 ; export GAWKLOCALE ; \

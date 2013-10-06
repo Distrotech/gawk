@@ -1,3 +1,10 @@
+2013-10-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* long_double.h (do_rand): Sync code with master code for
+	regular doubles.
+
+	Make tests in misc/ldbl_tests work.
+
 2013-02-09         John Haque      <j.eh@mchsi.com>
 
 	* main.c (main): Added GAWK_FLOAT env. variable.
