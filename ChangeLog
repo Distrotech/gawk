@@ -1,3 +1,67 @@
+2013-10-17         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* main.c (main): Ignore SIGPIPE. See the comment in the code.
+	Thanks to Alan Broder for reporting the issue.
+
+	Unrelated:
+
+	* rand.c (do_rand): Fix computation and loop checking against
+	1.0 to use do..while.
+
+2013-10-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Make -O work again.  Turns out that C99 bool variables
+	are clamped to zero or one.
+
+	* main.c (do_optimize): Init to false.
+	(main): Set do_optimize to true on -O.
+	* eval.c (setup_frame): Change all uses of do_optimize to be
+	a boolean check instead of a test > 1.
+	* awkgram.y: Ditto.
+	(optimize_assignment): Remove check against do_optimize since
+	it was inited to true anyway.
+
+	Unrelated:
+
+	* re.c (resetup): Add a comment about the joy of syntax bits.
+
+	Unrelated:
+
+	* builtin.c (do_rand): If result is exactly 1.0, keep trying.
+	Thanks to Nelson Beebe.
+
+2013-10-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c (lex): Sync with GNU grep. Handle multibyte \s and \S.
+
+	Unrelated:
+
+	* awk.h [ARRAY_MAXED]: Fix value of this and subsequent flags
+	after addition of NULL_FIELD.
+	* eval.c (flags2str): Add NULL_FIELD. Duh.
+
+2013-10-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (mk_assignment): Rework switch to handle Op_assign,
+	and to provide a better error message upon unknown opcode.
+
+2013-09-28         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNU grep.
+
+2013-09-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (do_rand): Make the result more random by calling
+	random() twice. See the comment in the code. Thanks to
+	Bob Jewett <jewett@bill.scs.agilent.com> for the report and
+	the fix.
+
+2013-09-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* debug.c (find_rule): Handle case where lineno is zero. Can happen
+	if break is given without a line number on a current line. Thanks
+	to Ray Song <i@maskray.me> for the report.
+
 2013-09-19         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* dfa.c (parse_bracket_exp): Use code from grep to keep things within

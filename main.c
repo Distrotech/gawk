@@ -133,7 +133,7 @@ static bool disallow_var_assigns = false;	/* true for --exec */
 static void add_preassign(enum assign_type type, char *val);
 
 int do_flags = false;
-bool do_optimize = true;		/* apply default optimizations */
+bool do_optimize = false;		/* apply default optimizations */
 static int do_nostalgia = false;	/* provide a blast from the past */
 static int do_binary = false;		/* hands off my data! */
 static int do_version = false;		/* print version info */
@@ -283,6 +283,14 @@ main(int argc, char **argv)
 	(void) signal(SIGFPE, catchsig);
 #ifdef SIGBUS
 	(void) signal(SIGBUS, catchsig);
+#endif
+#ifdef SIGPIPE
+	/*
+	 * Ignore SIGPIPE so that writes to pipes that fail don't
+	 * kill the process but instead return -1 and set errno.
+	 * That lets us print a fatal message instead of dieing suddenly.
+	 */
+	signal(SIGPIPE, SIG_IGN);
 #endif
 
 	(void) sigsegv_install_handler(catchsegv);
@@ -438,7 +446,7 @@ main(int argc, char **argv)
 			break;
 
 		case 'O':
-			do_optimize++;
+			do_optimize = true;
 			break;
 
 		case 'p':

@@ -112,7 +112,15 @@ EXTRA_DIST = \
 	backw.awk \
 	backw.in \
 	backw.ok \
+	backbigs1.awk \
+	backbigs1.in \
+	backbigs1.ok \
+	backsmalls1.awk \
+	backsmalls1.in \
+	backsmalls1.ok \
 	badargs.ok \
+	badassign1.awk \
+	badassign1.ok \
 	beginfile1.awk \
 	beginfile1.ok \
 	beginfile2.in \
@@ -645,6 +653,8 @@ EXTRA_DIST = \
 	pipeio2.awk \
 	pipeio2.in \
 	pipeio2.ok \
+	pipeio3.awk \
+	pipeio3.ok \
 	posix.awk \
 	posix.in \
 	posix.ok \
@@ -691,6 +701,8 @@ EXTRA_DIST = \
 	rand-mpfr.ok \
 	rand.awk \
 	rand.ok \
+	randtest.sh \
+	randtest.ok \
 	range1.awk \
 	range1.in \
 	range1.ok \
@@ -931,6 +943,7 @@ BASIC_TESTS = \
 	arynocls aryprm1 aryprm2 aryprm3 aryprm4 aryprm5 aryprm6 aryprm7 \
 	aryprm8 arysubnm asgext awkpath \
 	back89 backgsub \
+	badassign1 \
 	childin clobber closebad clsflnam compare compare2 concat1 concat2 \
 	concat3 concat4 convfmt \
 	datanonl defref delargv delarpm2 delarprm delfunc dfamb1 dfastress dynlj \
@@ -952,7 +965,7 @@ BASIC_TESTS = \
 	paramdup paramres paramtyp paramuninitglobal parse1 parsefld parseme \
 	pcntplus posix2008sub prdupval prec printf0 printf1 prmarscl prmreuse \
 	prt1eval prtoeval \
-	rand range1 rebt8b1 redfilnm regeq regexprange regrange reindops \
+	rand randtest range1 rebt8b1 redfilnm regeq regexprange regrange reindops \
 	reparse resplit rri1 rs rsnul1nl rsnulbig rsnulbig2 rstest1 rstest2 \
 	rstest3 rstest4 rstest5 rswhite \
 	scalar sclforin sclifin sortempty splitargv splitarr splitdef \
@@ -963,8 +976,8 @@ BASIC_TESTS = \
 	zero2 zeroe0 zeroflag
 
 UNIX_TESTS = \
-	fflush getlnhd localenl pid pipeio1 pipeio2 poundbang rtlen rtlen01 \
-	space strftlng
+	fflush getlnhd localenl pid pipeio1 pipeio2 pipeio3 poundbang \
+	rtlen rtlen01 space strftlng
 
 GAWK_EXT_TESTS = \
 	aadelete1 aadelete2 aarray1 aasort aasorti argtest arraysort \
@@ -995,7 +1008,8 @@ MACHINE_TESTS = double1 double2 fmtspcl intformat
 MPFR_TESTS = mpfrnr mpfrrnd mpfrieee mpfrexprange mpfrsort mpfrbigint
 
 LOCALE_CHARSET_TESTS = \
-	asort asorti fmttest fnarydel fnparydl jarebug lc_num1 mbfw1 \
+	asort asorti backbigs1 backsmalls1 \
+	fmttest fnarydel fnparydl jarebug lc_num1 mbfw1 \
 	mbprintf1 mbprintf2 mbprintf3 mbprintf4 rebt8b2 rtlenmb sort1 sprintfc
 
 SHLIB_TESTS = \
@@ -1853,6 +1867,24 @@ clos1way:
 	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
 
 dfamb1:
+	@echo $@
+	@[ -z "$$GAWKLOCALE" ] && GAWKLOCALE=en_US.UTF-8; \
+	AWKPATH="$(srcdir)" $(AWK) -f $@.awk "$(srcdir)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
+
+
+randtest::
+	@echo $@
+	@GAWK="$(AWKPROG)" "$(srcdir)"/randtest.sh >_$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
+
+backbigs1:
+	@echo $@
+	@[ -z "$$GAWKLOCALE" ] && GAWKLOCALE=en_US.UTF-8; \
+	AWKPATH="$(srcdir)" $(AWK) -f $@.awk "$(srcdir)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
+
+backsmalls1:
 	@echo $@
 	@[ -z "$$GAWKLOCALE" ] && GAWKLOCALE=en_US.UTF-8; \
 	AWKPATH="$(srcdir)" $(AWK) -f $@.awk "$(srcdir)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
