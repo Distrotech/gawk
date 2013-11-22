@@ -29,7 +29,7 @@ AC_DEFUN([GAWK_CHECK_READLINE],
         LDFLAGS="${LDFLAGS} -L$withval/lib"
      fi
 
-     for _termcap in "" "-ltermcap" "-lcurses" "-lncurses" ; do
+     for _termcap in "" "-ltermcap" "-lcurses" "-lncurses" "-ltinfo"; do
         _readline_save_libs=$LIBS
         _combo="-lreadline${_termcap:+ $_termcap}"
         LIBS="$LIBS $_combo"

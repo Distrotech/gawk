@@ -355,6 +355,9 @@ GAWK_AC_LIB_SOCKETS
 dnl check for readline support
 GAWK_CHECK_READLINE
 
+dnl check for tinfo support (static build)
+AC_CHECK_LIB(tinfo, tputs)
+
 dnl check for mpfr support
 GNUPG_CHECK_MPFR
 
