@@ -1,6 +1,10 @@
-2013-08-22         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+2013-12-23         Andrew J. Schorr     <aschorr@telemetry-investments.com>
 
 	* ltmain.sh: Remove libtool support.
+
+2013-12-21         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* ltmain.sh: Updated to libtool 2.4.2.418.
 
 2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
 

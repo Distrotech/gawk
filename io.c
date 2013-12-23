@@ -116,6 +116,10 @@
 #define ENFILE EMFILE
 #endif
 
+#if defined(__DJGPP__)
+#define closemaybesocket(fd)	close(fd)
+#endif
+
 #if defined(VMS)
 #define closemaybesocket(fd)	close(fd)
 #endif
@@ -947,7 +951,10 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 			/* Alpha/VMS V7.1's C RTL is returning this instead
 			   of EMFILE (haven't tried other post-V6.2 systems) */
 #define SS$_EXQUOTA 0x001C
-			else if (errno == EIO && vaxc$errno == SS$_EXQUOTA)
+#define SS$_EXBYTLM 0x2a14  /* VMS 8.4 seen */
+			else if (errno == EIO && 
+                                 (vaxc$errno == SS$_EXQUOTA ||
+                                  vaxc$errno == SS$_EXBYTLM))
 				close_one();
 #endif
 			else {
@@ -1261,12 +1268,15 @@ flush_io()
 	int status = 0;
 
 	errno = 0;
+	/* we don't warn about stdout/stderr if EPIPE, but we do error exit */
 	if (fflush(stdout)) {
-		warning(_("error writing standard output (%s)"), strerror(errno));
+		if (errno != EPIPE)
+			warning(_("error writing standard output (%s)"), strerror(errno));
 		status++;
 	}
 	if (fflush(stderr)) {
-		warning(_("error writing standard error (%s)"), strerror(errno));
+		if (errno != EPIPE)
+			warning(_("error writing standard error (%s)"), strerror(errno));
 		status++;
 	}
 	for (rp = red_head; rp != NULL; rp = rp->next)
@@ -1316,13 +1326,16 @@ close_io(bool *stdio_problem)
 	 * them, we just flush them, and do that across the board.
 	 */
 	*stdio_problem = false;
-	if (fflush(stdout)) {
-		warning(_("error writing standard output (%s)"), strerror(errno));
+	/* we don't warn about stdout/stderr if EPIPE, but we do error exit */
+	if (fflush(stdout) != 0) {
+		if (errno != EPIPE)
+			warning(_("error writing standard output (%s)"), strerror(errno));
 		status++;
 		*stdio_problem = true;
 	}
-	if (fflush(stderr)) {
-		warning(_("error writing standard error (%s)"), strerror(errno));
+	if (fflush(stderr) != 0) {
+		if (errno != EPIPE)
+			warning(_("error writing standard error (%s)"), strerror(errno));
 		status++;
 		*stdio_problem = true;
 	}
@@ -2626,7 +2639,10 @@ do_find_source(const char *src, struct stat *stb, int *errcode, path_info *pi)
 			return NULL;
 		}
 		erealloc(path, char *, strlen(path) + strlen(src) + 2, "do_find_source");
-#ifndef VMS
+#ifdef VMS
+		if (strcspn(path,">]:") == strlen(path))
+			strcat(path, "/");
+#else
 		strcat(path, "/");
 #endif
 		strcat(path, src);

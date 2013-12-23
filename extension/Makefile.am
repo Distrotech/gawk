@@ -144,25 +144,9 @@ install-exec-hook:
 	done
 
 dist_man_MANS = \
-	filefuncs.3am fnmatch.3am fork.3am ordchr.3am \
-	inplace.3am \
-	readdir.3am readfile.3am revoutput.3am \
+	filefuncs.3am fnmatch.3am fork.3am inplace.3am \
+	ordchr.3am readdir.3am readfile.3am revoutput.3am \
 	revtwoway.3am rwarray.3am time.3am
 
 # gettext requires this
 SUBDIRS =
-
-# This is an ugly hack, initially for MirBSD but probably needed for other
-# systems. If gawk doesn't have the API built in, don't try to build the
-# extensions.
-#
-# Given the workaround in configure, this isn't strictly necessary, but
-# we're leaving it in, in case of some other system needing it.
-check-recursive all-recursive: check-for-shared-lib-support
-
-check-for-shared-lib-support:
-	@if ../gawk$(EXEEXT) --version | sed 1q | grep API > /dev/null; \
-	then	: do nothing ; \
-	else	echo Building the extensions is not supported on this platform ; \
-		exit 1; \
-	fi

@@ -125,7 +125,7 @@ extern int gawk_mb_cur_max;
 #define CHARCLASS_INTS ((NOTCHAR + INTBITS - 1) / INTBITS)
 
 /* Sets of unsigned characters are stored as bit vectors in arrays of ints.  */
-typedef int charclass[CHARCLASS_INTS];
+typedef unsigned int charclass[CHARCLASS_INTS];
 
 /* Convert a possibly-signed character to an unsigned character.  This is
    a bit safer than casting to unsigned char, since it catches some type
@@ -585,22 +585,22 @@ prtok (token t)
 
 /* Stuff pertaining to charclasses.  */
 
-static int
+static bool
 tstbit (unsigned int b, charclass const c)
 {
-  return c[b / INTBITS] & 1 << b % INTBITS;
+  return c[b / INTBITS] >> b % INTBITS & 1;
 }
 
 static void
 setbit (unsigned int b, charclass c)
 {
-  c[b / INTBITS] |= 1 << b % INTBITS;
+  c[b / INTBITS] |= 1U << b % INTBITS;
 }
 
 static void
 clrbit (unsigned int b, charclass c)
 {
-  c[b / INTBITS] &= ~(1 << b % INTBITS);
+  c[b / INTBITS] &= ~(1U << b % INTBITS);
 }
 
 static void
@@ -1054,7 +1054,7 @@ parse_bracket_exp (void)
                   if (MB_CUR_MAX > 1 && !pred->single_byte_only)
                     {
                       /* Store the character class as wctype_t.  */
-                      wctype_t wt = wctype (class);
+                      wctype_t wt = (wctype_t) wctype (class);
 
                       REALLOC_IF_NECESSARY (work_mbc->ch_classes,
                                             ch_classes_al,
@@ -1526,6 +1526,7 @@ lex (void)
 
           POP_LEX_STATE ();
 
+          laststart = 0;
           return lasttok;
 
         case 'w':
@@ -2790,7 +2791,7 @@ dfastate (state_num s, struct dfa *d, state_num trans[])
       /* Set the transitions for each character in the current label.  */
       for (j = 0; j < CHARCLASS_INTS; ++j)
         for (k = 0; k < INTBITS; ++k)
-          if (labels[i][j] & 1 << k)
+          if (labels[i][j] & 1U << k)
             {
               int c = j * INTBITS + k;
 

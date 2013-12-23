@@ -4179,7 +4179,12 @@ mkdir_p='$(MKDIR_P)'
 # in the wild :-(  We should find a proper way to deprecate it ...
 AMTAR='$${TAR-tar}'
 
+
+# We'll loop over all known methods to create a tar archive until one works.
+_am_tools='gnutar  pax cpio none'
+
 am__tar='$${TAR-tar} chof - "$$tardir"' am__untar='$${TAR-tar} xf -'
+
 
 
 
@@ -7066,7 +7071,6 @@ ac_config_headers="$ac_config_headers config.h:configh.in"
 
 ac_config_files="$ac_config_files Makefile"
 
-ac_config_commands="$ac_config_commands default-1"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -7793,7 +7797,6 @@ AMDEP_TRUE="$AMDEP_TRUE" ac_aux_dir="$ac_aux_dir"
     LINGUAS="${LINGUAS-%UNSET%}"
 
 
-
 _ACEOF
 
 cat >>$CONFIG_STATUS <<\_ACEOF || ac_write_fail=1
@@ -7806,7 +7809,6 @@ do
     "po-directories") CONFIG_COMMANDS="$CONFIG_COMMANDS po-directories" ;;
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h:configh.in" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "default-1") CONFIG_COMMANDS="$CONFIG_COMMANDS default-1" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -8454,7 +8456,7 @@ $as_echo X"$mf" |
     DEPDIR=`sed -n 's/^DEPDIR = //p' < "$mf"`
     test -z "$DEPDIR" && continue
     am__include=`sed -n 's/^am__include = //p' < "$mf"`
-    test -z "am__include" && continue
+    test -z "$am__include" && continue
     am__quote=`sed -n 's/^am__quote = //p' < "$mf"`
     # Find all dependency output files, they are included files with
     # $(DEPDIR) in their names.  We invoke sed twice because it is the
@@ -8608,17 +8610,6 @@ $as_echo X"$file" |
         ;;
       esac
     done ;;
-    "default-1":C)
-case `uname` in
-MirBSD | MirOS | "OS/390")
-	cat << \EOF > Makefile
-all dist check clean distclean install uninstall distcheck:
-	@exit 0
-EOF
-	;;
-*)
-esac
- ;;
 
   esac
 done # for ac_tag

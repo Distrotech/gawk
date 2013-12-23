@@ -1,3 +1,30 @@
+2013-12-21         Mike Frysinger        <vapier@gentoo.org>
+
+	* configure.ac: Remove MirBSD and OS/390 hack to create
+	do-nothing Makefile. Should be handled by configure in the
+	parent directory.
+
+2013-12-21         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure, aclocal.m4: Updated to automake 1.13.4 and
+	libtool 2.4.2.418.
+
+2013-11-28         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (uninstall-so, uninstall-recursive): Remove the
+	.so files. Keeps make distcheck happy.
+
+2013-11-17  Dmitry V. Levin  <ldv@altlinux.org>
+
+	* Makefile.am (dist_man_MANS): Add inplace.3am.
+
+2013-10-23  Michael Haubenwallner <michael.haubenwallner@salomon.at>
+
+	Fix portability for AIX.
+
+	* inplace.c (_XOPEN_SOURCE): Define when not defined yet.
+	(_XOPEN_SOURCE_EXTENDED): Ditto. Needs to define a number.
+
 2013-08-22         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* Makefile.am (clean-local): Get at least cleaning to work.
