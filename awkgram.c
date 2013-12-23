@@ -2847,7 +2847,7 @@ regular_loop:
 			(void) list_prepend((yyval), instruction(Op_push_i));
 			(yyval)->nexti->memory = dupnode(Nnull_string);
 		} else {
-			if (do_optimize > 1
+			if (do_optimize
 				&& (yyvsp[(3) - (4)])->lasti->opcode == Op_func_call
 				&& strcmp((yyvsp[(3) - (4)])->lasti->func_name, in_function) == 0
 			) {
@@ -3517,7 +3517,7 @@ regular_print:
 		 			                             */
 		}
 
-		if (do_optimize > 1
+		if (do_optimize
 			&& (yyvsp[(1) - (2)])->nexti == (yyvsp[(1) - (2)])->lasti && (yyvsp[(1) - (2)])->nexti->opcode == Op_push_i
 			&& (yyvsp[(2) - (2)])->nexti == (yyvsp[(2) - (2)])->lasti && (yyvsp[(2) - (2)])->nexti->opcode == Op_push_i
 		) {
@@ -3717,7 +3717,7 @@ regular_print:
 			(yyval) = list_append(list_append(list_create((yyvsp[(1) - (2)])),
 						instruction(Op_field_spec)), (yyvsp[(2) - (2)]));
 		} else {
-			if (do_optimize > 1 && (yyvsp[(2) - (2)])->nexti == (yyvsp[(2) - (2)])->lasti
+			if (do_optimize && (yyvsp[(2) - (2)])->nexti == (yyvsp[(2) - (2)])->lasti
 					&& (yyvsp[(2) - (2)])->nexti->opcode == Op_push_i
 					&& ((yyvsp[(2) - (2)])->nexti->memory->flags & (MPFN|MPZN)) == 0
 			) {
@@ -5473,7 +5473,6 @@ yylex(void)
 	char *tokkey;
 	bool inhex = false;
 	bool intlstr = false;
-	AWKNUM d;
 
 #define GET_INSTRUCTION(op) bcalloc(op, 1, sourceline)
 
@@ -6648,7 +6647,7 @@ mk_function(INSTRUCTION *fi, INSTRUCTION *def)
 	thisfunc = fi->func_body;
 	assert(thisfunc != NULL);
 
-	if (do_optimize > 1 && def->lasti->opcode == Op_pop) {
+	if (do_optimize && def->lasti->opcode == Op_pop) {
 		/* tail call which does not return any value. */
 
 		INSTRUCTION *t;
@@ -7159,7 +7158,6 @@ dumpintlstr2(const char *str1, size_t len1, const char *str2, size_t len2)
 	fflush(stdout);
 }
 
-
 /* mk_boolean --- instructions for boolean and, or */
  
 static INSTRUCTION *
@@ -7408,8 +7406,13 @@ mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op)
 	case Op_push_array:
 		tp->opcode = Op_push_lhs; 
 		break;
+	case Op_field_assign:
+		yyerror(_("cannot assign a value to the result of a field post-increment expression"));
+		break;
 	default:
-		cant_happen();
+		yyerror(_("invalid target of assignment (opcode %s)"),
+				opcode2str(tp->opcode));
+		break;
 	}
 
 	tp->do_reference = (op->opcode != Op_assign);	/* check for uninitialized reference */
@@ -7479,10 +7482,8 @@ optimize_assignment(INSTRUCTION *exp)
 	i2 = NULL;
 	i1 = exp->lasti;
 
-	if (   ! do_optimize
-	    || (   i1->opcode != Op_assign
-		&& i1->opcode != Op_field_assign)
-	) 
+	if (   i1->opcode != Op_assign
+	    && i1->opcode != Op_field_assign) 
 		return list_append(exp, instruction(Op_pop));
 
 	for (i2 = exp->nexti; i2 != i1; i2 = i2->nexti) {
