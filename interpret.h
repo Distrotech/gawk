@@ -34,7 +34,6 @@ r_interpret(INSTRUCTION *code)
 	INSTRUCTION *ni;
 	NODE *t1, *t2;
 	NODE **lhs;
-	AWKNUM x, x2;
 	int di;
 	Regexp *rp;
 	NODE *booleans[] = { false_node, true_node };

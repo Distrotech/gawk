@@ -1185,7 +1185,6 @@ get_intval(NODE *t1, int argnum, const char *op)
 		mpfr_ptr left = t1->qnumbr;
 		if (! mpfr_number_p(left)) {
 			/* inf or NaN */
-			NODE *res;
 			if (do_lint)
                        		lintwarn("%s",
 		mpfp_sprintf(_("%s: argument #%d has invalid value %Rg, using 0"),
@@ -1812,6 +1811,7 @@ mpz2mpfr(mpz_ptr mpz_val, mpfr_ptr mpfr_val)
 	/* estimate minimum precision for exact conversion */
 	prec = mpz_sizeinbase(mpz_val, 2);	/* most significant 1 bit position starting at 1 */
 
+	prec1 = prec;	/* silence "prec1 may not be initialized" warnings */
 	if (mpfr_val != NULL && (prec1 = mpfr_get_prec(mpfr_val)) >= prec)
 		goto finish;
 
@@ -1839,13 +1839,11 @@ finish:
 static int
 mpfp_format_printf(NODE *arg, struct format_spec *spec, struct print_fmt_buf *outb)
 {
-	mpz_ptr zi;
-	mpfr_ptr mf;
+	mpz_ptr zi = NULL;
+	mpfr_ptr mf = NULL;
 	enum { MP_INT_WITH_PREC = 1, MP_INT_WITHOUT_PREC, MP_FLOAT } mpfmt_spec;
 
 	uintmax_t uval;
-	bool sgn;
-	int i, ii, jj;
 	char *cp;
 	char cs1;
 	int nc;
