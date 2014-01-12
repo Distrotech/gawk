@@ -27,8 +27,12 @@
 #include <config.h>
 #endif
 
-#define _XOPEN_SOURCE
-#define _XOPEN_SOURCE_EXTENDED
+#ifndef _XOPEN_SOURCE
+# define _XOPEN_SOURCE
+#endif
+#ifndef _XOPEN_SOURCE_EXTENDED
+# define _XOPEN_SOURCE_EXTENDED 1
+#endif
 
 #include <stdio.h>
 #include <assert.h>
@@ -49,6 +53,20 @@
 
 #if ! defined(S_ISREG) && defined(S_IFREG)
 #define	S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
+#ifdef __MINGW32__
+# define chown(x,y,z)  (0)
+# define link(f1,f2)   rename(f1,f2)
+int
+mkstemp (char *template)
+{
+  char *tmp_fname = _mktemp (template);
+
+  if (tmp_fname)
+    return _open (tmp_fname, O_RDWR | O_CREAT | O_EXCL, S_IREAD | S_IWRITE);
+  return -1;
+}
 #endif
 
 static const gawk_api_t *api;	/* for convenience macros to work */
@@ -74,6 +92,8 @@ static struct {
 static void
 at_exit(void *data, int exit_status)
 {
+	(void) data;		/* silence warnings */
+	(void) exit_status;	/* silence warnings */
 	if (state.tname) {
 		unlink(state.tname);
 		free(state.tname);
@@ -224,6 +244,10 @@ do_inplace_end(int nargs, awk_value_t *result)
 				filename.str_value.str, bakname, strerror(errno));
 		free(bakname);
 	}
+
+#ifdef __MINGW32__
+	unlink(filename.str_value.str);
+#endif
 
 	if (rename(state.tname, filename.str_value.str) < 0)
 		fatal(ext_id, _("inplace_end: rename(`%s', `%s') failed (%s)"),

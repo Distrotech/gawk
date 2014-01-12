@@ -42,9 +42,6 @@
    */
 #undef HAVE_DECL_TZNAME
 
-/* Define to 1 if you don't have `vprintf' but do have `_doprnt.' */
-#undef HAVE_DOPRNT
-
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
@@ -65,6 +62,9 @@
 
 /* Define to 1 if you have the `grantpt' function. */
 #undef HAVE_GRANTPT
+
+/* Do we have history_list? */
+#undef HAVE_HISTORY_LIST
 
 /* Define if you have the iconv() function and it works. */
 #undef HAVE_ICONV
@@ -234,10 +234,6 @@
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_ZONE
 
-/* Define to 1 if your `struct stat' has `st_blksize'. Deprecated, use
-   `HAVE_STRUCT_STAT_ST_BLKSIZE' instead. */
-#undef HAVE_ST_BLKSIZE
-
 /* Define to 1 if you have the `system' function. */
 #undef HAVE_SYSTEM
 
@@ -297,9 +293,6 @@
 /* Define to 1 if you have the `usleep' function. */
 #undef HAVE_USLEEP
 
-/* Define to 1 if you have the `vprintf' function. */
-#undef HAVE_VPRINTF
-
 /* Define to 1 if you have the <wchar.h> header file. */
 #undef HAVE_WCHAR_H
 
@@ -323,6 +316,9 @@
 
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
+
+/* libc is broken for regex handling */
+#undef LIBC_IS_BORKED
 
 /* disable lint checks */
 #undef NO_LINT

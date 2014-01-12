@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -650,7 +650,7 @@ statement
 			$$ = list_prepend(ip, $1);
 			bcfree($4);
 		} /* else
-				$1 and $4 are NULLs */
+			$1 and $4 are NULLs */
 	  }
 	| LEX_FOR '(' NAME LEX_IN simple_variable r_paren opt_nls statement
 	  {
@@ -852,7 +852,7 @@ non_compound_stmt
 			(void) list_prepend($$, instruction(Op_push_i));
 			$$->nexti->memory = dupnode(Nnull_string);
 		} else {
-			if (do_optimize > 1
+			if (do_optimize
 				&& $3->lasti->opcode == Op_func_call
 				&& strcmp($3->lasti->func_name, in_function) == 0
 			) {
@@ -1358,7 +1358,7 @@ common_exp
 		 			                             */
 		}
 
-		if (do_optimize > 1
+		if (do_optimize
 			&& $1->nexti == $1->lasti && $1->nexti->opcode == Op_push_i
 			&& $2->nexti == $2->lasti && $2->nexti->opcode == Op_push_i
 		) {
@@ -1496,7 +1496,7 @@ non_post_simp_exp
 			$$ = list_append(list_append(list_create($1),
 						instruction(Op_field_spec)), $2);
 		} else {
-			if (do_optimize > 1 && $2->nexti == $2->lasti
+			if (do_optimize && $2->nexti == $2->lasti
 					&& $2->nexti->opcode == Op_push_i
 					&& ($2->nexti->memory->flags & (MPFN|MPZN)) == 0
 			) {
@@ -3995,6 +3995,12 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 				ip->opcode = Op_push_array;
 		}
 	}
+	else if (r->builtin == do_index) {
+		arg = subn->nexti->lasti->nexti;	/* 2nd arg list */
+		ip = arg->lasti;
+		if (ip->opcode == Op_match_rec)
+			fatal(_("index: regexp constant as second argument is not allowed"));
+	}
 #ifdef ARRAYDEBUG
 	else if (r->builtin == do_adump) {
 		ip = subn->nexti->lasti;
@@ -4167,7 +4173,7 @@ mk_function(INSTRUCTION *fi, INSTRUCTION *def)
 	thisfunc = fi->func_body;
 	assert(thisfunc != NULL);
 
-	if (do_optimize > 1 && def->lasti->opcode == Op_pop) {
+	if (do_optimize && def->lasti->opcode == Op_pop) {
 		/* tail call which does not return any value. */
 
 		INSTRUCTION *t;
@@ -4318,18 +4324,9 @@ func_use(const char *name, enum defref how)
 	len = strlen(name);
 	ind = hash(name, len, HASHSIZE, NULL);
 
-	for (fp = ftable[ind]; fp != NULL; fp = fp->next) {
-		if (strcmp(fp->name, name) == 0) {
-			if (how == FUNC_DEFINE)
-				fp->defined++;
-			else if (how == FUNC_EXT) {
-				fp->defined++;
-				fp->extension++;
-			} else
-				fp->used++;
-			return;
-		}
-	}
+	for (fp = ftable[ind]; fp != NULL; fp = fp->next)
+		if (strcmp(fp->name, name) == 0)
+			goto update_value;
 
 	/* not in the table, fall through to allocate a new one */
 
@@ -4337,6 +4334,10 @@ func_use(const char *name, enum defref how)
 	memset(fp, '\0', sizeof(struct fdesc));
 	emalloc(fp->name, char *, len + 1, "func_use");
 	strcpy(fp->name, name);
+	fp->next = ftable[ind];
+	ftable[ind] = fp;
+
+update_value:
 	if (how == FUNC_DEFINE)
 		fp->defined++;
 	else if (how == FUNC_EXT) {
@@ -4344,8 +4345,6 @@ func_use(const char *name, enum defref how)
 		fp->extension++;
 	} else
 		fp->used++;
-	fp->next = ftable[ind];
-	ftable[ind] = fp;
 }
 
 /* track_ext_func --- add an extension function to the table */
@@ -4369,17 +4368,18 @@ check_funcs()
  
 	for (i = 0; i < HASHSIZE; i++) {
 		for (fp = ftable[i]; fp != NULL; fp = fp->next) {
-			if (fp->defined == 0 && ! fp->extension) {
 #ifdef REALLYMEAN
-				/* making this the default breaks old code. sigh. */
+			/* making this the default breaks old code. sigh. */
+			if (fp->defined == 0 && ! fp->extension) {
 				error(
 		_("function `%s' called but never defined"), fp->name);
 				errcount++;
+			}
 #else
+			if (do_lint && fp->defined == 0 && ! fp->extension)
 				lintwarn(
 		_("function `%s' called but never defined"), fp->name);
 #endif
-			}
 
 			if (do_lint && fp->used == 0 && ! fp->extension) {
 				lintwarn(_("function `%s' defined but never called directly"),
@@ -4694,7 +4694,7 @@ mk_binary(INSTRUCTION *s1, INSTRUCTION *s2, INSTRUCTION *op)
 	if (s2->lasti == ip2 && ip2->opcode == Op_push_i) {
 	/* do any numeric constant folding */
 		ip1 = s1->nexti;
-		if (do_optimize > 1
+		if (do_optimize
 				&& ip1 == s1->lasti && ip1->opcode == Op_push_i
 				&& (ip1->memory->flags & (MPFN|MPZN|STRCUR|STRING)) == 0
 				&& (ip2->memory->flags & (MPFN|MPZN|STRCUR|STRING)) == 0
@@ -5037,8 +5037,13 @@ mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op)
 	case Op_push_array:
 		tp->opcode = Op_push_lhs; 
 		break;
+	case Op_field_assign:
+		yyerror(_("cannot assign a value to the result of a field post-increment expression"));
+		break;
 	default:
-		cant_happen();
+		yyerror(_("invalid target of assignment (opcode %s)"),
+				opcode2str(tp->opcode));
+		break;
 	}
 
 	tp->do_reference = (op->opcode != Op_assign	/* check for uninitialized reference */
@@ -5109,10 +5114,8 @@ optimize_assignment(INSTRUCTION *exp)
 	i2 = NULL;
 	i1 = exp->lasti;
 
-	if (   ! do_optimize
-	    || (   i1->opcode != Op_assign
-		&& i1->opcode != Op_field_assign)
-	) 
+	if (   i1->opcode != Op_assign
+	    && i1->opcode != Op_field_assign) 
 		return list_append(exp, instruction(Op_pop));
 
 	for (i2 = exp->nexti; i2 != i1; i2 = i2->nexti) {
@@ -5402,10 +5405,8 @@ add_lint(INSTRUCTION *list, LINTTYPE linttype)
 				;
 
 			if (do_lint) {		/* compile-time warning */
-#ifndef NO_LINT
 				if (isnoeffect(ip->opcode))
 					lintwarn_ln(ip->source_line, ("statement may have no effect"));
-#endif
 			}
 
 			if (ip->opcode == Op_push) {		/* run-time warning */

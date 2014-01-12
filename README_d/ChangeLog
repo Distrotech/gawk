@@ -1,3 +1,36 @@
+2013-12-23         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* README.VMS: Add documentation about building dynamic
+	extensions.
+
+2013-12-23         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* README.VMS: Document decoding Gawk VMS exit codes.
+
+2013-12-16         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* README.VMS: Further updates.
+
+2013-12-05         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* README.VMS: updated with current build information.
+
+2013-07-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* README.pc: Update that |& also now works on MinGW.
+
+2013-05-14  Eli Zaretskii  <eliz@gnu.org>
+
+	* README.pc: Update the pc build and test instructions.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* README.hacking, README.mpfr, README.pc: Updated.
+
 2012-12-24         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* 4.0.2: Release tar ball made.

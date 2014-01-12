@@ -4,7 +4,7 @@
  */
 
 /*
- * Copyright (C) 2012
+ * Copyright (C) 2012, 2013
  * the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
@@ -39,6 +39,30 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifdef __VMS
+#define HAVE_NANOSLEEP
+#define HAVE_GETTIMEOFDAY
+#ifdef gettimeofday
+#undef gettimeofday
+#endif
+#ifdef __ia64__
+/* nanosleep not working on IA64 */
+static int
+vms_fake_nanosleep(const struct timespec *rqdly, struct timespec *rmdly)
+{
+	int result;
+
+	result = sleep(rqdly->tv_sec);
+	if (result == 0) {
+		return 0;
+	} else {
+		return -1;
+	}
+}
+#define nanosleep(x,y) vms_fake_nanosleep(x, y)
+#endif
+#endif
+
 #include "gawkapi.h"
 
 #include "gettext.h"
@@ -62,6 +86,7 @@ int plugin_is_GPL_compatible;
 #include <time.h>
 #endif
 #if defined(HAVE_GETSYSTEMTIMEASFILETIME)
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 

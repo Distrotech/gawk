@@ -23,7 +23,7 @@ dnl
 
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([GNU Awk], 4.0.73, bug-gawk@gnu.org, gawk)
+AC_INIT([GNU Awk], 4.1.60, bug-gawk@gnu.org, gawk)
 
 # This is a hack. Different versions of install on different systems
 # are just too different. Chuck it and use install-sh.
@@ -40,7 +40,7 @@ then
 fi
 
 AC_PREREQ(2.69)
-AM_INIT_AUTOMAKE([1.12 dist-xz])
+AM_INIT_AUTOMAKE([1.13 dist-xz dist-lzip])
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -59,6 +59,7 @@ AC_ARG_ENABLE([lint], [  --disable-lint	Disable gawk lint checking],
 	fi
 )
 
+AC_CANONICAL_HOST
 AC_USE_SYSTEM_EXTENSIONS
 
 dnl checks for programs
@@ -118,20 +119,16 @@ dnl	need -D_SYSV3 for ISC
 	CFLAGS="$CFLAGS -D_SYSV3"
 fi
 
+dnl check for systems where libc is borked for regex handling
+case $host_os in
+mirbsd*)
+	AC_DEFINE([LIBC_IS_BORKED], 1, [libc is broken for regex handling])
+	;;
+esac
+
 dnl Set the programming language for checks. Fortunately,
 dnl this only needs to be set once, since everything is in C.
 AC_LANG([C])
-
-dnl Cygwin doesn't like to get libs with full paths
-dnl since that overrides linking against DLLs.
-case `(uname) 2> /dev/null` in
-*CYGWIN*)
-	with_libiconv_prefix=no
-	with_libintl_prefix=no
-	;;
-*)
-	;;
-esac
 
 dnl initialize GNU gettext
 AM_GNU_GETTEXT([external])
@@ -251,7 +248,6 @@ dnl Check for C11 _Noreturn
 GAWK_AC_NORETURN
 
 dnl checks for functions
-AC_FUNC_VPRINTF
 AC_FUNC_MKTIME
 case "$ac_cv_func_working_mktime" in
 yes)	AC_DEFINE(HAVE_MKTIME, 1, [we have the mktime function])
@@ -267,8 +263,8 @@ AC_CHECK_LIB(m, fmod)
 AC_CHECK_LIB(m, isinf)
 AC_CHECK_LIB(m, ismod)
 dnl Don't look for libsigsegv on OSF/1, gives us severe headaches
-case `uname` in
-OSF1)	: ;;
+case $host_os in
+osf1)	: ;;
 *)
 	gl_LIBSIGSEGV
 	;;
@@ -287,31 +283,52 @@ AC_FUNC_MBRTOWC
 
 dnl check for dynamic linking
 dnl This is known to be very primitive
-AC_CHECK_HEADER(dlfcn.h,
-	[
-	# Check this separately. Some systems have dlopen
-	# in libc. Notably freebsd and cygwin.
-	# HP-NSK has it in zrldsrl
-	AC_SEARCH_LIBS(dlopen, dl zrldsrl, gawk_have_dlopen=yes, gawk_have_dlopen=no)
-	# Only do DYNAMIC if we have the lip. z/OS (some versions) have
-	# the header but not the lib, apparently
-	if test "$gawk_have_dlopen" = yes
-	then
-		AC_DEFINE([DYNAMIC], 1, [dynamic loading is possible])
-		# Add -export-dynamic for old extensions. Only works for GCC
-		if test "$GCC" = yes &&
-		   uname | $EGREP -i 'linux|freebsd' > /dev/null
+AC_ARG_ENABLE([extensions],
+	[AS_HELP_STRING([--disable-extensions], [disable dynamic extensions (default is detect)])])
+if test "x$enable_extensions" != "xno"; then
+	extensions_supported=no
+
+	dnl On MirBSD (and probably other systems), don't even try.
+	case $host_os in
+	mirbsd*)
+		: ;;
+	*)
+	AC_CHECK_HEADER(dlfcn.h,
+		[
+		# Check this separately. Some systems have dlopen
+		# in libc. Notably freebsd and cygwin.
+		# HP-NSK has it in zrldsrl
+		AC_SEARCH_LIBS(dlopen, dl zrldsrl, gawk_have_dlopen=yes, gawk_have_dlopen=no)
+		# Only do DYNAMIC if we have the lib. z/OS (some versions) have
+		# the header but not the lib, apparently
+		if test "$gawk_have_dlopen" = yes
 		then
-			LDFLAGS="$LDFLAGS -export-dynamic"
+			extensions_supported=yes
+			AC_DEFINE([DYNAMIC], 1, [dynamic loading is possible])
+			# Add -export-dynamic for old extensions. Only works for GCC
+			if test "$GCC" = yes; then
+				case $host_os in
+				linux*|freebsd*)
+					LDFLAGS="$LDFLAGS -export-dynamic"
+					;;
+				esac
+			fi
 		fi
+	])
+		;;
+	esac
+
+	if test "x$enable_extensions$extensions_supported" = "xyesno"; then
+		AC_MSG_ERROR([extension support requested, but unavailable])
 	fi
-])
+	enable_extensions=$extensions_supported
+fi
 
 dnl check for how to use getpgrp
 dnl have to hardwire it for VMS POSIX. Sigh.
 dnl ditto for BeOS, OS/2, and MS-DOS.
-case `(uname) 2> /dev/null` in
-*VMS*|*BeOS*|*OS/2*|*MS-DOS*)
+case $host_os in
+vms*|beos*|os2*|msdos)
 	AC_DEFINE(GETPGRP_VOID, 1,
 	  [Define to 1 if the getpgrp function requires zero arguments.])
 	;;
@@ -356,7 +373,7 @@ dnl check for mpfr support
 GNUPG_CHECK_MPFR
 
 dnl checks for structure members
-AC_STRUCT_ST_BLKSIZE
+AC_CHECK_MEMBERS([struct stat.st_blksize])
 AC_HEADER_TIME
 AC_STRUCT_TM
 AC_STRUCT_TIMEZONE
@@ -385,5 +402,7 @@ AC_CONFIG_FILES(Makefile
 	doc/Makefile
 	po/Makefile.in
 	test/Makefile)
-AC_CONFIG_SUBDIRS(extension)
+if test "x$enable_extensions" = "xyes"; then
+	AC_CONFIG_SUBDIRS(extension)
+fi
 AC_OUTPUT

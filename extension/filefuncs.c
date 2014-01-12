@@ -9,7 +9,7 @@
  */
 
 /*
- * Copyright (C) 2001, 2004, 2005, 2010, 2011, 2012
+ * Copyright (C) 2001, 2004, 2005, 2010, 2011, 2012, 2013
  * the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
@@ -36,6 +36,34 @@
 
 #define _BSD_SOURCE
 
+#ifdef __VMS
+#if (__CRTL_VER >= 70200000) && !defined (__VAX)
+#define _LARGEFILE 1
+#endif
+
+#ifndef __VAX
+#ifdef __CRTL_VER
+#if __CRTL_VER >= 80200000
+#define _USE_STD_STAT 1
+#endif
+#endif
+#endif
+#define _POSIX_C_SOURCE 1
+#define _XOPEN_SOURCE 1
+#include <stat.h>
+#ifndef S_ISVTX
+#define S_ISVTX (0)
+#endif
+#ifndef major
+#define major(s) (s)
+#endif
+#ifndef minor
+#define minor(s) (0)
+#endif
+#include <unixlib.h>
+#endif
+
+
 #include <stdio.h>
 #include <assert.h>
 #include <errno.h>
@@ -45,6 +73,16 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifdef HAVE_SYS_PARAM_H
+#include <sys/param.h>
+#endif /* HAVE_SYS_PARAM_H */
+
+#ifdef MAJOR_IN_MKDEV
+#include <sys/mkdev.h>
+#elif defined(MAJOR_IN_SYSMACROS)
+#include <sys/sysmacros.h>
+#endif
 
 #include "gawkapi.h"
 
@@ -61,7 +99,7 @@
 #define readlink(f,b,bs) (-1)
 #endif
 
-#ifdef _WIN32
+#ifdef __MINGW32__
 #define S_IRGRP S_IRUSR
 #define S_IWGRP S_IWUSR
 #define S_IXGRP S_IXUSR
@@ -73,6 +111,30 @@
 #define S_ISVTX 0
 #define major(s) (s)
 #define minor(s) (0)
+
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+
+/* get_inode --- get the inode of a file */
+static long long
+get_inode(const char *fname)
+{
+	HANDLE fh;
+	BY_HANDLE_FILE_INFORMATION info;
+
+	fh = CreateFile(fname, 0, 0, NULL, OPEN_EXISTING,
+			FILE_FLAG_BACKUP_SEMANTICS, NULL);
+	if (fh == INVALID_HANDLE_VALUE)
+		return 0;
+	if (GetFileInformationByHandle(fh, &info)) {
+		long long inode = info.nFileIndexHigh;
+
+		inode <<= 32;
+		inode += info.nFileIndexLow;
+		return inode;
+	}
+	return 0;
+}
 #endif
 
 static const gawk_api_t *api;	/* for convenience macros to work */
@@ -242,6 +304,31 @@ read_symlink(const char *fname, size_t bufsize, ssize_t *linksize)
 	return NULL;
 }
 
+
+/* device_blocksize --- try to figure out units of st_blocks */
+
+static int
+device_blocksize()
+{
+	/* some of this derived from GNULIB stat-size.h */
+#if defined(DEV_BSIZE)
+	/* <sys/param.h>, most systems */
+	return DEV_BSIZE;
+#elif defined(S_BLKSIZE)
+	/* <sys/stat.h>, BSD systems */
+	return S_BLKSIZE;
+#elif defined hpux || defined __hpux__ || defined __hpux
+	return 1024;
+#elif defined _AIX && defined _I386
+	/* AIX PS/2 counts st_blocks in 4K units.  */
+	return 4 * 1024;
+#elif defined __MINGW32__
+	return 1024;
+#else
+	return 512;
+#endif
+}
+
 /* array_set --- set an array element */
 
 static void
@@ -302,13 +389,17 @@ fill_stat_array(const char *name, awk_array_t array, struct stat *sbuf)
 	/* fill in the array */
 	array_set(array, "name", make_const_string(name, strlen(name), & tmp));
 	array_set_numeric(array, "dev", sbuf->st_dev);
+#ifdef __MINGW32__
+	array_set_numeric(array, "ino", (double)get_inode (name));
+#else
 	array_set_numeric(array, "ino", sbuf->st_ino);
+#endif
 	array_set_numeric(array, "mode", sbuf->st_mode);
 	array_set_numeric(array, "nlink", sbuf->st_nlink);
 	array_set_numeric(array, "uid", sbuf->st_uid);
 	array_set_numeric(array, "gid", sbuf->st_gid);
 	array_set_numeric(array, "size", sbuf->st_size);
-#ifdef _WIN32
+#ifdef __MINGW32__
 	array_set_numeric(array, "blocks", (sbuf->st_size + 4095) / 4096);
 #else
 	array_set_numeric(array, "blocks", sbuf->st_blocks);
@@ -324,9 +415,14 @@ fill_stat_array(const char *name, awk_array_t array, struct stat *sbuf)
 		array_set_numeric(array, "minor", minor(sbuf->st_rdev));
 	}
 
-#ifdef HAVE_ST_BLKSIZE
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
 	array_set_numeric(array, "blksize", sbuf->st_blksize);
-#endif /* HAVE_ST_BLKSIZE */
+#elif defined(__MINGW32__)
+	array_set_numeric(array, "blksize", 4096);
+#endif /* HAVE_STRUCT_STAT_ST_BLKSIZE */
+
+	/* the size of a block for st_blocks */
+	array_set_numeric(array, "devbsize", device_blocksize());
 
 	pmode = format_mode(sbuf->st_mode);
 	array_set(array, "pmode", make_const_string(pmode, strlen(pmode), & tmp));
@@ -415,7 +511,7 @@ init_filefuncs(void)
 	int i;
 	awk_value_t value;
 
-#ifndef _WIN32
+#ifndef __MINGW32__
 	/* at least right now, only FTS needs initializing */
 	static struct flagtab {
 		const char *name;
@@ -443,7 +539,24 @@ init_filefuncs(void)
 	return errors == 0;
 }
 
-#ifndef _WIN32
+#ifdef __MINGW32__
+/*  do_fts --- walk a heirarchy and fill in an array */
+
+/*
+ * Usage from awk:
+ *	flags = or(FTS_PHYSICAL, ...)
+ *	result = fts(pathlist, flags, filedata)
+ */
+
+static awk_value_t *
+do_fts(int nargs, awk_value_t *result)
+{
+	fatal(ext_id, _("fts is not supported on this system"));
+
+	return NULL;	/* for the compiler */
+}
+
+#else /* __MINGW32__ */
 
 static int fts_errors = 0;
 
@@ -747,12 +860,12 @@ out:
 
 	return make_number(ret, result);
 }
-#endif	/* !_WIN32 */
+#endif	/* ! __MINGW32__ */
 
 static awk_ext_func_t func_table[] = {
 	{ "chdir",	do_chdir, 1 },
 	{ "stat",	do_stat, 2 },
-#ifndef _WIN32
+#ifndef __MINGW32__
 	{ "fts",	do_fts, 3 },
 #endif
 };

@@ -1,3 +1,228 @@
+2014-01-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Full Line Fields): New node.
+	Update copyright year.
+
+2013-12-29         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* gawktexi.in: VMS dynamic extensions.
+
+2013-12-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: More minor additions / fixes.
+	(Bugs): Add John Malmberg for VMS. Other minor edits.
+
+2013-12-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Minor additions / fixes.
+
+2013-12-23         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* gawktexi.in: Document the VMS exit status encoding.
+
+2013-12-21         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Additional Configuration Options): Document
+	the --disable-extensions option.
+
+2013-12-16         John E. Malmberg      <wb8tyw@qsl.net>
+
+	* gawktexi.in: Updates to VMS sections.
+
+2013-12-12         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Fix the presentation of asort() and asorti().
+	Thanks to Andy Schorr for pointing out the problems.
+
+2013-11-28         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Update quotations to use @author, fix a few
+	placements of footnotes.
+
+2013-11-08         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Update the list of files included in the gawk
+	distribution and fix a few typos.
+
+2013-11-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Fix the section and subsection headings in
+	the Preface.  Also change the short title page to just
+	"GNU Awk".
+
+2013-10-31         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Add @shorttitlepage command.
+
+2013-10-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Contributors): Update with more info.
+	(Distributtion contents): Ditto.
+	General: Remove all hyphens when used with "multi" prefix.
+
+2013-10-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Other Environment Variables): Document GAWK_MSG_SRC
+	variable and fix documentation of *_CHAIN_MAX variables.
+
+2013-10-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Conversion, Printf Ordering): Better wording for
+	descriptions of CONVFMT. Thanks to Hermann Peifer.
+
+2013-09-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Other Versions): Updated info on MKS awk and
+	some other links.
+
+2013-09-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Readfile function): New node.
+
+2013-09-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (FN, FFN, DF,DDF, PVERSION, CTL): Remove macros.
+	They have no alternate versions and are just in the way.
+
+2013-08-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.1: Document that ENVIRON updates affect the environment.
+	* gawktexi.in: Ditto.
+
+2013-06-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* texinfo.tex: Update from Karl, fixes a formating problem.
+	* gawktexi.in (Conversions): Undo @w{} around @option{--posix}.
+
+2013-06-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Type Functions): Add more explanation to isarray(),
+	including that it makes no sense to call it at the global level.
+
+2013-06-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Make it crystal clear not to use delete with FUNCTAB,
+	or attempt to assign to it.
+
+2013-05-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Internal File Description): Add "devbsize" element
+	to stat data array.
+
+2013-05-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawtexi.in: Sample filefuncs.c extension code: Change test from
+	ifdef HAVE_ST_BLKSIZE to HAVE_STRUCT_STAT_ST_BLKSIZE.
+
+2013-05-21         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Quick Installation): Add a paragraph advising to
+	run `make install'. Thanks to Hermann Peifer.
+
+2013-05-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (gawkextlib): Add a note to use make install on
+	gawkextlib itself. Thanks to Hermann Peifer.
+	(Cut program): Fix test for skipping lines if -s was supplied.
+	Thanks to David Ward <bamberward@gmail.com> for the bug report.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* 4.1.0: Release tar ball made.
+
+2013-05-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in, gawk.1: Document that a regexp constant as the second
+	argument to index() produces a fatal error.
+	* gawktexi.in: More cleanups. Particularly, cleanup the index.
+
+2013-04-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Renamed from gawkman.texi.
+	Add a reference to Overton's IEEE Math book in MPFR chapter.
+	Thanks to Nelson Beebe for the recommendation.
+	* Makefile.am, sidebar.awk: Adjusted.
+
+2013-04-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkman.texi: Cleanup in MPFR and API chapters.
+	Also minor cleanup in design decisions. Add vim modeline.
+	* api-figure2.fig: Minor fix.
+	* api-figure2.eps, api-figure2.pdf, api-figure2.png: Regenerated.
+
+2013-04-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.1: Finish cleanup pass.
+	* awkcard.in: Document that getline sets RT.
+	* gawkman.texi: Ditto.
+
+2013-04-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.1: Start cleanup pass.
+	* awkcard.in: Minor addition.
+	* gawkman.texi: Minor fixes.
+
+	* gawk.1, gawkman.texi: Document PROCINFO entries for API
+	major and minor versions.
+
+2013-04-21         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkman.texi: Update all the menus. Fix spelling errors. Remove
+	some unneeded fakenodes.
+
+2013-04-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkcard.in: Clean up and bring up to date.
+
+2013-04-17         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (gawk.ps, gawkinet.ps): Set TEXINPUTS to point
+	at $(srcdir) to be able to include various figures if doing a
+	build not in the source directory.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawkman.texi: New file. This is now the real source for the
+	manual and gawk.texi is generated from it.
+	* sidebar.awk: New file to DTRT for sidebars in the manual.
+	* Makefile.am (EXTRA_DIST): Update.
+	(gawk.texi): Add new rule to create / update it if necessary.
+
+2013-04-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Pretty much finish cleanup. Move i18n chapter to
+	after advanced features chapter.
+	* texinfo.tex: Updated to current in texinfo SVN.
+
+2013-04-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Continue cleanup.
+
+2013-04-14         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Add link to 'pawk' - awk for python.
+	Further cleanups.
+
+2013-04-12         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Continue cleanup.
+
+2013-04-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Continue cleanup.
+
+2013-04-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Continue cleanup.
+
+2013-04-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Continue cleanup.
+
+2013-04-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawk.texi: Start a simple cleanup pass before the release.
+
 2013-03-15         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* gawk.texi: Update URL for texinfo, fix a typo.

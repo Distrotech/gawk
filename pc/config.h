@@ -59,7 +59,9 @@
 #define HAVE_FMOD 1
 
 /* have getaddrinfo */
-#undef HAVE_GETADDRINFO
+#ifdef __MINGW32__
+#define HAVE_GETADDRINFO 1
+#endif
 
 /* Define to 1 if you have the `getgrent' function. */
 #undef HAVE_GETGRENT
@@ -72,6 +74,9 @@
 
 /* Define to 1 if you have the `grantpt' function. */
 #undef HAVE_GRANTPT
+
+/* Do we have history_list? */
+#undef HAVE_HISTORY_LIST
 
 /* Define if you have the iconv() function and it works. */
 #undef HAVE_ICONV
@@ -180,7 +185,7 @@
 #define HAVE_MKTIME 1
 
 /* Define to 1 if you have fully functional mpfr and gmp libraries. */
-#undef HAVE_MPFR
+/* #undef HAVE_MPFR */
 
 /* Define to 1 if you have the <netdb.h> header file. */
 #undef HAVE_NETDB_H
@@ -210,10 +215,14 @@
 #endif
 
 /* newer systems define this type here */
-#undef HAVE_SOCKADDR_STORAGE
+#ifdef __MINGW32__
+#define HAVE_SOCKADDR_STORAGE 1
+#endif
 
 /* we have sockets on this system */
-#undef HAVE_SOCKETS
+#ifdef __MINGW32__
+#define HAVE_SOCKETS 1
+#endif
 
 /* Define to 1 if you have the <stdarg.h> header file. */
 #define HAVE_STDARG_H 1
@@ -284,10 +293,6 @@
 
 /* Define to 1 if `tm_zone' is a member of `struct tm'. */
 #undef HAVE_STRUCT_TM_TM_ZONE
-
-/* Define to 1 if your `struct stat' has `st_blksize'. Deprecated, use
-   `HAVE_STRUCT_STAT_ST_BLKSIZE' instead. */
-#undef HAVE_ST_BLKSIZE
 
 /* Define to 1 if you have the `system' function. */
 #define HAVE_SYSTEM 1
@@ -408,6 +413,9 @@
 /* Define to 1 if the system has the type `_Bool'. */
 #undef HAVE__BOOL
 
+/* libc is broken for regex handling */
+#undef LIBC_IS_BORKED
+
 /* disable lint checks */
 #undef NO_LINT
 
@@ -421,7 +429,7 @@
 #define PACKAGE_NAME "GNU Awk"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "GNU Awk 4.0.73"
+#define PACKAGE_STRING "GNU Awk 4.1.0a"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "gawk"
@@ -430,7 +438,7 @@
 #define PACKAGE_URL "http://www.gnu.org/software/gawk/"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.0.73"
+#define PACKAGE_VERSION "4.1.0a"
 
 /* Define to 1 if *printf supports %F format */
 #undef PRINTF_HAS_F_FORMAT
@@ -492,7 +500,7 @@
 
 
 /* Version number of package */
-#define VERSION "4.0.73"
+#define VERSION "4.1.0a"
 
 /* Enable large inode numbers on Mac OS X 10.5.  */
 #ifndef _DARWIN_USE_64_BIT_INODE

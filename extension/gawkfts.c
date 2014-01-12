@@ -43,11 +43,11 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 
 #include <limits.h>
 /* #include "namespace.h" */
-#ifndef ZOS_USS
+#ifdef HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #else
 #include <stdio.h>
-#endif /* ZOS_USS */
+#endif
 #include <sys/stat.h>
 
 #include <assert.h>
@@ -70,6 +70,17 @@ static char sccsid[] = "@(#)fts.c	8.6 (Berkeley) 8/14/94";
 #define	HAVE_STRUCT_DIRENT_D_NAMLEN
 #endif
 */
+
+#ifndef MAX
+static int MAX(int x, int y)
+{
+	if (x > y)
+		return x;
+
+	return y;
+}
+#endif
+
 
 static FTSENT	*fts_alloc(FTS *, const char *, size_t);
 static FTSENT	*fts_build(FTS *, int);
@@ -543,7 +554,7 @@ name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 int
 fts_set(FTS *sp, FTSENT *p, int instr)
 {
-
+	(void) sp;	/* silence warnings */
 	_DIAGASSERT(sp != NULL);
 	_DIAGASSERT(p != NULL);
 
