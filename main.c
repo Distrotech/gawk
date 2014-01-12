@@ -199,7 +199,6 @@ static const struct option optab[] = {
 	{ NULL, 0, NULL, '\0' }
 };
 
-
 /* main --- process args, parse program, run it, clean up */
 
 int
