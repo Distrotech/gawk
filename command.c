@@ -99,10 +99,10 @@ static bool in_eval = false;
 static const char start_EVAL[] = "function @eval(){";
 static const char end_EVAL[] = "}";	
 static CMDARG *append_statement(CMDARG *stmt_list, char *stmt);
-static char *next_word(char *p, int len, char **endp);
 static NODE *concat_args(CMDARG *a, int count);
 
 #ifdef HAVE_LIBREADLINE
+static char *next_word(char *p, int len, char **endp);
 static void history_expand_line(char **line);
 static char *command_generator(const char *text, int state);
 static char *srcfile_generator(const char *text, int state);
@@ -3380,6 +3380,8 @@ do_help(CMDARG *arg, int cmd)
 }
 
 
+#ifdef HAVE_LIBREADLINE
+
 /*
  * next_word --- find the next word in a line to complete 
  *               (word seperation characters are space and tab).
@@ -3407,7 +3409,6 @@ next_word(char *p, int len, char **endp)
 	return p;
 }
 
-#ifdef HAVE_LIBREADLINE
 
 /*
  * command_completion --- attempt to complete based on the word number in line;
