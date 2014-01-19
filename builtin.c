@@ -787,11 +787,11 @@ check_pos:
 				const char *msg = NULL;
 
 				if (fw && ! have_prec)
-					msg = _("field width is ignored for `%%%%' specifier");
+					msg = _("field width is ignored for `%%' specifier");
 				else if (fw == 0 && have_prec)
-					msg = _("precision is ignored for `%%%%' specifier");
+					msg = _("precision is ignored for `%%' specifier");
 				else if (fw && have_prec)
-					msg = _("field width and precision are ignored for `%%%%' specifier");
+					msg = _("field width and precision are ignored for `%%' specifier");
 
 				if (msg != NULL)
 					lintwarn("%s", msg);

@@ -1,3 +1,8 @@
+Sun Jan 19 21:44:43 2014  Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (format_tree): Fix to pass the test suite.
+	Probably the last change I'll make to this branch.
+
 Mon Dec  3 22:55:23 2012  Arnold D. Robbins     <arnold@skeeve.com>
 
 	Minimal update to the branch.
