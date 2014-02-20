@@ -1951,7 +1951,6 @@ getfname(NODE *(*fptr)(int))
 	return NULL;
 }
 
-
 /* print_included_from --- print `Included from ..' file names and locations */
 
 static void
