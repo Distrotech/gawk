@@ -106,7 +106,7 @@ $(PFX)time$(SFX): time.o
 
 install-data-hook:
 	for i in $(pkgextension_LTLIBRARIES) ; do \
-		$(RM) $(pkgextensiondir)/$$i ; \
+		$(RM) $(DESTDIR)$(pkgextensiondir)/$$i ; \
 	done
 
 clean-local:
