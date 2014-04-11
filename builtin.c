@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2013 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -897,10 +897,10 @@ do_mktime(int nargs)
 			& hour, & minute, & second,
 		        & dst);
 
-	if (do_lint /* Ready? Set! Go: */
-		&& (    (second < 0 || second > 60)
-		|| (minute < 0 || minute > 60)
-		|| (hour < 0 || hour > 23)
+	if (   do_lint /* Ready? Set! Go: */
+	    && (   (second < 0 || second > 60)
+		|| (minute < 0 || minute > 59)
+		|| (hour < 0 || hour > 23) /* FIXME ISO 8601 allows 24 ? */
 		|| (day < 1 || day > 31)
 		|| (month < 1 || month > 12) ))
 			lintwarn(_("mktime: at least one of the values is out of the default range"));
