@@ -1373,6 +1373,7 @@ extern NODE *stopme(int nargs);
 extern void shadow_funcs(void);
 extern int check_special(const char *name);
 extern SRCFILE *add_srcfile(enum srctype stype, char *src, SRCFILE *curr, bool *already_included, int *errcode);
+extern void free_srcfile(SRCFILE *thisfile);
 extern void register_deferred_variable(const char *name, NODE *(*load_func)(void));
 extern int files_are_same(char *path, SRCFILE *src);
 extern void valinfo(NODE *n, Func_print print_func, FILE *fp);
@@ -1418,6 +1419,7 @@ extern AWKNUM nondec2awknum(char *str, size_t len);
 extern NODE *do_dcgettext(int nargs);
 extern NODE *do_dcngettext(int nargs);
 extern NODE *do_bindtextdomain(int nargs);
+extern NODE *do_div(int nargs);
 #if MBS_SUPPORT
 extern int strncasecmpmbs(const unsigned char *,
 			  const unsigned char *, size_t);
@@ -1471,6 +1473,7 @@ extern NODE *get_actual_argument(int, bool, bool);
 extern void init_fields(void);
 extern void set_record(const char *buf, int cnt);
 extern void reset_record(void);
+extern void rebuild_record(void);
 extern void set_NF(void);
 extern NODE **get_field(long num, Func_ptr *assign);
 extern NODE *do_split(int nargs);
@@ -1531,7 +1534,7 @@ extern char *find_source(const char *src, struct stat *stb, int *errcode, int is
 extern NODE *do_getline_redir(int intovar, enum redirval redirtype);
 extern NODE *do_getline(int intovar, IOBUF *iop);
 extern struct redirect *getredirect(const char *str, int len);
-extern int inrec(IOBUF *iop, int *errcode);
+extern bool inrec(IOBUF *iop, int *errcode);
 extern int nextfile(IOBUF **curfile, bool skipping);
 /* main.c */
 extern int arg_assign(char *arg, bool initing);
@@ -1554,6 +1557,7 @@ extern NODE *do_mpfr_and(int);
 extern NODE *do_mpfr_atan2(int);
 extern NODE *do_mpfr_compl(int);
 extern NODE *do_mpfr_cos(int);
+extern NODE *do_mpfr_div(int);
 extern NODE *do_mpfr_exp(int);
 extern NODE *do_mpfr_int(int);
 extern NODE *do_mpfr_log(int);
@@ -1567,6 +1571,7 @@ extern NODE *do_mpfr_srand(int);
 extern NODE *do_mpfr_strtonum(int);
 extern NODE *do_mpfr_xor(int);
 extern void init_mpfr(mpfr_prec_t, const char *);
+extern void cleanup_mpfr(void);
 extern NODE *mpg_node(unsigned int);
 extern const char *mpg_fmt(const char *, ...);
 extern int mpg_strtoui(mpz_ptr, char *, size_t, char **, int);

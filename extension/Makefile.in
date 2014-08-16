@@ -389,6 +389,9 @@ AM_CPPFLAGS = -I$(srcdir) -I$(srcdir)/..
 # This variable insures that aclocal runs
 # correctly after changing configure.ac
 ACLOCAL_AMFLAGS = -I m4
+
+# For some make's, e.g. OpenBSD, that don't define this
+RM = rm -f
 PFX = .libs/
 SFX = .$(SHLIB_LIBSUFF)
 
@@ -1018,8 +1021,8 @@ install-data-hook:
 	done
 
 clean-local:
-	$(RM) -fr $(PFX)
-	$(RM) -f *.$(OBJEXT)
+	$(RM) -r $(PFX)
+	$(RM) *.$(OBJEXT)
 
 install-exec-hook:
 	$(MKDIR_P) "$(DESTDIR)$(pkgextensiondir)" || exit 1; \

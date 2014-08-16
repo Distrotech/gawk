@@ -29,6 +29,9 @@ AM_CPPFLAGS = -I$(srcdir) -I$(srcdir)/..
 # correctly after changing configure.ac
 ACLOCAL_AMFLAGS = -I m4
 
+# For some make's, e.g. OpenBSD, that don't define this
+RM = rm -f
+
 # Note that various SHOBJ_* and SHLIB_* variables are defined by
 # support/shobj-conf (pulled in by configure.ac and then by automake).
 
@@ -110,8 +113,8 @@ install-data-hook:
 	done
 
 clean-local:
-	$(RM) -fr $(PFX)
-	$(RM) -f *.$(OBJEXT)
+	$(RM) -r $(PFX)
+	$(RM) *.$(OBJEXT)
 
 EXTRA_DIST = build-aux/config.rpath  \
 	ChangeLog \
