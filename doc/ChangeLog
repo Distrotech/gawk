@@ -1,3 +1,48 @@
+2014-09-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gaktexi.in: Add index entry for @ - @load, @include,
+	and indirect function calls. Thanks to "Kenny McKormack" in
+	comp.lang.awk.
+
+2014-08-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Continuing on reviewer comments, and other
+	bug fixes, miscellanious improvements.
+
+2014-08-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Use a different mechanism to exclude
+	exercises. Remove use of LC_ALL in an example; doesn't seem
+	to be needed anymore.
+
+	Unrelated:
+
+	* gawktexi.in: Document that MirBSD is no longer supported.
+
+2014-08-25         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Exercises are excluded from print edition.
+
+2014-08-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Continuing on reviewer comments.
+
+2014-08-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Continuing on reviewer comments.
+
+2014-08-22         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Continuing on reviewer comments.
+
+2014-08-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Continuing on reviewer comments.
+
+2014-08-16         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Continuing on reviewer comments.
+
 2014-08-15         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* gawktexi.in: Continuing on reviewer comments.

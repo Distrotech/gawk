@@ -1,3 +1,51 @@
+2014-09-01         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (do_substr): Return "" instead of null string in case
+	result is passed to length() with --lint. Based on discussions in
+	comp.lang.awk.
+
+	Unrelated:
+
+	* interpret.h (r_interpret): For indirect function call, separate
+	error message if lookup returned NULL. Otherwise got a core dump.
+	Thanks to "Kenny McKormack" for the report in comp.lang.awk.
+
+2014-08-27         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure.ac: Add test for strcasecmp.
+	* regcomp.c: Remove special case code around use of strcasecmp().
+	* replace.c: Include missing/strncasecmp.c if either strcasecmp()
+	or strncasecmp() aren't available.
+
+2014-08-26         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regcomp.c, regex_internal.c: Sync with GBLIC. Why not.
+
+	Unrelated:
+
+	Remove support for MirBSD. It uglified the code too much
+	for no discernable gain.
+
+	* configure.ac: Remove check for MirBSD and define of
+	LIBC_IS_BORKED.
+	* dfa.c: Remove code depending on LIBC_IS_BORKED.
+	* main.c: Ditto.
+	* regcomp.c: Ditto.
+	* NEWS: Updated.
+
+2014-08-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* regex.h: Remove underscores in names of parameters in function
+	declarations. Tweak names as neeeded.
+
+2014-08-20         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* node.c (parse_escape): Max of 2 digits after \x.
+
+2014-08-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* symbol.c: General formatting cleanup.
+
 2014-08-15         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* main.c (usage): Adjust whitespace for -L and add "invalid"
