@@ -33,6 +33,16 @@
 #include <mcheck.h>
 #endif
 
+#ifdef HAVE_LIBSIGSEGV
+#include <sigsegv.h>
+#else
+typedef void *stackoverflow_context_t;
+/* the argument to this macro is purposely not used */
+#define sigsegv_install_handler(catchsegv) signal(SIGSEGV, catchsig)
+/* define as 0 rather than empty so that (void) cast on it works */
+#define stackoverflow_install_handler(catchstackoverflow, extra_stack, STACK_SIZE) 0
+#endif
+
 #define DEFAULT_PROFILE		"awkprof.out"	/* where to put profile */
 #define DEFAULT_VARFILE		"awkvars.out"	/* where to put vars */
 #define DEFAULT_PREC		53
@@ -694,6 +704,8 @@ out:
 	if (do_intl)
 		exit(EXIT_SUCCESS);
 
+	install_builtins();
+
 	if (do_lint)
 		shadow_funcs();
 
@@ -1317,11 +1329,11 @@ arg_assign(char *arg, bool initing)
 
 	/* first check that the variable name has valid syntax */
 	badvar = false;
-	if (! isalpha((unsigned char) arg[0]) && arg[0] != '_')
+	if (! is_alpha((unsigned char) arg[0]) && arg[0] != '_')
 		badvar = true;
 	else
 		for (cp2 = arg+1; *cp2; cp2++)
-			if (! isalnum((unsigned char) *cp2) && *cp2 != '_') {
+			if (! is_identchar((unsigned char) *cp2)) {
 				badvar = true;
 				break;
 			}

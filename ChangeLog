@@ -1,3 +1,62 @@
+2014-09-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Finish removing use of isalpha and isalnum.
+
+	* awk.h (is_alpha, is_alnum, is_identchar): Add declarations.
+	* awkgram.y (yylex): Use is_alpha.
+	(is_alpha, is_alnum): New functions.
+	(is_identchar): Use is_alnum.
+	* builtin.c (r_format_tree): Use is_alpha, is_alnum.
+	* command.y (yylex): Use is_alpha, is_identchar.
+	* ext.c (is_letter): Use is_alpha.
+	(is_identifier_char): Removed; replaced uses with is_identchar.
+	* main.c (arg_assign): Use is_alpha, is_alnum.
+	* node.c (r_force_number): Use is_alpha.
+
+2014-09-14         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awkgram.y (is_identchar): Change from simple macro to function
+	since use of isalnum() let non-ASCII letters slip through into
+	identifiers.
+
+2014-09-07         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awk.h: Move libsigsegv stuff to ...
+	* main.c: here. Thanks to Yehezkel Bernat for motivating
+	the cleanup.
+	* symbol.c (make_symbol, install, install_symbol): Add const to
+	first parameter. Adjust decls and fix up uses.
+
+2014-09-05         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Add builtin functions to FUNCTAB for consistency.
+
+	* awk.h (Node_builtin_func): New node type.
+	(install_builtins): Declare new function.
+	* awkgram.y [DEBUG_USE]: New flag value for debug functions; they
+	don't go into FUNCTAB.
+	(install_builtins): New function.
+	* eval.c (nodetypes): Add Node_builtin_func.
+	* interpret.h (r_interpret): Rework indirect calls of built-ins
+	since they're now in the symbol table.
+	* main.c (main): Call `install_builtins'.
+	* symbol.c (install): Adjust for Node_builtin_func.
+	(load_symbols): Ditto.
+
+2014-09-04         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* profile.c (pprint): Case Op_K_for: Improve printing of
+	empty for loop header.
+
+	Unrelated: Make indirect function calls work for built-in and
+	extension functions.
+
+	* awkgram.y (lookup_builtin): New function.
+	* awk.h (builtin_func_t): New typedef.
+	(lookup_builtin): Declare it.
+	* interpret.h (r_interpret): For indirect calls, add code to
+	find and call builtin functions, and call extension functions.
+
 2014-09-01         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* builtin.c (do_substr): Return "" instead of null string in case

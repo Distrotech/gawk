@@ -154,8 +154,6 @@ static inline INSTRUCTION *list_merge(INSTRUCTION *l1, INSTRUCTION *l2);
 extern double fmod(double x, double y);
 
 #define YYSTYPE INSTRUCTION *
-
-#define is_identchar(c)		(isalnum(c) || (c) == '_')
 %}
 
 %token FUNC_CALL NAME REGEXP FILENAME
@@ -1805,6 +1803,7 @@ struct token {
 #	define	GAWKX		0x0400	/* gawk extension */
 #	define	BREAK		0x0800	/* break allowed inside */
 #	define	CONTINUE	0x1000	/* continue allowed inside */
+#	define	DEBUG_USE	0x2000	/* for use by developers */
 	
 	NODE *(*ptr)(int);	/* function that implements this keyword */
 	NODE *(*ptr2)(int);	/* alternate arbitrary-precision function */
@@ -1843,7 +1842,7 @@ static const struct token tokentab[] = {
 {"END",		Op_rule,	 LEX_END,	0,		0,	0},
 {"ENDFILE",		Op_rule,	 LEX_ENDFILE,	GAWKX,		0,	0},
 #ifdef ARRAYDEBUG
-{"adump",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1)|A(2),	do_adump,	0},
+{"adump",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1)|A(2)|DEBUG_USE,	do_adump,	0},
 #endif
 {"and",		Op_builtin,    LEX_BUILTIN,	GAWKX,		do_and,	MPF(and)},
 {"asort",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3),	do_asort,	0},
@@ -1903,7 +1902,7 @@ static const struct token tokentab[] = {
 {"sqrt",	Op_builtin,	 LEX_BUILTIN,	A(1),		do_sqrt,	MPF(sqrt)},
 {"srand",	Op_builtin,	 LEX_BUILTIN,	NOT_OLD|A(0)|A(1), do_srand,	MPF(srand)},
 #if defined(GAWKDEBUG) || defined(ARRAYDEBUG) /* || ... */
-{"stopme",	Op_builtin,	LEX_BUILTIN,	GAWKX|A(0),	stopme,		0},
+{"stopme",	Op_builtin,	LEX_BUILTIN,	GAWKX|A(0)|DEBUG_USE,	stopme,		0},
 #endif
 {"strftime",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(0)|A(1)|A(2)|A(3), do_strftime,	0},
 {"strtonum",	Op_builtin,    LEX_BUILTIN,	GAWKX|A(1),	do_strtonum, MPF(strtonum)},
@@ -3636,7 +3635,7 @@ retry:
 		}
 	}
 
-	if (c != '_' && ! isalpha(c)) {
+	if (c != '_' && ! is_alpha(c)) {
 		yyerror(_("invalid char '%c' in expression"), c);
 		return lasttok = LEX_EOF;
 	}
@@ -5715,3 +5714,84 @@ one_line_close(int fd)
 }
 
 
+/* lookup_builtin --- find a builtin function or return NULL */
+
+builtin_func_t
+lookup_builtin(const char *name)
+{
+	int mid = check_special(name);
+
+	if (mid == -1 || tokentab[mid].class != LEX_BUILTIN)
+		return NULL;
+#ifdef HAVE_MPFR
+	if (do_mpfr)
+		return tokentab[mid].ptr2;
+#endif
+
+	return tokentab[mid].ptr;
+}
+
+/* install_builtins --- add built-in functions to FUNCTAB */
+
+void
+install_builtins(void)
+{
+	int i, j;
+
+	j = sizeof(tokentab) / sizeof(tokentab[0]);
+	for (i = 0; i < j; i++) {
+		if (    tokentab[i].class == LEX_BUILTIN
+		    && (tokentab[i].flags & DEBUG_USE) == 0) {
+			(void) install_symbol(tokentab[i].operator, Node_builtin_func);
+		}
+	}
+}
+
+/*
+ * 9/2014: Gawk cannot use <ctype.h> isalpha or isalnum when
+ * parsing the program since that can let through non-English
+ * letters.  So, we supply our own. !@#$%^&*()-ing locales!
+ */
+
+/* is_alpha --- return true if c is an English letter */
+
+bool
+is_alpha(int c)
+{
+#ifdef I_DONT_KNOW_WHAT_IM_DOING
+	return isalpha(c);
+#else /* ! I_DONT_KNOW_WHAT_IM_DOING */
+	switch (c) {
+	case 'a': case 'b': case 'c': case 'd': case 'e': case 'f':
+	case 'g': case 'h': case 'i': case 'j': case 'k': case 'l':
+	case 'm': case 'n': case 'o': case 'p': case 'q': case 'r':
+	case 's': case 't': case 'u': case 'v': case 'w': case 'x':
+	case 'y': case 'z':
+	case 'A': case 'B': case 'C': case 'D': case 'E': case 'F':
+	case 'G': case 'H': case 'I': case 'J': case 'K': case 'L':
+	case 'M': case 'N': case 'O': case 'P': case 'Q': case 'R':
+	case 'S': case 'T': case 'U': case 'V': case 'W': case 'X':
+	case 'Y': case 'Z':
+		return true;
+	}
+	return false;
+#endif /* ! I_DONT_KNOW_WHAT_IM_DOING */
+}
+
+/* is_alnum --- return true for alphanumeric, English only letters */
+
+bool
+is_alnum(int c)
+{
+	/* digit test is good for EBCDIC too. so there. */
+	return (is_alpha(c) || ('0' <= c && c <= '9'));
+}
+
+
+/* is_identchar --- return true if c can be in an identifier */
+
+bool
+is_identchar(int c)
+{
+	return (is_alnum(c) || c == '_');
+}
