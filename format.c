@@ -601,13 +601,29 @@ check_pos:
 					size_t count;
 
 					memset(& mbs, 0, sizeof(mbs));
+
+					/* handle systems with too small wchar_t */
+					if (sizeof(wchar_t) < 4 && uval > 0xffff) {
+						if (do_lint)
+							lintwarn(
+						_("[s]printf: value %g is too big for %%c format"),
+									arg->numbr);
+
+						goto out0;
+					}
+
 					wc = uval;
 
 					count = wcrtomb(buf, wc, & mbs);
 					if (count == 0
-					    || count == (size_t)-1
-					    || count == (size_t)-2)
+					    || count == (size_t) -1) {
+						if (do_lint)
+							lintwarn(
+						_("[s]printf: value %g is not a valid wide character"),
+									arg->numbr);
+
 						goto out0;
+					}
 
 					memcpy(CPBUF, buf, count);
 					spec.prec = count;
@@ -619,10 +635,6 @@ out0:
 				/* else,
 					fall through */
 #endif
-				if (do_lint && uval > 255) {
-					lintwarn("[s]printf: value %g is too big for %%c format",
-							get_number_d(arg));
-				}
 				CPBUF[0] = uval;
 				spec.prec = 1;
 				cp = CPBUF;
@@ -647,7 +659,7 @@ out0:
 
 				memset(& state, 0, sizeof(state));
 				count = mbrlen(cp, arg->stlen, & state);
-				if (count > 0) {
+				if (count != (size_t) -1 && count != (size_t) -2 && count > 0) {
 					spec.prec = count;
 					/* may need to increase fw so that padding happens, see pr_tail code */
 					if (spec.fw > 0)
