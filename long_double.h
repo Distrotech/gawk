@@ -89,6 +89,7 @@ static NODE *do_and(int);
 static NODE *do_atan2(int);
 static NODE *do_compl(int);
 static NODE *do_cos(int);
+static NODE *do_div_l(int);
 static NODE *do_exp(int);
 static NODE *do_int(int);
 static NODE *do_log(int);
@@ -155,6 +156,7 @@ awkldbl_init(bltin_t **numbr_bltins)
 		{ "atan2",	do_atan2 },
 		{ "compl",	do_compl },
 		{ "cos",	do_cos },
+		{ "div",	do_div_l },
 		{ "exp",	do_exp },
 		{ "int",	do_int },
 		{ "log",	do_log },
@@ -1382,6 +1384,65 @@ do_cos(int nargs)
 	DEREF(tmp);
 	return make_awkldbl(d);
 }
+
+/* do_div_l --- do integer division, return quotient and remainder in dest array */
+
+/*
+ * We define the semantics as:
+ * 	numerator = int(numerator)
+ *	denominator = int(denonmator)
+ *	quotient = int(numerator / denomator)
+ *	remainder = int(numerator % denomator)
+ */
+
+static NODE *
+do_div_l(int nargs)
+{
+	NODE *numerator, *denominator, *result;
+	AWKLDBL num, denom, quotient, remainder;
+	NODE *sub, **lhs;
+
+	result = POP_PARAM();
+	if (result->type != Node_var_array)
+		fatal(_("div: third argument is not an array"));
+	assoc_clear(result);
+
+	denominator = POP_SCALAR();
+	numerator = POP_SCALAR();
+
+	if (do_lint) {
+		if ((numerator->flags & (NUMCUR|NUMBER)) == 0)
+			lintwarn(_("div: received non-numeric first argument"));
+		if ((denominator->flags & (NUMCUR|NUMBER)) == 0)
+			lintwarn(_("div: received non-numeric second argument"));
+	}
+
+	(void) force_number(numerator);
+	(void) force_number(denominator);
+	num = double_to_int(LDBL_VAL(numerator));
+	denom = double_to_int(LDBL_VAL(denominator));
+
+	if (denom == 0.0)
+		fatal(_("div: division by zero attempted"));
+
+	quotient = double_to_int(num / denom);
+
+	remainder = fmodl(num, denom);
+	remainder = double_to_int(remainder);
+
+	sub = make_string("quotient", 8);
+	lhs = assoc_lookup(result, sub);
+	unref(*lhs);
+	*lhs = make_number((AWKNUM) quotient);
+
+	sub = make_string("remainder", 9);
+	lhs = assoc_lookup(result, sub);
+	unref(*lhs);
+	*lhs = make_number((AWKNUM) remainder);
+
+	return make_number((AWKNUM) 0.0);
+}
+
 
 /* do_strtonum --- the strtonum function */
 

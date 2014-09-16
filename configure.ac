@@ -124,13 +124,6 @@ dnl	need -D_SYSV3 for ISC
 	CFLAGS="$CFLAGS -D_SYSV3"
 fi
 
-dnl check for systems where libc is borked for regex handling
-case $host_os in
-mirbsd*)
-	AC_DEFINE([LIBC_IS_BORKED], 1, [libc is broken for regex handling])
-	;;
-esac
-
 dnl Set the programming language for checks. Fortunately,
 dnl this only needs to be set once, since everything is in C.
 AC_LANG([C])
@@ -281,7 +274,7 @@ AC_CHECK_FUNCS(atexit btowc fmod getgrent getgroups grantpt \
 	isascii iswctype iswlower iswupper mbrlen \
 	memcmp memcpy memcpy_ulong memmove memset \
 	memset_ulong mkstemp posix_openpt setenv setlocale setsid snprintf strchr \
-	strerror strftime strncasecmp strcoll strtod strtoul \
+	strerror strftime strcasecmp strncasecmp strcoll strtod strtoul \
 	system tmpfile towlower towupper tzset usleep wcrtomb \
 	wcscoll wctype)
 dnl this check is for both mbrtowc and the mbstate_t type, which is good
@@ -319,7 +312,7 @@ EOF
 			if test "$GCC" = yes; then
 				case $host_os in
 				linux*|freebsd*)
-					LDFLAGS="$LDFLAGS -export-dynamic"
+					LDFLAGS="$LDFLAGS -Wl,-export-dynamic"
 					;;
 				esac
 			fi

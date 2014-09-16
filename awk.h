@@ -193,15 +193,6 @@ extern void *memset_ulong(void *dest, int val, unsigned long l);
 #define memset memset_ulong
 #endif
 
-#ifdef HAVE_LIBSIGSEGV
-#include <sigsegv.h>
-#else
-typedef void *stackoverflow_context_t;
-#define sigsegv_install_handler(catchsegv) signal(SIGSEGV, catchsig)
-/* define as 0 rather than empty so that (void) cast on it works */
-#define stackoverflow_install_handler(catchstackoverflow, extra_stack, STACK_SIZE) 0
-#endif
-
 #if defined(__EMX__) || defined(__MINGW32__)
 #include "nonposix.h"
 #endif /* defined(__EMX__) || defined(__MINGW32__) */
@@ -292,6 +283,7 @@ typedef enum nodevals {
 	Node_func,		/* lnode is param. list, rnode is body */
 	Node_ext_func,		/* extension function, code_ptr is builtin code */
 	Node_old_ext_func,	/* extension function, code_ptr is builtin code */
+	Node_builtin_func,	/* built-in function, main use is for FUNCTAB */
 
 	Node_array_ref,		/* array passed by ref as parameter */
 	Node_array_tree,	/* Hashed array tree (HAT) */
@@ -1417,10 +1409,16 @@ extern NODE *stopme(int nargs);
 extern void shadow_funcs(void);
 extern int check_special(const char *name);
 extern SRCFILE *add_srcfile(enum srctype stype, char *src, SRCFILE *curr, bool *already_included, int *errcode);
+extern void free_srcfile(SRCFILE *thisfile);
 extern void register_deferred_variable(const char *name, NODE *(*load_func)(void));
 extern int files_are_same(char *path, SRCFILE *src);
 extern void valinfo(NODE *n, Func_print print_func, FILE *fp);
-
+typedef NODE *(*builtin_func_t)(int);	/* function that implements a built-in */
+extern builtin_func_t lookup_builtin(const char *name);
+extern void install_builtins(void);
+extern bool is_alpha(int c);
+extern bool is_alnum(int c);
+extern bool is_identchar(int c);
 /* builtin.c */
 extern NODE *do_fflush(int nargs);
 extern NODE *do_index(int nargs);
@@ -1442,6 +1440,7 @@ extern NODE *do_sub(int nargs, unsigned int flags);
 extern NODE *do_dcgettext(int nargs);
 extern NODE *do_dcngettext(int nargs);
 extern NODE *do_bindtextdomain(int nargs);
+extern NODE *do_div(int nargs);
 #if MBS_SUPPORT
 extern int strncasecmpmbs(const unsigned char *,
 			  const unsigned char *, size_t);
@@ -1496,6 +1495,7 @@ extern NODE *get_actual_argument(int, bool, bool);
 extern void init_fields(void);
 extern void set_record(const char *buf, int cnt);
 extern void reset_record(void);
+extern void rebuild_record(void);
 extern void set_NF(void);
 extern void set_PREC(void);
 extern void set_ROUNDMODE(void);
@@ -1557,7 +1557,7 @@ extern char *find_source(const char *src, struct stat *stb, int *errcode, int is
 extern NODE *do_getline_redir(int intovar, enum redirval redirtype);
 extern NODE *do_getline(int intovar, IOBUF *iop);
 extern struct redirect *getredirect(const char *str, int len);
-extern int inrec(IOBUF *iop, int *errcode);
+extern bool inrec(IOBUF *iop, int *errcode);
 extern int nextfile(IOBUF **curfile, bool skipping);
 
 /* main.c */
@@ -1637,7 +1637,7 @@ extern void load_symbols();
 extern void init_symbol_table();
 extern NODE *symbol_table;
 extern NODE *func_table;
-extern NODE *install_symbol(char *name, NODETYPE type);
+extern NODE *install_symbol(const char *name, NODETYPE type);
 extern NODE *remove_symbol(NODE *r);
 extern void destroy_symbol(NODE *r);
 extern void release_symbols(NODE *symlist, int keep_globals);

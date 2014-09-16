@@ -64,10 +64,12 @@ EXTRA_DIST = \
 
 EXTRADIRS = misc
 
+# Build in awklib after in doc, since we want to extract
+# sample files if doc/gawk.texi changed.
 BASEDIRS = \
 	. \
-	awklib \
 	doc \
+	awklib \
 	po \
 	extension \
 	test
@@ -155,6 +157,9 @@ CLEANFILES = core core.*
 
 # We want hard links for install-exec-hook, below
 LN= ln
+
+# For some make's, e.g. OpenBSD, that don't define this
+RM = rm -f
 
 # First, add a link from gawk to gawk-X.Y.Z.
 #

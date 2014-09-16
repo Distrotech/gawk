@@ -39,7 +39,6 @@ AWKNUM (*get_number_d)(const NODE *);
 uintmax_t (*get_number_uj)(const NODE *);
 int (*sgn_number)(const NODE *);
 
-
 /* r_dupnode --- duplicate a node */
 
 NODE *
@@ -292,9 +291,8 @@ parse_escape(const char **string_ptr)
 			warning(_("no hex digits in `\\x' escape sequence"));
 			return ('x');
 		}
-		i = j = 0;
 		start = *string_ptr;
-		for (;; j++) {
+		for (i = j = 0; j < 2; j++) {
 			/* do outside test to avoid multiple side effects */
 			c = *(*string_ptr)++;
 			if (isxdigit(c)) {

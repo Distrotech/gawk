@@ -84,6 +84,7 @@ static NODE *do_mpfp_and(int);
 static NODE *do_mpfp_atan2(int);
 static NODE *do_mpfp_compl(int);
 static NODE *do_mpfp_cos(int);
+static NODE *do_mpfp_div(int);
 static NODE *do_mpfp_exp(int);
 static NODE *do_mpfp_int(int);
 static NODE *do_mpfp_log(int);
@@ -198,6 +199,7 @@ mpfp_init(bltin_t **numbr_bltins)
 		{ "atan2",	do_mpfp_atan2 },
 		{ "compl",	do_mpfp_compl },
 		{ "cos",	do_mpfp_cos },
+		{ "div",	do_mpfp_div },
 		{ "exp",	do_mpfp_exp },
 		{ "int",	do_mpfp_int },
 		{ "log",	do_mpfp_log },
@@ -1026,22 +1028,42 @@ do_mpfp_atan2(int nargs)
 	return res;
 }
 
+/* do_mpfp_func --- run an MPFR function - not inline, for debugging */
 
-#define MPFPFUNC(X)						\
-NODE *t1, *res;							\
-mpfr_ptr p1;							\
-int tval;							\
-t1 = POP_SCALAR();						\
-if (do_lint && (t1->flags & (NUMCUR|NUMBER)) == 0)		\
-	lintwarn(_("%s: received non-numeric argument"), #X);	\
-t1 = force_number(t1);						\
-p1 = mpfp_tofloat(t1, _mp1);					\
-res = mpfp_float();						\
-tval = mpfr_##X(res->qnumbr, p1, ROUND_MODE);			\
-IEEE_FMT(res->qnumbr, tval);					\
-DEREF(t1);							\
-return res
+static inline NODE *
+do_mpfp_func(const char *name,
+		int (*mpfr_func)(),	/* putting argument types just gets the compiler confused */
+		int nargs)
+{
+	NODE *t1, *res;
+	mpfr_ptr p1;
+	int tval;
+	int prec;
 
+	t1 = POP_SCALAR();
+	if (do_lint && (t1->flags & (NUMCUR|NUMBER)) == 0)
+		lintwarn(_("%s: received non-numeric argument"), name);
+
+	force_number(t1);
+
+	if (is_mpfp_integer(t1))
+		p1 = mpfp_tofloat(t1, _mp1);
+	else
+		p1 = MPFR_T(t1);
+
+	res = mpfp_float();
+	prec = mpfr_get_prec(p1);
+	mpfr_set_prec(res->qnumbr, prec);	/* needed at least for sqrt() */
+	tval = mpfr_func(res->qnumbr, p1, ROUND_MODE);
+	IEEE_FMT(res->qnumbr, tval);
+	DEREF(t1);
+	return res;
+}
+
+#define MPFPFUNC(X)				\
+NODE *result;					\
+result = do_mpfp_func(#X, mpfr_##X, nargs);	\
+return result
 
 /* do_mpfp_sin --- do the sin function */
 
@@ -1507,6 +1529,131 @@ do_mpfp_srand(int nargs)
 	return res;
 }
 
+/* do_mpfp_div --- do integer division, return quotient and remainder in dest array */
+
+/*
+ * We define the semantics as:
+ * 	numerator = int(numerator)
+ *	denominator = int(denonmator)
+ *	quotient = int(numerator / denomator)
+ *	remainder = int(numerator % denomator)
+ */
+
+static NODE *
+do_mpfp_div(int nargs)
+{
+	NODE *numerator, *denominator, *result;
+	NODE *num, *denom;
+	NODE *quotient, *remainder;
+	NODE *sub, **lhs;
+
+	result = POP_PARAM();
+	if (result->type != Node_var_array)
+		fatal(_("div: third argument is not an array"));
+	assoc_clear(result);
+
+	denominator = POP_SCALAR();
+	numerator = POP_SCALAR();
+
+	if (do_lint) {
+		if ((numerator->flags & (NUMCUR|NUMBER)) == 0)
+			lintwarn(_("div: received non-numeric first argument"));
+		if ((denominator->flags & (NUMCUR|NUMBER)) == 0)
+			lintwarn(_("div: received non-numeric second argument"));
+	}
+
+	(void) force_number(numerator);
+	(void) force_number(denominator);
+
+	/* convert numerator and denominator to integer */
+	if (is_mpfp_integer(numerator)) {
+		num = mpfp_integer();
+		mpz_set(num->qnumbr, numerator->qnumbr);
+	} else {
+		if (! mpfr_number_p(numerator->qnumbr)) {
+			/* [+-]inf or NaN */
+			return numerator;
+		}
+
+		num = mpfp_integer();
+		mpfr_get_z(num->qnumbr, numerator->qnumbr, MPFR_RNDZ);
+	}
+
+	if (is_mpfp_integer(denominator)) {
+		denom = mpfp_integer();
+		mpz_set(denom->qnumbr, denominator->qnumbr);
+	} else {
+		if (! mpfr_number_p(denominator->qnumbr)) {
+			/* [+-]inf or NaN */
+			return denominator;
+		}
+
+		denom = mpfp_integer();
+		mpfr_get_z(denom->qnumbr, denominator->qnumbr, MPFR_RNDZ);
+	}
+
+	if (mpz_sgn(MPZ_T(denom->qnumbr)) == 0)
+		fatal(_("div: division by zero attempted"));
+
+	quotient = mpfp_integer();
+	remainder = mpfp_integer();
+
+	/* do the division */
+	mpz_tdiv_qr(quotient->qnumbr, remainder->qnumbr, num->qnumbr, denom->qnumbr);
+	unref(num);
+	unref(denom);
+	unref(numerator);
+	unref(denominator);
+
+	sub = make_string("quotient", 8);
+	lhs = assoc_lookup(result, sub);
+	unref(*lhs);
+	*lhs = quotient;
+
+	sub = make_string("remainder", 9);
+	lhs = assoc_lookup(result, sub);
+	unref(*lhs);
+	*lhs = remainder;
+
+	return make_number((AWKNUM) 0.0);
+}
+
+/*
+ * mpg_tofloat --- convert an arbitrary-precision integer operand to
+ *	a float without loss of precision. It is assumed that the
+ *	MPFR variable has already been initialized.
+ */
+
+static inline mpfr_ptr
+mpg_tofloat(mpfr_ptr mf, mpz_ptr mz)
+{
+	size_t prec;
+
+	/*
+	 * When implicitely converting a GMP integer operand to a MPFR float, use
+	 * a precision sufficiently large to hold the converted value exactly.
+	 * 	
+ 	 *	$ ./gawk -M 'BEGIN { print 13 % 2 }'
+ 	 *	1
+ 	 * If the user-specified precision is used to convert the integer 13 to a
+	 * float, one will get:
+ 	 *	$ ./gawk -M 'BEGIN { PREC=2; print 13 % 2.0 }'
+ 	 *	0	
+ 	 */
+
+	prec = mpz_sizeinbase(mz, 2);	/* most significant 1 bit position starting at 1 */
+	if (prec > PRECISION_MIN) {
+		prec -= (size_t) mpz_scan1(mz, 0);	/* least significant 1 bit index starting at 0 */
+		if (prec > MPFR_PREC_MAX)
+			prec = MPFR_PREC_MAX;
+		if (prec > PRECISION_MIN) 
+			mpfr_set_prec(mf, prec);
+	}
+
+	mpfr_set_z(mf, mz, ROUND_MODE);
+	return mf;
+}
+
 
 #ifdef NUMDEBUG
 
@@ -1700,8 +1847,27 @@ mpfp_mod(const NODE *t1, const NODE *t2)
 	int tval;
 
 	if (is_mpfp_integer(t1) && is_mpfp_integer(t2)) {
+		/*
+		 * 8/2014: Originally, this was just
+		 *
+		 * r = mpg_integer();
+		 * mpz_mod(r->mpg_i, t1->mpg_i, t2->mpg_i);
+		 *
+		 * But that gave very strange results with negative numerator:
+		 *
+		 *	$ ./gawk -M 'BEGIN { print -15 % 7 }'
+		 *	6
+		 *
+		 * So instead we use mpz_tdiv_qr() to get the correct result
+		 * and just throw away the quotient. We could not find any
+		 * reason why mpz_mod() wasn't working correctly.
+		 */
+		NODE *dummy_quotient;
+
 		r = mpfp_integer();
-		mpz_mod(r->qnumbr, t1->qnumbr, t2->qnumbr);
+		dummy_quotient = mpfp_integer();
+		mpz_tdiv_qr(dummy_quotient->qnumbr, r->qnumbr, t1->qnumbr, t2->qnumbr);
+		unref(dummy_quotient);
 	} else {
 		mpfr_ptr p1, p2;
 
