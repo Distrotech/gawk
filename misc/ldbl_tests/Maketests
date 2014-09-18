@@ -120,6 +120,11 @@ backgsub:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
+badassign1:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
 childin:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -665,6 +670,13 @@ prtoeval:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
+rand:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) $(AWKFLAGS) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-if test -z "$$AWKFLAGS" ; then $(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@ ; else \
+	$(CMP) "$(TESTDIR)"/$@-mpfr.ok _$@ && rm -f _$@ ; \
+	fi
+
 range1:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -1070,6 +1082,11 @@ indirectcall:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
+indirectcall2:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
 lint:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -1140,14 +1157,24 @@ pty1:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
-rebuf:
+regnul1:
 	@echo $@
-	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
+regnul2:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
 regx8bit:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
+rsgetline:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
 rstest6:
@@ -1168,6 +1195,11 @@ sortfor:
 sortu:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
+split_after_fpat:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
 splitarg4:
@@ -1275,6 +1307,11 @@ fork2:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
+functab4:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
 ordchr:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
@@ -1293,6 +1330,11 @@ revtwoway:
 rwarray:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
+time:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
 # end of file Maketests
