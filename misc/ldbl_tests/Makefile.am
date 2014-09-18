@@ -1364,7 +1364,7 @@ fmtspcl: fmtspcl.ok
 	$(CMP) "$(TESTDIR)"/$@-mpfr.ok _$@ && rm -f _$@ ; \
 	fi
 
-rebuf:
+rebuf::
 	@echo $@
 	@AWKBUFSIZE=4096 AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  < "$(TESTDIR)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
@@ -1878,7 +1878,7 @@ testext::
 	@echo $@
 	@$(AWK) '/^(@load|BEGIN)/,/^}/' "$(top_srcdir)"/extension/testext.c > testext.awk
 	@$(AWK) -f testext.awk >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
-	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@ testext.awk
+	@-$(CMP) "."/$@.ok _$@ && rm -f _$@ testext.awk
 
 readdir:
 	@if [ "`uname`" = Linux ] && [ "`stat -f . 2>/dev/null | awk 'NR == 2 { print $$NF }'`" = nfs ];  then \
@@ -1923,7 +1923,7 @@ symtab8:
 	@echo $@
 	@$(AWK) -d__$@ -f "$(TESTDIR)"/$@.awk "$(TESTDIR)"/$@.in >_$@
 	@grep -v '^ENVIRON' __$@ | grep -v '^PROCINFO' | grep -v '^FILENAME' >> _$@ ; rm __$@
-	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+	@-$(CMP) "."/$@.ok _$@ && rm -f _$@
 
 symtab9:
 	@echo $@
@@ -1988,6 +1988,12 @@ printhuge::
 	@[ -z "$$GAWKLOCALE" ] && GAWKLOCALE=en_US.UTF-8; \
 	AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
+filefuncs:
+	@echo $@
+	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk -v builddir="$(abs_top_builddir)"  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
+
 
 # Targets generated for other tests:
 include Maketests

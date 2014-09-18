@@ -1292,11 +1292,6 @@ fnmatch:
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
 
-filefuncs:
-	@echo $@
-	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
-	@-$(CMP) "$(TESTDIR)"/$@.ok _$@ && rm -f _$@
-
 fork:
 	@echo $@
 	@AWKPATH="$(TESTDIR)" $(AWK) -f $@.awk  >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
