@@ -127,6 +127,7 @@ static void check_funcs(void);
 
 static ssize_t read_one_line(int fd, void *buffer, size_t count);
 static int one_line_close(int fd);
+static void split_comment(void);
 
 static bool want_source = false;
 static bool want_regexp = false;	/* lexical scanning kludge */
@@ -186,6 +187,12 @@ static INSTRUCTION *ip_end;
 static INSTRUCTION *ip_endfile;
 static INSTRUCTION *ip_beginfile;
 
+static INSTRUCTION *comment = NULL;
+static INSTRUCTION *program_comment = NULL;
+static INSTRUCTION *function_comment = NULL;
+
+static bool func_first = true;
+
 static inline INSTRUCTION *list_create(INSTRUCTION *x);
 static inline INSTRUCTION *list_append(INSTRUCTION *l, INSTRUCTION *x);
 static inline INSTRUCTION *list_prepend(INSTRUCTION *l, INSTRUCTION *x);
@@ -195,7 +202,7 @@ extern double fmod(double x, double y);
 
 #define YYSTYPE INSTRUCTION *
 
-#line 199 "awkgram.c" /* yacc.c:339  */
+#line 206 "awkgram.c" /* yacc.c:339  */
 
 # ifndef YY_NULLPTR
 #  if defined __cplusplus && 201103L <= __cplusplus
@@ -349,7 +356,7 @@ int yyparse (void);
 
 /* Copy the second part of user declarations.  */
 
-#line 353 "awkgram.c" /* yacc.c:358  */
+#line 360 "awkgram.c" /* yacc.c:358  */
 
 #ifdef short
 # undef short
@@ -651,25 +658,25 @@ static const yytype_uint8 yytranslate[] =
   /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint16 yyrline[] =
 {
-       0,   198,   198,   200,   205,   206,   212,   224,   228,   239,
-     245,   250,   258,   266,   268,   273,   281,   283,   289,   290,
-     292,   318,   329,   340,   346,   355,   365,   367,   369,   375,
-     380,   381,   385,   404,   403,   437,   439,   444,   445,   458,
-     463,   464,   468,   470,   472,   479,   569,   611,   653,   766,
-     773,   780,   790,   799,   808,   817,   828,   844,   843,   867,
-     879,   879,   977,   977,  1010,  1040,  1046,  1047,  1053,  1054,
-    1061,  1066,  1078,  1092,  1094,  1102,  1107,  1109,  1117,  1119,
-    1128,  1129,  1137,  1142,  1142,  1153,  1157,  1165,  1166,  1169,
-    1171,  1176,  1177,  1186,  1187,  1192,  1197,  1203,  1205,  1207,
-    1214,  1215,  1221,  1222,  1227,  1229,  1234,  1236,  1244,  1249,
-    1258,  1265,  1267,  1269,  1285,  1295,  1302,  1304,  1309,  1311,
-    1313,  1321,  1323,  1328,  1330,  1335,  1337,  1339,  1389,  1391,
-    1393,  1395,  1397,  1399,  1401,  1403,  1417,  1422,  1427,  1452,
-    1458,  1460,  1462,  1464,  1466,  1468,  1473,  1477,  1509,  1511,
-    1517,  1523,  1536,  1537,  1538,  1543,  1548,  1552,  1556,  1571,
-    1584,  1589,  1625,  1643,  1644,  1650,  1651,  1656,  1658,  1665,
-    1682,  1699,  1701,  1708,  1713,  1721,  1731,  1743,  1752,  1756,
-    1760,  1764,  1768,  1772,  1775,  1777,  1781,  1785,  1789
+       0,   205,   205,   207,   212,   213,   219,   231,   235,   246,
+     252,   257,   265,   273,   275,   280,   288,   290,   296,   304,
+     314,   340,   353,   366,   373,   383,   395,   397,   399,   405,
+     410,   411,   415,   450,   449,   483,   485,   490,   496,   524,
+     529,   530,   534,   536,   538,   545,   635,   677,   719,   832,
+     839,   846,   856,   865,   874,   883,   894,   910,   909,   933,
+     945,   945,  1043,  1043,  1076,  1106,  1112,  1113,  1119,  1120,
+    1127,  1132,  1144,  1158,  1160,  1168,  1173,  1175,  1183,  1185,
+    1194,  1195,  1203,  1208,  1208,  1219,  1223,  1231,  1232,  1235,
+    1237,  1242,  1243,  1252,  1253,  1258,  1263,  1269,  1271,  1273,
+    1280,  1281,  1287,  1288,  1293,  1295,  1300,  1302,  1310,  1315,
+    1324,  1331,  1333,  1335,  1351,  1361,  1368,  1370,  1375,  1377,
+    1379,  1387,  1389,  1394,  1396,  1401,  1403,  1405,  1455,  1457,
+    1459,  1461,  1463,  1465,  1467,  1469,  1483,  1488,  1493,  1518,
+    1524,  1526,  1528,  1530,  1532,  1534,  1539,  1543,  1575,  1577,
+    1583,  1589,  1602,  1603,  1604,  1609,  1614,  1618,  1622,  1637,
+    1650,  1655,  1691,  1709,  1710,  1716,  1717,  1722,  1724,  1731,
+    1748,  1765,  1767,  1774,  1779,  1787,  1797,  1809,  1818,  1822,
+    1826,  1830,  1834,  1838,  1841,  1843,  1847,  1851,  1855
 };
 #endif
 
@@ -1842,26 +1849,26 @@ yyreduce:
   switch (yyn)
     {
         case 3:
-#line 201 "awkgram.y" /* yacc.c:1646  */
+#line 208 "awkgram.y" /* yacc.c:1646  */
     {
 		rule = 0;
 		yyerrok;
 	  }
-#line 1851 "awkgram.c" /* yacc.c:1646  */
+#line 1858 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 5:
-#line 207 "awkgram.y" /* yacc.c:1646  */
+#line 214 "awkgram.y" /* yacc.c:1646  */
     {
 		next_sourcefile();
 		if (sourcefile == srcfiles)
 			process_deferred();
 	  }
-#line 1861 "awkgram.c" /* yacc.c:1646  */
+#line 1868 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 6:
-#line 213 "awkgram.y" /* yacc.c:1646  */
+#line 220 "awkgram.y" /* yacc.c:1646  */
     {
 		rule = 0;
 		/*
@@ -1870,19 +1877,19 @@ yyreduce:
 		 */
   		/* yyerrok; */
 	  }
-#line 1874 "awkgram.c" /* yacc.c:1646  */
+#line 1881 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 7:
-#line 225 "awkgram.y" /* yacc.c:1646  */
+#line 232 "awkgram.y" /* yacc.c:1646  */
     {
 		(void) append_rule((yyvsp[-1]), (yyvsp[0]));
 	  }
-#line 1882 "awkgram.c" /* yacc.c:1646  */
+#line 1889 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 8:
-#line 229 "awkgram.y" /* yacc.c:1646  */
+#line 236 "awkgram.y" /* yacc.c:1646  */
     {
 		if (rule != Rule) {
 			msg(_("%s blocks must have an action part"), ruletab[rule]);
@@ -1893,39 +1900,39 @@ yyreduce:
 		} else		/* pattern rule with non-empty pattern */
 			(void) append_rule((yyvsp[-1]), NULL);
 	  }
-#line 1897 "awkgram.c" /* yacc.c:1646  */
+#line 1904 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 9:
-#line 240 "awkgram.y" /* yacc.c:1646  */
+#line 247 "awkgram.y" /* yacc.c:1646  */
     {
 		in_function = NULL;
 		(void) mk_function((yyvsp[-1]), (yyvsp[0]));
 		yyerrok;
 	  }
-#line 1907 "awkgram.c" /* yacc.c:1646  */
+#line 1914 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 10:
-#line 246 "awkgram.y" /* yacc.c:1646  */
+#line 253 "awkgram.y" /* yacc.c:1646  */
     {
 		want_source = false;
 		yyerrok;
 	  }
-#line 1916 "awkgram.c" /* yacc.c:1646  */
+#line 1923 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 11:
-#line 251 "awkgram.y" /* yacc.c:1646  */
+#line 258 "awkgram.y" /* yacc.c:1646  */
     {
 		want_source = false;
 		yyerrok;
 	  }
-#line 1925 "awkgram.c" /* yacc.c:1646  */
+#line 1932 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 12:
-#line 259 "awkgram.y" /* yacc.c:1646  */
+#line 266 "awkgram.y" /* yacc.c:1646  */
     {
 		if (include_source((yyvsp[0])) < 0)
 			YYABORT;
@@ -1933,23 +1940,23 @@ yyreduce:
 		bcfree((yyvsp[0]));
 		(yyval) = NULL;
 	  }
-#line 1937 "awkgram.c" /* yacc.c:1646  */
+#line 1944 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 13:
-#line 267 "awkgram.y" /* yacc.c:1646  */
+#line 274 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 1943 "awkgram.c" /* yacc.c:1646  */
+#line 1950 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 14:
-#line 269 "awkgram.y" /* yacc.c:1646  */
+#line 276 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 1949 "awkgram.c" /* yacc.c:1646  */
+#line 1956 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 15:
-#line 274 "awkgram.y" /* yacc.c:1646  */
+#line 281 "awkgram.y" /* yacc.c:1646  */
     {
 		if (load_library((yyvsp[0])) < 0)
 			YYABORT;
@@ -1957,35 +1964,49 @@ yyreduce:
 		bcfree((yyvsp[0]));
 		(yyval) = NULL;
 	  }
-#line 1961 "awkgram.c" /* yacc.c:1646  */
+#line 1968 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 16:
-#line 282 "awkgram.y" /* yacc.c:1646  */
+#line 289 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 1967 "awkgram.c" /* yacc.c:1646  */
+#line 1974 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 17:
-#line 284 "awkgram.y" /* yacc.c:1646  */
+#line 291 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 1973 "awkgram.c" /* yacc.c:1646  */
+#line 1980 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 18:
-#line 289 "awkgram.y" /* yacc.c:1646  */
-    {	(yyval) = NULL; rule = Rule; }
-#line 1979 "awkgram.c" /* yacc.c:1646  */
+#line 296 "awkgram.y" /* yacc.c:1646  */
+    {
+		rule = Rule;
+		if (comment != NULL) {
+			(yyval) = list_create(comment);
+			comment = NULL;
+		} else
+			(yyval) = NULL;
+	  }
+#line 1993 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 19:
-#line 291 "awkgram.y" /* yacc.c:1646  */
-    {	(yyval) = (yyvsp[0]); rule = Rule; }
-#line 1985 "awkgram.c" /* yacc.c:1646  */
+#line 305 "awkgram.y" /* yacc.c:1646  */
+    {
+		rule = Rule;
+		if (comment != NULL) {
+			(yyval) = list_prepend((yyvsp[0]), comment);
+			comment = NULL;
+		} else
+			(yyval) = (yyvsp[0]);
+	  }
+#line 2006 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 20:
-#line 293 "awkgram.y" /* yacc.c:1646  */
+#line 315 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *tp;
 
@@ -2011,13 +2032,15 @@ yyreduce:
 		(yyval) = list_append(list_merge((yyvsp[-3]), (yyvsp[0])), tp);
 		rule = Rule;
 	  }
-#line 2015 "awkgram.c" /* yacc.c:1646  */
+#line 2036 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 21:
-#line 319 "awkgram.y" /* yacc.c:1646  */
+#line 341 "awkgram.y" /* yacc.c:1646  */
     {
 		static int begin_seen = 0;
+
+		func_first = false;
 		if (do_lint_old && ++begin_seen == 2)
 			warning_ln((yyvsp[0])->source_line,
 				_("old awk does not support multiple `BEGIN' or `END' rules"));
@@ -2026,13 +2049,15 @@ yyreduce:
 		(yyvsp[0])->source_file = source;
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2030 "awkgram.c" /* yacc.c:1646  */
+#line 2053 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 22:
-#line 330 "awkgram.y" /* yacc.c:1646  */
+#line 354 "awkgram.y" /* yacc.c:1646  */
     {
 		static int end_seen = 0;
+
+		func_first = false;
 		if (do_lint_old && ++end_seen == 2)
 			warning_ln((yyvsp[0])->source_line,
 				_("old awk does not support multiple `BEGIN' or `END' rules"));
@@ -2041,71 +2066,91 @@ yyreduce:
 		(yyvsp[0])->source_file = source;
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2045 "awkgram.c" /* yacc.c:1646  */
+#line 2070 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 23:
-#line 341 "awkgram.y" /* yacc.c:1646  */
+#line 367 "awkgram.y" /* yacc.c:1646  */
     {
+		func_first = false;
 		(yyvsp[0])->in_rule = rule = BEGINFILE;
 		(yyvsp[0])->source_file = source;
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2055 "awkgram.c" /* yacc.c:1646  */
+#line 2081 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 24:
-#line 347 "awkgram.y" /* yacc.c:1646  */
+#line 374 "awkgram.y" /* yacc.c:1646  */
     {
+		func_first = false;
 		(yyvsp[0])->in_rule = rule = ENDFILE;
 		(yyvsp[0])->source_file = source;
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2065 "awkgram.c" /* yacc.c:1646  */
+#line 2092 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 25:
-#line 356 "awkgram.y" /* yacc.c:1646  */
+#line 384 "awkgram.y" /* yacc.c:1646  */
     {
+		INSTRUCTION *ip;
 		if ((yyvsp[-3]) == NULL)
-			(yyval) = list_create(instruction(Op_no_op));
+			ip = list_create(instruction(Op_no_op));
 		else
-			(yyval) = (yyvsp[-3]);
+			ip = (yyvsp[-3]);
+		(yyval) = ip;
 	  }
-#line 2076 "awkgram.c" /* yacc.c:1646  */
+#line 2105 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 26:
-#line 366 "awkgram.y" /* yacc.c:1646  */
+#line 396 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 2082 "awkgram.c" /* yacc.c:1646  */
+#line 2111 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 27:
-#line 368 "awkgram.y" /* yacc.c:1646  */
+#line 398 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 2088 "awkgram.c" /* yacc.c:1646  */
+#line 2117 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 28:
-#line 370 "awkgram.y" /* yacc.c:1646  */
+#line 400 "awkgram.y" /* yacc.c:1646  */
     {
 		yyerror(_("`%s' is a built-in function, it cannot be redefined"),
 					tokstart);
 		YYABORT;
 	  }
-#line 2098 "awkgram.c" /* yacc.c:1646  */
+#line 2127 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 29:
-#line 376 "awkgram.y" /* yacc.c:1646  */
+#line 406 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 2104 "awkgram.c" /* yacc.c:1646  */
+#line 2133 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 32:
-#line 386 "awkgram.y" /* yacc.c:1646  */
+#line 416 "awkgram.y" /* yacc.c:1646  */
     {
+		/*
+		 *  treat any comments between BOF and the first function
+		 *  definition (with no intervening BEGIN etc block) as
+		 *  program comments.  Special kludge: iff there are more
+		 *  than one such comments, treat the last as a function
+		 *  comment.
+		 */
+		if (comment != NULL && func_first
+		    && strstr(comment->memory->stptr, "\n\n") != NULL)
+			split_comment();
+		/* save any other pre-function comment as function comment  */
+		if (comment != NULL) {
+			function_comment = comment;
+			comment = NULL;
+		}
+		func_first = false;
 		(yyvsp[-5])->source_file = source;
 		if (install_function((yyvsp[-4])->lextok, (yyvsp[-5]), (yyvsp[-2])) < 0)
 			YYABORT;
@@ -2115,17 +2160,17 @@ yyreduce:
 		/* $4 already free'd in install_function */
 		(yyval) = (yyvsp[-5]);
 	  }
-#line 2119 "awkgram.c" /* yacc.c:1646  */
+#line 2164 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 33:
-#line 404 "awkgram.y" /* yacc.c:1646  */
+#line 450 "awkgram.y" /* yacc.c:1646  */
     { want_regexp = true; }
-#line 2125 "awkgram.c" /* yacc.c:1646  */
+#line 2170 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 34:
-#line 406 "awkgram.y" /* yacc.c:1646  */
+#line 452 "awkgram.y" /* yacc.c:1646  */
     {
 		  NODE *n, *exp;
 		  char *re;
@@ -2154,69 +2199,89 @@ yyreduce:
 		  (yyval)->opcode = Op_match_rec;
 		  (yyval)->memory = n;
 		}
-#line 2158 "awkgram.c" /* yacc.c:1646  */
+#line 2203 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 35:
-#line 438 "awkgram.y" /* yacc.c:1646  */
+#line 484 "awkgram.y" /* yacc.c:1646  */
     { bcfree((yyvsp[0])); }
-#line 2164 "awkgram.c" /* yacc.c:1646  */
+#line 2209 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 37:
-#line 444 "awkgram.y" /* yacc.c:1646  */
-    {	(yyval) = NULL; }
-#line 2170 "awkgram.c" /* yacc.c:1646  */
+#line 490 "awkgram.y" /* yacc.c:1646  */
+    {
+		if (comment != NULL) {
+			(yyval) = list_create(comment);
+			comment = NULL;
+		} else (yyval) = NULL;
+	  }
+#line 2220 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 38:
-#line 446 "awkgram.y" /* yacc.c:1646  */
+#line 497 "awkgram.y" /* yacc.c:1646  */
     {
-		if ((yyvsp[0]) == NULL)
-			(yyval) = (yyvsp[-1]);
-		else {
+		if ((yyvsp[0]) == NULL) {
+			if (comment == NULL)
+				(yyval) = (yyvsp[-1]);
+			else {
+				(yyval) = list_append((yyvsp[-1]), comment);
+				comment = NULL;
+			}
+		} else {
 			add_lint((yyvsp[0]), LINT_no_effect);
-			if ((yyvsp[-1]) == NULL)
-				(yyval) = (yyvsp[0]);
-			else
+			if ((yyvsp[-1]) == NULL) {
+				if (comment == NULL)
+					(yyval) = (yyvsp[0]);
+				else {
+					(yyval) = list_append((yyvsp[0]), comment);
+					comment = NULL;
+				}
+			} else {
+				if (comment != NULL) {
+					list_append((yyvsp[0]), comment);
+					comment = NULL;
+				}
 				(yyval) = list_merge((yyvsp[-1]), (yyvsp[0]));
+			}
 		}
-	    yyerrok;
+		yyerrok;
 	  }
-#line 2187 "awkgram.c" /* yacc.c:1646  */
+#line 2252 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 39:
-#line 459 "awkgram.y" /* yacc.c:1646  */
+#line 525 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = NULL; }
-#line 2193 "awkgram.c" /* yacc.c:1646  */
+#line 2258 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 42:
-#line 469 "awkgram.y" /* yacc.c:1646  */
+#line 535 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 2199 "awkgram.c" /* yacc.c:1646  */
+#line 2264 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 43:
-#line 471 "awkgram.y" /* yacc.c:1646  */
+#line 537 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-1]); }
-#line 2205 "awkgram.c" /* yacc.c:1646  */
+#line 2270 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 44:
-#line 473 "awkgram.y" /* yacc.c:1646  */
+#line 539 "awkgram.y" /* yacc.c:1646  */
     {
 		if (do_pretty_print)
 			(yyval) = list_prepend((yyvsp[0]), instruction(Op_exec_count));
 		else
 			(yyval) = (yyvsp[0]);
  	  }
-#line 2216 "awkgram.c" /* yacc.c:1646  */
+#line 2281 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 45:
-#line 480 "awkgram.y" /* yacc.c:1646  */
+#line 546 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *dflt, *curr = NULL, *cexp, *cstmt;
 		INSTRUCTION *ip, *nextc, *tbreak;
@@ -2237,7 +2302,7 @@ yyreduce:
 		} /*  else
 				curr = NULL; */
 
-		for(; curr != NULL; curr = nextc) {
+		for (; curr != NULL; curr = nextc) {
 			INSTRUCTION *caseexp = curr->case_exp;
 			INSTRUCTION *casestmt = curr->case_stmt;
 
@@ -2306,11 +2371,11 @@ yyreduce:
 		break_allowed--;			
 		fix_break_continue(ip, tbreak, NULL);
 	  }
-#line 2310 "awkgram.c" /* yacc.c:1646  */
+#line 2375 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 46:
-#line 570 "awkgram.y" /* yacc.c:1646  */
+#line 636 "awkgram.y" /* yacc.c:1646  */
     { 
 		/*
 		 *    -----------------
@@ -2352,11 +2417,11 @@ yyreduce:
 		continue_allowed--;
 		fix_break_continue(ip, tbreak, tcont);
 	  }
-#line 2356 "awkgram.c" /* yacc.c:1646  */
+#line 2421 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 47:
-#line 612 "awkgram.y" /* yacc.c:1646  */
+#line 678 "awkgram.y" /* yacc.c:1646  */
     {
 		/*
 		 *    -----------------
@@ -2398,11 +2463,11 @@ yyreduce:
 		} /* else
 			$1 and $4 are NULLs */
 	  }
-#line 2402 "awkgram.c" /* yacc.c:1646  */
+#line 2467 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 48:
-#line 654 "awkgram.y" /* yacc.c:1646  */
+#line 720 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *ip;
 		char *var_name = (yyvsp[-5])->lextok;
@@ -2515,44 +2580,44 @@ regular_loop:
 		break_allowed--;
 		continue_allowed--;
 	  }
-#line 2519 "awkgram.c" /* yacc.c:1646  */
+#line 2584 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 49:
-#line 767 "awkgram.y" /* yacc.c:1646  */
+#line 833 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = mk_for_loop((yyvsp[-11]), (yyvsp[-9]), (yyvsp[-6]), (yyvsp[-3]), (yyvsp[0]));
 
 		break_allowed--;
 		continue_allowed--;
 	  }
-#line 2530 "awkgram.c" /* yacc.c:1646  */
+#line 2595 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 50:
-#line 774 "awkgram.y" /* yacc.c:1646  */
+#line 840 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = mk_for_loop((yyvsp[-10]), (yyvsp[-8]), (INSTRUCTION *) NULL, (yyvsp[-3]), (yyvsp[0]));
 
 		break_allowed--;
 		continue_allowed--;
 	  }
-#line 2541 "awkgram.c" /* yacc.c:1646  */
+#line 2606 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 51:
-#line 781 "awkgram.y" /* yacc.c:1646  */
+#line 847 "awkgram.y" /* yacc.c:1646  */
     {
 		if (do_pretty_print)
 			(yyval) = list_prepend((yyvsp[0]), instruction(Op_exec_count));
 		else
 			(yyval) = (yyvsp[0]);
 	  }
-#line 2552 "awkgram.c" /* yacc.c:1646  */
+#line 2617 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 52:
-#line 791 "awkgram.y" /* yacc.c:1646  */
+#line 857 "awkgram.y" /* yacc.c:1646  */
     { 
 		if (! break_allowed)
 			error_ln((yyvsp[-1])->source_line,
@@ -2561,11 +2626,11 @@ regular_loop:
 		(yyval) = list_create((yyvsp[-1]));
 
 	  }
-#line 2565 "awkgram.c" /* yacc.c:1646  */
+#line 2630 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 53:
-#line 800 "awkgram.y" /* yacc.c:1646  */
+#line 866 "awkgram.y" /* yacc.c:1646  */
     {
 		if (! continue_allowed)
 			error_ln((yyvsp[-1])->source_line,
@@ -2574,11 +2639,11 @@ regular_loop:
 		(yyval) = list_create((yyvsp[-1]));
 
 	  }
-#line 2578 "awkgram.c" /* yacc.c:1646  */
+#line 2643 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 54:
-#line 809 "awkgram.y" /* yacc.c:1646  */
+#line 875 "awkgram.y" /* yacc.c:1646  */
     {
 		/* if inside function (rule = 0), resolve context at run-time */
 		if (rule && rule != Rule)
@@ -2587,11 +2652,11 @@ regular_loop:
 		(yyvsp[-1])->target_jmp = ip_rec;
 		(yyval) = list_create((yyvsp[-1]));
 	  }
-#line 2591 "awkgram.c" /* yacc.c:1646  */
+#line 2656 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 55:
-#line 818 "awkgram.y" /* yacc.c:1646  */
+#line 884 "awkgram.y" /* yacc.c:1646  */
     {
 		/* if inside function (rule = 0), resolve context at run-time */
 		if (rule == BEGIN || rule == END || rule == ENDFILE)
@@ -2602,11 +2667,11 @@ regular_loop:
 		(yyvsp[-1])->target_endfile = ip_endfile;
 		(yyval) = list_create((yyvsp[-1]));
 	  }
-#line 2606 "awkgram.c" /* yacc.c:1646  */
+#line 2671 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 56:
-#line 829 "awkgram.y" /* yacc.c:1646  */
+#line 895 "awkgram.y" /* yacc.c:1646  */
     {
 		/* Initialize the two possible jump targets, the actual target
 		 * is resolved at run-time. 
@@ -2621,20 +2686,20 @@ regular_loop:
 		} else
 			(yyval) = list_append((yyvsp[-1]), (yyvsp[-2]));
 	  }
-#line 2625 "awkgram.c" /* yacc.c:1646  */
+#line 2690 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 57:
-#line 844 "awkgram.y" /* yacc.c:1646  */
+#line 910 "awkgram.y" /* yacc.c:1646  */
     {
 		if (! in_function)
 			yyerror(_("`return' used outside function context"));
 	  }
-#line 2634 "awkgram.c" /* yacc.c:1646  */
+#line 2699 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 58:
-#line 847 "awkgram.y" /* yacc.c:1646  */
+#line 913 "awkgram.y" /* yacc.c:1646  */
     {
 		if ((yyvsp[-1]) == NULL) {
 			(yyval) = list_create((yyvsp[-3]));
@@ -2655,17 +2720,17 @@ regular_loop:
 			(yyval) = list_append((yyvsp[-1]), (yyvsp[-3]));
 		}
 	  }
-#line 2659 "awkgram.c" /* yacc.c:1646  */
+#line 2724 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 60:
-#line 879 "awkgram.y" /* yacc.c:1646  */
+#line 945 "awkgram.y" /* yacc.c:1646  */
     { in_print = true; in_parens = 0; }
-#line 2665 "awkgram.c" /* yacc.c:1646  */
+#line 2730 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 61:
-#line 880 "awkgram.y" /* yacc.c:1646  */
+#line 946 "awkgram.y" /* yacc.c:1646  */
     {
 		/*
 		 * Optimization: plain `print' has no expression list, so $3 is null.
@@ -2762,17 +2827,17 @@ regular_print:
 			}
 		}
 	  }
-#line 2766 "awkgram.c" /* yacc.c:1646  */
+#line 2831 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 62:
-#line 977 "awkgram.y" /* yacc.c:1646  */
+#line 1043 "awkgram.y" /* yacc.c:1646  */
     { sub_counter = 0; }
-#line 2772 "awkgram.c" /* yacc.c:1646  */
+#line 2837 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 63:
-#line 978 "awkgram.y" /* yacc.c:1646  */
+#line 1044 "awkgram.y" /* yacc.c:1646  */
     {
 		char *arr = (yyvsp[-2])->lextok;
 
@@ -2805,11 +2870,11 @@ regular_print:
 			(yyval) = list_append(list_append((yyvsp[0]), (yyvsp[-2])), (yyvsp[-3]));
 		}
 	  }
-#line 2809 "awkgram.c" /* yacc.c:1646  */
+#line 2874 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 64:
-#line 1015 "awkgram.y" /* yacc.c:1646  */
+#line 1081 "awkgram.y" /* yacc.c:1646  */
     {
 		static bool warned = false;
 		char *arr = (yyvsp[-1])->lextok;
@@ -2835,52 +2900,52 @@ regular_print:
 				fatal(_("`delete' is not allowed with FUNCTAB"));
 		}
 	  }
-#line 2839 "awkgram.c" /* yacc.c:1646  */
+#line 2904 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 65:
-#line 1041 "awkgram.y" /* yacc.c:1646  */
+#line 1107 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = optimize_assignment((yyvsp[0])); }
-#line 2845 "awkgram.c" /* yacc.c:1646  */
+#line 2910 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 66:
-#line 1046 "awkgram.y" /* yacc.c:1646  */
+#line 1112 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 2851 "awkgram.c" /* yacc.c:1646  */
+#line 2916 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 67:
-#line 1048 "awkgram.y" /* yacc.c:1646  */
+#line 1114 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 2857 "awkgram.c" /* yacc.c:1646  */
+#line 2922 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 68:
-#line 1053 "awkgram.y" /* yacc.c:1646  */
+#line 1119 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 2863 "awkgram.c" /* yacc.c:1646  */
+#line 2928 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 69:
-#line 1055 "awkgram.y" /* yacc.c:1646  */
+#line 1121 "awkgram.y" /* yacc.c:1646  */
     {
 		if ((yyvsp[-1]) == NULL)
 			(yyval) = list_create((yyvsp[0]));
 		else
 			(yyval) = list_prepend((yyvsp[-1]), (yyvsp[0]));
 	  }
-#line 2874 "awkgram.c" /* yacc.c:1646  */
+#line 2939 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 70:
-#line 1062 "awkgram.y" /* yacc.c:1646  */
+#line 1128 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 2880 "awkgram.c" /* yacc.c:1646  */
+#line 2945 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 71:
-#line 1067 "awkgram.y" /* yacc.c:1646  */
+#line 1133 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *casestmt = (yyvsp[0]);
 		if ((yyvsp[0]) == NULL)
@@ -2892,11 +2957,11 @@ regular_print:
 		bcfree((yyvsp[-2]));
 		(yyval) = (yyvsp[-4]);
 	  }
-#line 2896 "awkgram.c" /* yacc.c:1646  */
+#line 2961 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 72:
-#line 1079 "awkgram.y" /* yacc.c:1646  */
+#line 1145 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *casestmt = (yyvsp[0]);
 		if ((yyvsp[0]) == NULL)
@@ -2907,17 +2972,17 @@ regular_print:
 		(yyvsp[-3])->case_stmt = casestmt;
 		(yyval) = (yyvsp[-3]);
 	  }
-#line 2911 "awkgram.c" /* yacc.c:1646  */
+#line 2976 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 73:
-#line 1093 "awkgram.y" /* yacc.c:1646  */
+#line 1159 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = (yyvsp[0]); }
-#line 2917 "awkgram.c" /* yacc.c:1646  */
+#line 2982 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 74:
-#line 1095 "awkgram.y" /* yacc.c:1646  */
+#line 1161 "awkgram.y" /* yacc.c:1646  */
     { 
 		NODE *n = (yyvsp[0])->memory;
 		(void) force_number(n);
@@ -2925,71 +2990,71 @@ regular_print:
 		bcfree((yyvsp[-1]));
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2929 "awkgram.c" /* yacc.c:1646  */
+#line 2994 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 75:
-#line 1103 "awkgram.y" /* yacc.c:1646  */
+#line 1169 "awkgram.y" /* yacc.c:1646  */
     {
 		bcfree((yyvsp[-1]));
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2938 "awkgram.c" /* yacc.c:1646  */
+#line 3003 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 76:
-#line 1108 "awkgram.y" /* yacc.c:1646  */
+#line 1174 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = (yyvsp[0]); }
-#line 2944 "awkgram.c" /* yacc.c:1646  */
+#line 3009 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 77:
-#line 1110 "awkgram.y" /* yacc.c:1646  */
+#line 1176 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->opcode = Op_push_re;
 		(yyval) = (yyvsp[0]);
 	  }
-#line 2953 "awkgram.c" /* yacc.c:1646  */
+#line 3018 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 78:
-#line 1118 "awkgram.y" /* yacc.c:1646  */
+#line 1184 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 2959 "awkgram.c" /* yacc.c:1646  */
+#line 3024 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 79:
-#line 1120 "awkgram.y" /* yacc.c:1646  */
+#line 1186 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 2965 "awkgram.c" /* yacc.c:1646  */
+#line 3030 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 81:
-#line 1130 "awkgram.y" /* yacc.c:1646  */
+#line 1196 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = (yyvsp[-1]);
 	  }
-#line 2973 "awkgram.c" /* yacc.c:1646  */
+#line 3038 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 82:
-#line 1137 "awkgram.y" /* yacc.c:1646  */
+#line 1203 "awkgram.y" /* yacc.c:1646  */
     {
 		in_print = false;
 		in_parens = 0;
 		(yyval) = NULL;
 	  }
-#line 2983 "awkgram.c" /* yacc.c:1646  */
+#line 3048 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 83:
-#line 1142 "awkgram.y" /* yacc.c:1646  */
+#line 1208 "awkgram.y" /* yacc.c:1646  */
     { in_print = false; in_parens = 0; }
-#line 2989 "awkgram.c" /* yacc.c:1646  */
+#line 3054 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 84:
-#line 1143 "awkgram.y" /* yacc.c:1646  */
+#line 1209 "awkgram.y" /* yacc.c:1646  */
     {
 		if ((yyvsp[-2])->redir_type == redirect_twoway
 		    	&& (yyvsp[0])->lasti->opcode == Op_K_getline_redir
@@ -2997,136 +3062,136 @@ regular_print:
 			yyerror(_("multistage two-way pipelines don't work"));
 		(yyval) = list_prepend((yyvsp[0]), (yyvsp[-2]));
 	  }
-#line 3001 "awkgram.c" /* yacc.c:1646  */
+#line 3066 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 85:
-#line 1154 "awkgram.y" /* yacc.c:1646  */
+#line 1220 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = mk_condition((yyvsp[-3]), (yyvsp[-5]), (yyvsp[0]), NULL, NULL);
 	  }
-#line 3009 "awkgram.c" /* yacc.c:1646  */
+#line 3074 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 86:
-#line 1159 "awkgram.y" /* yacc.c:1646  */
+#line 1225 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = mk_condition((yyvsp[-6]), (yyvsp[-8]), (yyvsp[-3]), (yyvsp[-2]), (yyvsp[0]));
 	  }
-#line 3017 "awkgram.c" /* yacc.c:1646  */
+#line 3082 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 91:
-#line 1176 "awkgram.y" /* yacc.c:1646  */
+#line 1242 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3023 "awkgram.c" /* yacc.c:1646  */
+#line 3088 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 92:
-#line 1178 "awkgram.y" /* yacc.c:1646  */
+#line 1244 "awkgram.y" /* yacc.c:1646  */
     {
 		bcfree((yyvsp[-1]));
 		(yyval) = (yyvsp[0]);
 	  }
-#line 3032 "awkgram.c" /* yacc.c:1646  */
+#line 3097 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 93:
-#line 1186 "awkgram.y" /* yacc.c:1646  */
+#line 1252 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3038 "awkgram.c" /* yacc.c:1646  */
+#line 3103 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 94:
-#line 1188 "awkgram.y" /* yacc.c:1646  */
-    { (yyval) = (yyvsp[0]) ; }
-#line 3044 "awkgram.c" /* yacc.c:1646  */
+#line 1254 "awkgram.y" /* yacc.c:1646  */
+    { (yyval) = (yyvsp[0]); }
+#line 3109 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 95:
-#line 1193 "awkgram.y" /* yacc.c:1646  */
+#line 1259 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->param_count = 0;
 		(yyval) = list_create((yyvsp[0]));
 	  }
-#line 3053 "awkgram.c" /* yacc.c:1646  */
+#line 3118 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 96:
-#line 1198 "awkgram.y" /* yacc.c:1646  */
+#line 1264 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->param_count =  (yyvsp[-2])->lasti->param_count + 1;
 		(yyval) = list_append((yyvsp[-2]), (yyvsp[0]));
 		yyerrok;
 	  }
-#line 3063 "awkgram.c" /* yacc.c:1646  */
+#line 3128 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 97:
-#line 1204 "awkgram.y" /* yacc.c:1646  */
+#line 1270 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3069 "awkgram.c" /* yacc.c:1646  */
+#line 3134 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 98:
-#line 1206 "awkgram.y" /* yacc.c:1646  */
+#line 1272 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-1]); }
-#line 3075 "awkgram.c" /* yacc.c:1646  */
+#line 3140 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 99:
-#line 1208 "awkgram.y" /* yacc.c:1646  */
+#line 1274 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-2]); }
-#line 3081 "awkgram.c" /* yacc.c:1646  */
+#line 3146 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 100:
-#line 1214 "awkgram.y" /* yacc.c:1646  */
+#line 1280 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3087 "awkgram.c" /* yacc.c:1646  */
+#line 3152 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 101:
-#line 1216 "awkgram.y" /* yacc.c:1646  */
+#line 1282 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3093 "awkgram.c" /* yacc.c:1646  */
+#line 3158 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 102:
-#line 1221 "awkgram.y" /* yacc.c:1646  */
+#line 1287 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3099 "awkgram.c" /* yacc.c:1646  */
+#line 3164 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 103:
-#line 1223 "awkgram.y" /* yacc.c:1646  */
+#line 1289 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3105 "awkgram.c" /* yacc.c:1646  */
+#line 3170 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 104:
-#line 1228 "awkgram.y" /* yacc.c:1646  */
+#line 1294 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = mk_expression_list(NULL, (yyvsp[0])); }
-#line 3111 "awkgram.c" /* yacc.c:1646  */
+#line 3176 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 105:
-#line 1230 "awkgram.y" /* yacc.c:1646  */
+#line 1296 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = mk_expression_list((yyvsp[-2]), (yyvsp[0]));
 		yyerrok;
 	  }
-#line 3120 "awkgram.c" /* yacc.c:1646  */
+#line 3185 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 106:
-#line 1235 "awkgram.y" /* yacc.c:1646  */
+#line 1301 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3126 "awkgram.c" /* yacc.c:1646  */
+#line 3191 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 107:
-#line 1237 "awkgram.y" /* yacc.c:1646  */
+#line 1303 "awkgram.y" /* yacc.c:1646  */
     {
 		/*
 		 * Returning the expression list instead of NULL lets
@@ -3134,52 +3199,52 @@ regular_print:
 		 */
 		(yyval) = (yyvsp[-1]);
 	  }
-#line 3138 "awkgram.c" /* yacc.c:1646  */
+#line 3203 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 108:
-#line 1245 "awkgram.y" /* yacc.c:1646  */
+#line 1311 "awkgram.y" /* yacc.c:1646  */
     {
 		/* Ditto */
 		(yyval) = mk_expression_list((yyvsp[-2]), (yyvsp[0]));
 	  }
-#line 3147 "awkgram.c" /* yacc.c:1646  */
+#line 3212 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 109:
-#line 1250 "awkgram.y" /* yacc.c:1646  */
+#line 1316 "awkgram.y" /* yacc.c:1646  */
     {
 		/* Ditto */
 		(yyval) = (yyvsp[-2]);
 	  }
-#line 3156 "awkgram.c" /* yacc.c:1646  */
+#line 3221 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 110:
-#line 1259 "awkgram.y" /* yacc.c:1646  */
+#line 1325 "awkgram.y" /* yacc.c:1646  */
     {
 		if (do_lint && (yyvsp[0])->lasti->opcode == Op_match_rec)
 			lintwarn_ln((yyvsp[-1])->source_line,
 				_("regular expression on right of assignment"));
 		(yyval) = mk_assignment((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1]));
 	  }
-#line 3167 "awkgram.c" /* yacc.c:1646  */
+#line 3232 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 111:
-#line 1266 "awkgram.y" /* yacc.c:1646  */
+#line 1332 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = mk_boolean((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3173 "awkgram.c" /* yacc.c:1646  */
+#line 3238 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 112:
-#line 1268 "awkgram.y" /* yacc.c:1646  */
+#line 1334 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = mk_boolean((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3179 "awkgram.c" /* yacc.c:1646  */
+#line 3244 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 113:
-#line 1270 "awkgram.y" /* yacc.c:1646  */
+#line 1336 "awkgram.y" /* yacc.c:1646  */
     {
 		if ((yyvsp[-2])->lasti->opcode == Op_match_rec)
 			warning_ln((yyvsp[-1])->source_line,
@@ -3195,11 +3260,11 @@ regular_print:
 			(yyval) = list_append(list_merge((yyvsp[-2]), (yyvsp[0])), (yyvsp[-1]));
 		}
 	  }
-#line 3199 "awkgram.c" /* yacc.c:1646  */
+#line 3264 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 114:
-#line 1286 "awkgram.y" /* yacc.c:1646  */
+#line 1352 "awkgram.y" /* yacc.c:1646  */
     {
 		if (do_lint_old)
 			warning_ln((yyvsp[-1])->source_line,
@@ -3209,91 +3274,91 @@ regular_print:
 		(yyvsp[-1])->expr_count = 1;
 		(yyval) = list_append(list_merge((yyvsp[-2]), (yyvsp[0])), (yyvsp[-1]));
 	  }
-#line 3213 "awkgram.c" /* yacc.c:1646  */
+#line 3278 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 115:
-#line 1296 "awkgram.y" /* yacc.c:1646  */
+#line 1362 "awkgram.y" /* yacc.c:1646  */
     {
 		if (do_lint && (yyvsp[0])->lasti->opcode == Op_match_rec)
 			lintwarn_ln((yyvsp[-1])->source_line,
 				_("regular expression on right of comparison"));
 		(yyval) = list_append(list_merge((yyvsp[-2]), (yyvsp[0])), (yyvsp[-1]));
 	  }
-#line 3224 "awkgram.c" /* yacc.c:1646  */
+#line 3289 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 116:
-#line 1303 "awkgram.y" /* yacc.c:1646  */
+#line 1369 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_condition((yyvsp[-4]), (yyvsp[-3]), (yyvsp[-2]), (yyvsp[-1]), (yyvsp[0])); }
-#line 3230 "awkgram.c" /* yacc.c:1646  */
+#line 3295 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 117:
-#line 1305 "awkgram.y" /* yacc.c:1646  */
+#line 1371 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3236 "awkgram.c" /* yacc.c:1646  */
+#line 3301 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 118:
-#line 1310 "awkgram.y" /* yacc.c:1646  */
+#line 1376 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3242 "awkgram.c" /* yacc.c:1646  */
+#line 3307 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 119:
-#line 1312 "awkgram.y" /* yacc.c:1646  */
+#line 1378 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3248 "awkgram.c" /* yacc.c:1646  */
+#line 3313 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 120:
-#line 1314 "awkgram.y" /* yacc.c:1646  */
+#line 1380 "awkgram.y" /* yacc.c:1646  */
     {	
 		(yyvsp[0])->opcode = Op_assign_quotient;
 		(yyval) = (yyvsp[0]);
 	  }
-#line 3257 "awkgram.c" /* yacc.c:1646  */
+#line 3322 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 121:
-#line 1322 "awkgram.y" /* yacc.c:1646  */
+#line 1388 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3263 "awkgram.c" /* yacc.c:1646  */
+#line 3328 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 122:
-#line 1324 "awkgram.y" /* yacc.c:1646  */
+#line 1390 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3269 "awkgram.c" /* yacc.c:1646  */
+#line 3334 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 123:
-#line 1329 "awkgram.y" /* yacc.c:1646  */
+#line 1395 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3275 "awkgram.c" /* yacc.c:1646  */
+#line 3340 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 124:
-#line 1331 "awkgram.y" /* yacc.c:1646  */
+#line 1397 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3281 "awkgram.c" /* yacc.c:1646  */
+#line 3346 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 125:
-#line 1336 "awkgram.y" /* yacc.c:1646  */
+#line 1402 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3287 "awkgram.c" /* yacc.c:1646  */
+#line 3352 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 126:
-#line 1338 "awkgram.y" /* yacc.c:1646  */
+#line 1404 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3293 "awkgram.c" /* yacc.c:1646  */
+#line 3358 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 127:
-#line 1340 "awkgram.y" /* yacc.c:1646  */
+#line 1406 "awkgram.y" /* yacc.c:1646  */
     {
 		int count = 2;
 		bool is_simple_var = false;
@@ -3340,47 +3405,47 @@ regular_print:
 				max_args = count;
 		}
 	  }
-#line 3344 "awkgram.c" /* yacc.c:1646  */
+#line 3409 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 129:
-#line 1392 "awkgram.y" /* yacc.c:1646  */
+#line 1458 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3350 "awkgram.c" /* yacc.c:1646  */
+#line 3415 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 130:
-#line 1394 "awkgram.y" /* yacc.c:1646  */
+#line 1460 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3356 "awkgram.c" /* yacc.c:1646  */
+#line 3421 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 131:
-#line 1396 "awkgram.y" /* yacc.c:1646  */
+#line 1462 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3362 "awkgram.c" /* yacc.c:1646  */
+#line 3427 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 132:
-#line 1398 "awkgram.y" /* yacc.c:1646  */
+#line 1464 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3368 "awkgram.c" /* yacc.c:1646  */
+#line 3433 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 133:
-#line 1400 "awkgram.y" /* yacc.c:1646  */
+#line 1466 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3374 "awkgram.c" /* yacc.c:1646  */
+#line 3439 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 134:
-#line 1402 "awkgram.y" /* yacc.c:1646  */
+#line 1468 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3380 "awkgram.c" /* yacc.c:1646  */
+#line 3445 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 135:
-#line 1404 "awkgram.y" /* yacc.c:1646  */
+#line 1470 "awkgram.y" /* yacc.c:1646  */
     {
 		/*
 		 * In BEGINFILE/ENDFILE, allow `getline [var] < file'
@@ -3394,29 +3459,29 @@ regular_print:
 				_("non-redirected `getline' undefined inside END action"));
 		(yyval) = mk_getline((yyvsp[-2]), (yyvsp[-1]), (yyvsp[0]), redirect_input);
 	  }
-#line 3398 "awkgram.c" /* yacc.c:1646  */
+#line 3463 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 136:
-#line 1418 "awkgram.y" /* yacc.c:1646  */
+#line 1484 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->opcode = Op_postincrement;
 		(yyval) = mk_assignment((yyvsp[-1]), NULL, (yyvsp[0]));
 	  }
-#line 3407 "awkgram.c" /* yacc.c:1646  */
+#line 3472 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 137:
-#line 1423 "awkgram.y" /* yacc.c:1646  */
+#line 1489 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->opcode = Op_postdecrement;
 		(yyval) = mk_assignment((yyvsp[-1]), NULL, (yyvsp[0]));
 	  }
-#line 3416 "awkgram.c" /* yacc.c:1646  */
+#line 3481 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 138:
-#line 1428 "awkgram.y" /* yacc.c:1646  */
+#line 1494 "awkgram.y" /* yacc.c:1646  */
     {
 		if (do_lint_old) {
 		    warning_ln((yyvsp[-1])->source_line,
@@ -3436,64 +3501,64 @@ regular_print:
 			(yyval) = list_append(list_merge(t, (yyvsp[0])), (yyvsp[-1]));
 		}
 	  }
-#line 3440 "awkgram.c" /* yacc.c:1646  */
+#line 3505 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 139:
-#line 1453 "awkgram.y" /* yacc.c:1646  */
+#line 1519 "awkgram.y" /* yacc.c:1646  */
     {
 		  (yyval) = mk_getline((yyvsp[-1]), (yyvsp[0]), (yyvsp[-3]), (yyvsp[-2])->redir_type);
 		  bcfree((yyvsp[-2]));
 		}
-#line 3449 "awkgram.c" /* yacc.c:1646  */
+#line 3514 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 140:
-#line 1459 "awkgram.y" /* yacc.c:1646  */
+#line 1525 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3455 "awkgram.c" /* yacc.c:1646  */
+#line 3520 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 141:
-#line 1461 "awkgram.y" /* yacc.c:1646  */
+#line 1527 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3461 "awkgram.c" /* yacc.c:1646  */
+#line 3526 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 142:
-#line 1463 "awkgram.y" /* yacc.c:1646  */
+#line 1529 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3467 "awkgram.c" /* yacc.c:1646  */
+#line 3532 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 143:
-#line 1465 "awkgram.y" /* yacc.c:1646  */
+#line 1531 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3473 "awkgram.c" /* yacc.c:1646  */
+#line 3538 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 144:
-#line 1467 "awkgram.y" /* yacc.c:1646  */
+#line 1533 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3479 "awkgram.c" /* yacc.c:1646  */
+#line 3544 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 145:
-#line 1469 "awkgram.y" /* yacc.c:1646  */
+#line 1535 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = mk_binary((yyvsp[-2]), (yyvsp[0]), (yyvsp[-1])); }
-#line 3485 "awkgram.c" /* yacc.c:1646  */
+#line 3550 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 146:
-#line 1474 "awkgram.y" /* yacc.c:1646  */
+#line 1540 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = list_create((yyvsp[0]));
 	  }
-#line 3493 "awkgram.c" /* yacc.c:1646  */
+#line 3558 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 147:
-#line 1478 "awkgram.y" /* yacc.c:1646  */
+#line 1544 "awkgram.y" /* yacc.c:1646  */
     {
 		if ((yyvsp[0])->opcode == Op_match_rec) {
 			(yyvsp[0])->opcode = Op_nomatch;
@@ -3525,37 +3590,37 @@ regular_print:
 			}
 		}
 	   }
-#line 3529 "awkgram.c" /* yacc.c:1646  */
+#line 3594 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 148:
-#line 1510 "awkgram.y" /* yacc.c:1646  */
+#line 1576 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-1]); }
-#line 3535 "awkgram.c" /* yacc.c:1646  */
+#line 3600 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 149:
-#line 1512 "awkgram.y" /* yacc.c:1646  */
+#line 1578 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = snode((yyvsp[-1]), (yyvsp[-3]));
 		if ((yyval) == NULL)
 			YYABORT;
 	  }
-#line 3545 "awkgram.c" /* yacc.c:1646  */
+#line 3610 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 150:
-#line 1518 "awkgram.y" /* yacc.c:1646  */
+#line 1584 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = snode((yyvsp[-1]), (yyvsp[-3]));
 		if ((yyval) == NULL)
 			YYABORT;
 	  }
-#line 3555 "awkgram.c" /* yacc.c:1646  */
+#line 3620 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 151:
-#line 1524 "awkgram.y" /* yacc.c:1646  */
+#line 1590 "awkgram.y" /* yacc.c:1646  */
     {
 		static bool warned = false;
 
@@ -3568,45 +3633,45 @@ regular_print:
 		if ((yyval) == NULL)
 			YYABORT;
 	  }
-#line 3572 "awkgram.c" /* yacc.c:1646  */
+#line 3637 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 154:
-#line 1539 "awkgram.y" /* yacc.c:1646  */
+#line 1605 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[-1])->opcode = Op_preincrement;
 		(yyval) = mk_assignment((yyvsp[0]), NULL, (yyvsp[-1]));
 	  }
-#line 3581 "awkgram.c" /* yacc.c:1646  */
+#line 3646 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 155:
-#line 1544 "awkgram.y" /* yacc.c:1646  */
+#line 1610 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[-1])->opcode = Op_predecrement;
 		(yyval) = mk_assignment((yyvsp[0]), NULL, (yyvsp[-1]));
 	  }
-#line 3590 "awkgram.c" /* yacc.c:1646  */
+#line 3655 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 156:
-#line 1549 "awkgram.y" /* yacc.c:1646  */
+#line 1615 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = list_create((yyvsp[0]));
 	  }
-#line 3598 "awkgram.c" /* yacc.c:1646  */
+#line 3663 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 157:
-#line 1553 "awkgram.y" /* yacc.c:1646  */
+#line 1619 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = list_create((yyvsp[0]));
 	  }
-#line 3606 "awkgram.c" /* yacc.c:1646  */
+#line 3671 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 158:
-#line 1557 "awkgram.y" /* yacc.c:1646  */
+#line 1623 "awkgram.y" /* yacc.c:1646  */
     {
 		if ((yyvsp[0])->lasti->opcode == Op_push_i
 			&& ((yyvsp[0])->lasti->memory->flags & (STRCUR|STRING)) == 0
@@ -3621,11 +3686,11 @@ regular_print:
 			(yyval) = list_append((yyvsp[0]), (yyvsp[-1]));
 		}
 	  }
-#line 3625 "awkgram.c" /* yacc.c:1646  */
+#line 3690 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 159:
-#line 1572 "awkgram.y" /* yacc.c:1646  */
+#line 1638 "awkgram.y" /* yacc.c:1646  */
     {
 	    /*
 	     * was: $$ = $2
@@ -3635,20 +3700,20 @@ regular_print:
 		(yyvsp[-1])->memory = make_number(0.0);
 		(yyval) = list_append((yyvsp[0]), (yyvsp[-1]));
 	  }
-#line 3639 "awkgram.c" /* yacc.c:1646  */
+#line 3704 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 160:
-#line 1585 "awkgram.y" /* yacc.c:1646  */
+#line 1651 "awkgram.y" /* yacc.c:1646  */
     {
 		func_use((yyvsp[0])->lasti->func_name, FUNC_USE);
 		(yyval) = (yyvsp[0]);
 	  }
-#line 3648 "awkgram.c" /* yacc.c:1646  */
+#line 3713 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 161:
-#line 1590 "awkgram.y" /* yacc.c:1646  */
+#line 1656 "awkgram.y" /* yacc.c:1646  */
     {
 		/* indirect function call */
 		INSTRUCTION *f, *t;
@@ -3681,11 +3746,11 @@ regular_print:
 
 		(yyval) = list_prepend((yyvsp[0]), t);
 	  }
-#line 3685 "awkgram.c" /* yacc.c:1646  */
+#line 3750 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 162:
-#line 1626 "awkgram.y" /* yacc.c:1646  */
+#line 1692 "awkgram.y" /* yacc.c:1646  */
     {
 		param_sanity((yyvsp[-1]));
 		(yyvsp[-3])->opcode = Op_func_call;
@@ -3699,49 +3764,49 @@ regular_print:
 			(yyval) = list_append(t, (yyvsp[-3]));
 		}
 	  }
-#line 3703 "awkgram.c" /* yacc.c:1646  */
+#line 3768 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 163:
-#line 1643 "awkgram.y" /* yacc.c:1646  */
+#line 1709 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3709 "awkgram.c" /* yacc.c:1646  */
+#line 3774 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 164:
-#line 1645 "awkgram.y" /* yacc.c:1646  */
+#line 1711 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); }
-#line 3715 "awkgram.c" /* yacc.c:1646  */
+#line 3780 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 165:
-#line 1650 "awkgram.y" /* yacc.c:1646  */
+#line 1716 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3721 "awkgram.c" /* yacc.c:1646  */
+#line 3786 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 166:
-#line 1652 "awkgram.y" /* yacc.c:1646  */
+#line 1718 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-1]); }
-#line 3727 "awkgram.c" /* yacc.c:1646  */
+#line 3792 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 167:
-#line 1657 "awkgram.y" /* yacc.c:1646  */
+#line 1723 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = (yyvsp[0]); }
-#line 3733 "awkgram.c" /* yacc.c:1646  */
+#line 3798 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 168:
-#line 1659 "awkgram.y" /* yacc.c:1646  */
+#line 1725 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = list_merge((yyvsp[-1]), (yyvsp[0]));
 	  }
-#line 3741 "awkgram.c" /* yacc.c:1646  */
+#line 3806 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 169:
-#line 1666 "awkgram.y" /* yacc.c:1646  */
+#line 1732 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *ip = (yyvsp[0])->lasti; 
 		int count = ip->sub_count;	/* # of SUBSEP-seperated expressions */
@@ -3755,11 +3820,11 @@ regular_print:
 		sub_counter++;	/* count # of dimensions */
 		(yyval) = (yyvsp[0]);
 	  }
-#line 3759 "awkgram.c" /* yacc.c:1646  */
+#line 3824 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 170:
-#line 1683 "awkgram.y" /* yacc.c:1646  */
+#line 1749 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *t = (yyvsp[-1]);
 		if ((yyvsp[-1]) == NULL) {
@@ -3773,31 +3838,31 @@ regular_print:
 			(yyvsp[0])->sub_count = count_expressions(&t, false);
 		(yyval) = list_append(t, (yyvsp[0]));
 	  }
-#line 3777 "awkgram.c" /* yacc.c:1646  */
+#line 3842 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 171:
-#line 1700 "awkgram.y" /* yacc.c:1646  */
+#line 1766 "awkgram.y" /* yacc.c:1646  */
     {	(yyval) = (yyvsp[0]); }
-#line 3783 "awkgram.c" /* yacc.c:1646  */
+#line 3848 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 172:
-#line 1702 "awkgram.y" /* yacc.c:1646  */
+#line 1768 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = list_merge((yyvsp[-1]), (yyvsp[0]));
 	  }
-#line 3791 "awkgram.c" /* yacc.c:1646  */
+#line 3856 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 173:
-#line 1709 "awkgram.y" /* yacc.c:1646  */
+#line 1775 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[-1]); }
-#line 3797 "awkgram.c" /* yacc.c:1646  */
+#line 3862 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 174:
-#line 1714 "awkgram.y" /* yacc.c:1646  */
+#line 1780 "awkgram.y" /* yacc.c:1646  */
     {
 		char *var_name = (yyvsp[0])->lextok;
 
@@ -3805,22 +3870,22 @@ regular_print:
 		(yyvsp[0])->memory = variable((yyvsp[0])->source_line, var_name, Node_var_new);
 		(yyval) = list_create((yyvsp[0]));
 	  }
-#line 3809 "awkgram.c" /* yacc.c:1646  */
+#line 3874 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 175:
-#line 1722 "awkgram.y" /* yacc.c:1646  */
+#line 1788 "awkgram.y" /* yacc.c:1646  */
     {
 		char *arr = (yyvsp[-1])->lextok;
 		(yyvsp[-1])->memory = variable((yyvsp[-1])->source_line, arr, Node_var_new);
 		(yyvsp[-1])->opcode = Op_push_array;
 		(yyval) = list_prepend((yyvsp[0]), (yyvsp[-1]));
 	  }
-#line 3820 "awkgram.c" /* yacc.c:1646  */
+#line 3885 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 176:
-#line 1732 "awkgram.y" /* yacc.c:1646  */
+#line 1798 "awkgram.y" /* yacc.c:1646  */
     {
 		INSTRUCTION *ip = (yyvsp[0])->nexti;
 		if (ip->opcode == Op_push
@@ -3832,73 +3897,73 @@ regular_print:
 		} else
 			(yyval) = (yyvsp[0]);
 	  }
-#line 3836 "awkgram.c" /* yacc.c:1646  */
+#line 3901 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 177:
-#line 1744 "awkgram.y" /* yacc.c:1646  */
+#line 1810 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyval) = list_append((yyvsp[-1]), (yyvsp[-2]));
 		if ((yyvsp[0]) != NULL)
 			mk_assignment((yyvsp[-1]), NULL, (yyvsp[0]));
 	  }
-#line 3846 "awkgram.c" /* yacc.c:1646  */
+#line 3911 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 178:
-#line 1753 "awkgram.y" /* yacc.c:1646  */
+#line 1819 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->opcode = Op_postincrement;
 	  }
-#line 3854 "awkgram.c" /* yacc.c:1646  */
+#line 3919 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 179:
-#line 1757 "awkgram.y" /* yacc.c:1646  */
+#line 1823 "awkgram.y" /* yacc.c:1646  */
     {
 		(yyvsp[0])->opcode = Op_postdecrement;
 	  }
-#line 3862 "awkgram.c" /* yacc.c:1646  */
+#line 3927 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 180:
-#line 1760 "awkgram.y" /* yacc.c:1646  */
+#line 1826 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = NULL; }
-#line 3868 "awkgram.c" /* yacc.c:1646  */
+#line 3933 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 182:
-#line 1768 "awkgram.y" /* yacc.c:1646  */
+#line 1834 "awkgram.y" /* yacc.c:1646  */
     { yyerrok; }
-#line 3874 "awkgram.c" /* yacc.c:1646  */
+#line 3939 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 183:
-#line 1772 "awkgram.y" /* yacc.c:1646  */
+#line 1838 "awkgram.y" /* yacc.c:1646  */
     { yyerrok; }
-#line 3880 "awkgram.c" /* yacc.c:1646  */
+#line 3945 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 186:
-#line 1781 "awkgram.y" /* yacc.c:1646  */
+#line 1847 "awkgram.y" /* yacc.c:1646  */
     { yyerrok; }
-#line 3886 "awkgram.c" /* yacc.c:1646  */
+#line 3951 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 187:
-#line 1785 "awkgram.y" /* yacc.c:1646  */
+#line 1851 "awkgram.y" /* yacc.c:1646  */
     { (yyval) = (yyvsp[0]); yyerrok; }
-#line 3892 "awkgram.c" /* yacc.c:1646  */
+#line 3957 "awkgram.c" /* yacc.c:1646  */
     break;
 
   case 188:
-#line 1789 "awkgram.y" /* yacc.c:1646  */
+#line 1855 "awkgram.y" /* yacc.c:1646  */
     { yyerrok; }
-#line 3898 "awkgram.c" /* yacc.c:1646  */
+#line 3963 "awkgram.c" /* yacc.c:1646  */
     break;
 
 
-#line 3902 "awkgram.c" /* yacc.c:1646  */
+#line 3967 "awkgram.c" /* yacc.c:1646  */
       default: break;
     }
   /* User semantic actions sometimes alter yychar, and that requires
@@ -4126,7 +4191,7 @@ yyreturn:
 #endif
   return yyresult;
 }
-#line 1791 "awkgram.y" /* yacc.c:1906  */
+#line 1857 "awkgram.y" /* yacc.c:1906  */
 
 
 struct token {
@@ -4560,6 +4625,13 @@ mk_program()
 				cp = end_block;
 			else
 				cp = list_merge(begin_block, end_block);
+			/*
+			 * We don't need to clear the comment variables
+			 * since they're not used anymore after this
+			 * function is called.
+			 */
+			if (comment != NULL)
+				(void) list_append(cp, comment);
 			(void) list_append(cp, ip_atexit);
 			(void) list_append(cp, instruction(Op_stop));
 
@@ -4592,6 +4664,12 @@ mk_program()
 	if (begin_block != NULL)
 		cp = list_merge(begin_block, cp);
 
+	if (program_comment != NULL) {
+		(void) list_prepend(cp, program_comment);
+	}  
+	if (comment != NULL) {
+		(void) list_append(cp, comment);
+	} 
 	(void) list_append(cp, ip_atexit);
 	(void) list_append(cp, instruction(Op_stop));
 
@@ -5093,7 +5171,7 @@ get_src_buf()
 		lexend = lexptr + n;
 		if (n == 0) {
 			static bool warned = false;
-			if (do_lint && newfile && ! warned){
+			if (do_lint && newfile && ! warned) {
 				warned = true;
 				sourceline = 0;
 				lintwarn(_("source file `%s' is empty"), source);
@@ -5155,7 +5233,7 @@ check_bad_char(int c)
 	}
 
 	if (iscntrl(c) && ! isspace(c))
-		fatal(_("PEBKAC error: invalid character '\\%03o' in source code"), c);
+		fatal(_("PEBKAC error: invalid character '\\%03o' in source code"), c & 0xFF);
 }
 
 /* nextc --- get the next input character */
@@ -5186,7 +5264,7 @@ again:
 			mbstate_t tmp_state;
 			size_t mbclen;
 	
-			for (idx = 0 ; lexptr + idx < lexend ; idx++) {
+			for (idx = 0; lexptr + idx < lexend; idx++) {
 				tmp_state = cur_mbstate;
 				mbclen = mbrlen(lexptr, idx + 1, &tmp_state);
 
@@ -5265,6 +5343,79 @@ pushback(void)
 }
 
 
+/* get_comment --- collect comment text */
+
+int
+get_comment(void)
+{
+	int c;
+	int sl;
+	tok = tokstart;
+	tokadd('#');
+	sl = sourceline;
+
+	while (true) {
+		while ((c = nextc(false)) != '\n' && c != END_FILE) {
+			tokadd(c);
+		}
+		if (c == '\n') {
+			tokadd(c);
+			sourceline++;
+			do {
+				c = nextc(false);
+				if (c == '\n') {
+					sourceline++;
+					tokadd(c);
+				}
+			} while (isspace(c) && c != END_FILE);
+			if (c == END_FILE)
+				break;
+			else if (c != '#') {
+				pushback();
+				break;
+			} else
+				tokadd(c);
+		} else
+			break;
+	}
+	comment = bcalloc(Op_comment, 1, sl);
+	comment->source_file = source;
+	comment->memory = make_str_node(tokstart, tok - tokstart, 0);
+
+	return c;
+}
+
+/* split_comment --- split initial comment text into program and function parts */
+
+static void
+split_comment(void)
+{
+	char *p;
+	int l;
+	NODE *n;
+
+	p = comment->memory->stptr;
+	l = comment->memory->stlen - 3;
+	/* have at least two comments so split at last blank line (\n\n)  */
+	while (l >= 0) {
+		if (p[l] == '\n' && p[l+1] == '\n') {
+			function_comment = comment;
+			n = function_comment->memory;
+			function_comment->memory = make_str_node(p + l + 2, n->stlen - l - 2, 0);
+			/* create program comment  */
+			program_comment = bcalloc(Op_comment, 1, sourceline);
+			program_comment->source_file = comment->source_file;
+			p[l + 2] = 0;
+			program_comment->memory = make_str_node(p, l + 2, 0);
+			comment = NULL;
+			freenode(n);
+			break;
+		}
+		else
+			l--;
+	}
+}
+
 /* allow_newline --- allow newline after &&, ||, ? and : */
 
 static void
@@ -5279,8 +5430,13 @@ allow_newline(void)
 			break;
 		}
 		if (c == '#') {
-			while ((c = nextc(false)) != '\n' && c != END_FILE)
-				continue;
+			if (do_pretty_print && ! do_profile) {
+			/* collect comment byte code iff doing pretty print but not profiling.  */
+				c = get_comment();
+			} else {
+				while ((c = nextc(false)) != '\n' && c != END_FILE)
+					continue;
+			}
 			if (c == END_FILE) {
 				pushback();
 				break;
@@ -5303,7 +5459,8 @@ allow_newline(void)
  * removes the warnings.
  */
 
-static int newline_eof()
+static int
+newline_eof()
 {
 	/* NB: a newline at end does not start a source line. */
 	if (lasttok != NEWLINE) {
@@ -5484,9 +5641,20 @@ retry:
 		return lasttok = NEWLINE;
 
 	case '#':		/* it's a comment */
-		while ((c = nextc(false)) != '\n') {
+		if (do_pretty_print && ! do_profile) {
+			/*
+			 * Collect comment byte code iff doing pretty print
+			 * but not profiling.
+			 */
+			c = get_comment();
+
 			if (c == END_FILE)
 				return lasttok = NEWLINE_EOF;
+		} else {
+			while ((c = nextc(false)) != '\n') {
+				if (c == END_FILE)
+					return lasttok = NEWLINE_EOF;
+			}
 		}
 		sourceline++;
 		return lasttok = NEWLINE;
@@ -5497,7 +5665,7 @@ retry:
 	case '\\':
 #ifdef RELAXED_CONTINUATION
 		/*
-		 * This code puports to allow comments and/or whitespace
+		 * This code purports to allow comments and/or whitespace
 		 * after the `\' at the end of a line used for continuation.
 		 * Use it at your own risk. We think it's a bad idea, which
 		 * is why it's not on by default.
@@ -5514,9 +5682,13 @@ retry:
 					lintwarn(
 		_("use of `\\ #...' line continuation is not portable"));
 				}
-				while ((c = nextc(false)) != '\n')
-					if (c == END_FILE)
-						break;
+				if (do_pretty_print && ! do_profile)
+					c = get_comment();
+				else {
+					while ((c = nextc(false)) != '\n')
+						if (c == END_FILE)
+							break;
+				}
 			}
 			pushback();
 		}
@@ -5728,14 +5900,18 @@ retry:
 				lastline = sourceline;
 			return lasttok = c;
 		}
-		did_newline++;
+		did_newline = true;
 		--lexptr;	/* pick up } next time */
 		return lasttok = NEWLINE;
 
 	case '"':
 	string:
 		esc_seen = false;
-		while ((c = nextc(true)) != '"') {
+		/*
+		 * Allow any kind of junk in quoted string,
+		 * so pass false to nextc().
+		 */
+		while ((c = nextc(false)) != '"') {
 			if (c == '\n') {
 				pushback();
 				yyerror(_("unterminated string"));
@@ -6577,6 +6753,14 @@ mk_function(INSTRUCTION *fi, INSTRUCTION *def)
 			(t + 1)->tail_call = true;
 	}
 
+	/* add any pre-function comment to start of action for profile.c  */
+
+	if (function_comment != NULL) {
+		function_comment->source_line = 0;
+		(void) list_prepend(def, function_comment);
+		function_comment = NULL;
+	}
+
 	/* add an implicit return at end;
 	 * also used by 'return' command in debugger
 	 */
@@ -7396,7 +7580,6 @@ append_rule(INSTRUCTION *pattern, INSTRUCTION *action)
 						action),
 					tp);
 		}
-
 	}
 
 	list_append(rule_list, rp + 1);
@@ -8093,6 +8276,16 @@ install_builtins(void)
  */
 
 /* is_alpha --- return true if c is an English letter */
+
+/*
+ * The scene of the murder was grisly to look upon.  When the inspector
+ * arrived, the sergeant turned to him and said, "Another programmer stabbed
+ * in the back. He never knew what happened."
+ * 
+ * The inspector replied, "Looks like the MO of isalpha, and his even meaner
+ * big brother, isalnum. The Locale brothers."  The sergeant merely
+ * shuddered in horror.
+ */
 
 bool
 is_alpha(int c)
