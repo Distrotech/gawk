@@ -1024,6 +1024,13 @@ clean-local:
 	$(RM) -r $(PFX)
 	$(RM) *.$(OBJEXT)
 
+# Keep the uninstall check working:
+uninstall-so:
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.so
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.dll
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.a
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.lib
+
 install-exec-hook:
 	$(MKDIR_P) "$(DESTDIR)$(pkgextensiondir)" || exit 1; \
 	for i in $(ALL) ; do \

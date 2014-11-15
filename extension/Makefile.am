@@ -116,6 +116,15 @@ clean-local:
 	$(RM) -r $(PFX)
 	$(RM) *.$(OBJEXT)
 
+# Keep the uninstall check working:
+uninstall-so:
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.so
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.dll
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.a
+	$(RM) $(DESTDIR)$(pkgextensiondir)/*.lib
+
+uninstall-recursive: uninstall-so
+
 EXTRA_DIST = build-aux/config.rpath  \
 	ChangeLog \
 	ChangeLog.0 \

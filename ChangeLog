@@ -1,3 +1,73 @@
+2014-11-15         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* array.c, awk.h, awkgram.y, builtin.c, dfa.c, eval.c, field.c,
+	interpret.h, io.c, main.c, mpfr.c, node.c, re.c, regex_internal.h,
+	replace.c: Remove all uses of MBS_SUPPORT.
+	* regex_internal.h: Disable wide characters on DJGPP.
+	* mbsupport.h: Rework to be needed only for DJGPP.
+
+2014-11-11         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Don't let memory used increase linearly in the size of
+	the input.  Problem reported by dragan legic
+	<dragan.legic@yandex.ru>.
+
+	* field.c (set_record): NUL-terminate the buffer.
+	* interpret.h (r_interpret): Op_field_spec: if it's $0, increment
+	the valref.  Op_store_var: if we got $0, handle it appropriately.
+
+2014-11-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Reorder main.c activities so that we can set a locale on the
+	command line with the new, for now undocumented, -Z option.
+
+	* main.c (parse_args, set_locale_stuff): New functions.
+	(stopped_early): Made file level static.
+	(optlist, optab): Add new argument.
+	(main): Adjust ordering and move inline code into new functions.
+
+2014-11-09         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* gawkapi.c (node_to_awk_value): When the type wanted is AWK_UNDEFINED
+	and a it's a Node_val set to Nnull_string, return AWK_UNDEFINED instead
+	of AWK_NUMBER 0.
+
+2014-11-03         Norihiro Tanaka       <noritnk@kcn.ne.jp>
+
+	* re.c (research): Use dfa superset to improve matching speed.
+
+2014-11-02         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* profile.c (div_on_left_mul_on_right): New function.
+	(parenthesize): Call it.
+
+2014-10-30         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* configure: Regenerated after fix to m4/readline.m4.
+
+	Unrelated; fixes to profiling. Thanks to Hermann Peifer and
+	Manuel Collado for pointing out problems:
+
+	* profile.c (pprint): For Op_unary_minus, parenthesize -(-x)
+	correctly.
+	(prec_level): Get the levels right (checked the grammar).
+	(is_unary_minus): New function.
+	(pp_concat): Add checks for unary minus; needs to be parenthesized.
+
+2014-10-30         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* NEWS: Mention installation of /etc/profile.d/gawk.{csh,sh}.
+
+2014-10-29         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* configure.ac (AC_CONFIG_FILES): Add extras/Makefile.
+	* Makefile.am (SUBDIRS): Add extras.
+	* extras: Add new subdirectory.
+
+2014-10-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNU grep. Again, again.
+
 2014-10-28         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* dfa.c: Sync with GNU grep. Again.
@@ -33,6 +103,15 @@
 	* regcomp.c (__re_error_msgid): Make error message for REG_EBRACK
 	more helpful - also used for unmatched [:, [., [=.
 	Thanks to Davide Brini for raising the issue.
+
+2014-10-12         KO Myung-Hun          <komh78@gmail.com>
+
+	Fixes for OS/2:
+
+	* Makefile.am (install-exec-hook, uninstall-links): Use $(EXEEXT).
+	* getopt.h: Redefinitions if using KLIBC.
+	* io.c (_S_IFDIR, _S_IRWXU): Define if the more standard versions
+	are available.
 
 2014-10-12         Arnold D. Robbins     <arnold@skeeve.com>
 
