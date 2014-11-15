@@ -54,12 +54,9 @@ make_regexp(const char *s, size_t len, bool ignorecase, bool dfa, bool canfatal)
 	 * It is 0, when the current character is a singlebyte character.
 	 */
 	size_t is_multibyte = 0;
-#if MBS_SUPPORT
 	mbstate_t mbs;
 
-	if (gawk_mb_cur_max > 1)
-		memset(&mbs, 0, sizeof(mbstate_t)); /* Initialize.  */
-#endif
+	memset(&mbs, 0, sizeof(mbstate_t)); /* Initialize.  */
 
 	if (first) {
 		first = false;
@@ -87,7 +84,6 @@ make_regexp(const char *s, size_t len, bool ignorecase, bool dfa, bool canfatal)
 	dest = buf;
 
 	while (src < end) {
-#if MBS_SUPPORT
 		if (gawk_mb_cur_max > 1 && ! is_multibyte) {
 			/* The previous byte is a singlebyte character, or last byte
 			   of a multibyte character.  We check the next character.  */
@@ -100,7 +96,6 @@ make_regexp(const char *s, size_t len, bool ignorecase, bool dfa, bool canfatal)
 				is_multibyte = 0;
 			}
 		}
-#endif
 
 		/* We skip multibyte character, since it must not be a special
 		   character.  */
@@ -284,13 +279,18 @@ research(Regexp *rp, char *str, int start,
 	if (rp->dfa && ! no_bol && ! need_start) {
 		char save;
 		size_t count = 0;
+		struct dfa *superset = dfasuperset(rp->dfareg);
 		/*
 		 * dfa likes to stick a '\n' right after the matched
 		 * text.  So we just save and restore the character.
 		 */
 		save = str[start+len];
-		ret = dfaexec(rp->dfareg, str+start, str+start+len, true,
-					&count, &try_backref);
+		if (superset)
+			ret = dfaexec(superset, str+start, str+start+len,
+							true, NULL, NULL);
+		if (ret)
+			ret = dfaexec(rp->dfareg, str+start, str+start+len,
+						true, &count, &try_backref);
 		str[start+len] = save;
 	}
 
