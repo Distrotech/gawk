@@ -1,3 +1,25 @@
+2014-12-02         Stephen Davies        <sdavies@sdc.com.au>
+
+	Improve comment handling in pretty printing.
+	Create a linked-list of comments and merge them in during
+	pretty-printing instead of into the instruction list at
+	parse time.
+
+	* awk.h (comment_type, comment_text): New defines for NODE,
+	INSTRUCTION.
+	* awkgram.y (append_comment): New function.
+	(program_comment, function_comment): Removed.
+	(first_comment, last_comment): New variables.
+	(get_comment): Take a flag for newline; rework storage. Adjust calls.
+	(split_comment): Store comments in list.
+	(first_comment, last_comment, current_comment_type): New variables.
+	(dump_funcs): Set current_comment_type.
+	* main.c (main): Call print_extra_comments.
+	* profile.c (end_line): New function.
+	(print_extra_comments): New function.
+	(lind): New variable.
+	(pprint): Change how comments are handled.
+
 2014-11-26         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* builtin.c (do_sub): Improve wording of gensub warnings.

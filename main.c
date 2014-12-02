@@ -71,6 +71,7 @@ static void save_argv(int, char **);
 
 extern int debug_prog(INSTRUCTION *pc); /* debug.c */
 extern int init_debug();	/* debug.c */
+extern void print_extra_comments(char *src, int ct);
 
 /* These nodes store all the special variables AWK uses */
 NODE *ARGC_node, *ARGIND_node, *ARGV_node, *BINMODE_node, *CONVFMT_node;
@@ -493,7 +494,9 @@ main(int argc, char **argv)
 
 	if (do_pretty_print) {
 		dump_prog(code_block);
+		print_extra_comments(source, 0);
 		dump_funcs();
+		print_extra_comments(source, 1);
 	}
 
 	if (do_dump_vars)

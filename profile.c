@@ -26,6 +26,7 @@
 #include "awk.h"
 
 static void pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header);
+static void end_line(INSTRUCTION *ip);
 static void pp_parenthesize(NODE *n);
 static void parenthesize(int type, NODE *left, NODE *right);
 static char *pp_list(int nargs, const char *paren, const char *delim);
@@ -36,8 +37,9 @@ static bool is_scalar(int type);
 static int prec_level(int type);
 static void pp_push(int type, char *s, int flag);
 static NODE *pp_pop(void);
-static void pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header);
-static void print_comment(INSTRUCTION *pc, long in);
+static void print_comment(INSTRUCTION *ip);
+void print_extra_comments(char *src, int ct);
+
 const char *redir2str(int redirtype);
 
 #define pp_str	vname
@@ -57,7 +59,11 @@ static NODE *func_params;	/* function parameters */
 static FILE *prof_fp;	/* where to send the profile */
 
 static long indent_level = 0;
+static int lind;
 
+extern INSTRUCTION *first_comment;
+extern INSTRUCTION *last_comment;
+extern int current_comment_type;
 
 #define SPACEOVER	0
 
@@ -180,48 +186,82 @@ pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header)
 	NODE *m;
 	char *tmp;
 	int rule;
-	long lind;
+	INSTRUCTION *this_comment;
+	INSTRUCTION *line_comment;
 	static int rule_count[MAXRULE];
 
 	for (pc = startp; pc != endp; pc = pc->nexti) {
+		if (pc->opcode == Op_rule) {
+			if (pc->source_file != source) {
+				print_extra_comments(source, current_comment_type);
+			}
+			source = pc->source_file;
+		}
 		if (pc->source_line > 0)
 			sourceline = pc->source_line;
+		/*  check for last real instruction	*/
+		if (   (pc->nexti != NULL
+		        && pc->nexti->opcode == Op_no_op
+		        && pc->nexti->source_line > 0)
+		    || (pc->opcode == Op_no_op && pc->source_line > 0))
+			lind = 1;
+		else
+			lind = 0;
+
+		/*
+		 * Scan the comments list for entries relevant to the
+		 * current instruction.
+		 */
+		line_comment = NULL;
+		if (pc->source_line > 0) {
+			for (this_comment = first_comment;
+			     this_comment != NULL && pc->source_line > 0;
+			     this_comment = this_comment->nexti) {
+				if (this_comment->comment_text->comment_type == current_comment_type
+				    && this_comment->source_file == source) {
+					if (this_comment->source_line <= sourceline) {
+						if (this_comment->source_line == sourceline) {
+							line_comment = this_comment;
+							break;
+						} else {
+							print_comment(this_comment);
+							line_comment = NULL;
+							if (lind == 0)
+								indent(0);
+						}
+					}
+				}
+			}
+		}
 
 		switch (pc->opcode) {
 		case Op_rule:
+		/*
+		 * Rules are three instructions long. See append_rule in awkgram.y. 
+		 * The first has the Rule Op Code, nexti etc. 
+		 * The second, (pc + 1) has firsti and lasti:
+		 * 	the first/last ACTION instructions for this rule. 
+		 * The third (pc + 2) has first_line and last_line:
+		 * 	the first and last source line numbers.
+		 */
 			source = pc->source_file;
 			rule = pc->in_rule;
 
 			if (rule != Rule) {
 				ip = (pc + 1)->firsti;
 
-				/* print pre-begin/end comments */
-				if (ip->opcode == Op_comment) {
-					print_comment(ip, 0);
-					ip = ip->nexti;
-				}
-
 				if (do_profile) {
 					if (! rule_count[rule]++)
 						fprintf(prof_fp, _("\t# %s rule(s)\n\n"), ruletab[rule]);
 					indent(0);
 				}
-				fprintf(prof_fp, "%s {\n", ruletab[rule]);
+				fprintf(prof_fp, "%s {", ruletab[rule]);
+				end_line(line_comment);
 			} else {
 				if (do_profile && ! rule_count[rule]++)
 					fprintf(prof_fp, _("\t# Rule(s)\n\n"));
 				ip = pc->nexti;
-				lind = ip->exec_count;
-				/* print pre-block comments */
-				if (ip->opcode == Op_exec_count && ip->nexti->opcode == Op_comment)
-					ip = ip->nexti;
-				if (ip->opcode == Op_comment) {
-					print_comment(ip, lind);
-					if (ip->nexti->nexti == (pc + 1)->firsti)
-						ip = ip->nexti->nexti;
-				}
 				if (ip != (pc + 1)->firsti) {		/* non-empty pattern */
-					indent(lind);
 					pprint(ip->nexti, (pc + 1)->firsti, false);
 					t1 = pp_pop();
 					fprintf(prof_fp, "%s {", t1->pp_str);
@@ -231,9 +271,10 @@ pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header)
 					if (do_profile && ip->exec_count > 0)
 						fprintf(prof_fp, " # %ld", ip->exec_count);
 
-					fprintf(prof_fp, "\n");
+					end_line(line_comment);
 				} else {
-					fprintf(prof_fp, "{\n");
+					fprintf(prof_fp, "{");
+					end_line(line_comment);
 					ip = (pc + 1)->firsti;
 				}
 				ip = ip->nexti;
@@ -243,6 +284,15 @@ pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header)
 			indent_out();
 			if (do_profile)
 				indent(0);
+			/* print extra block comments  */
+			for (this_comment = first_comment;
+			     this_comment != NULL;
+			     this_comment = this_comment->nexti) {
+				if (this_comment->comment_text->comment_type == current_comment_type
+				    && this_comment->source_file == source
+				    && this_comment->source_line < sourceline)
+					print_comment(this_comment);
+			}
 			fprintf(prof_fp, "}\n\n");
 			pc = (pc + 1)->lasti;
 			break;
@@ -328,7 +378,7 @@ cleanup:
 				pp_free(t2);
 				pp_free(t1);
 				if (! in_for_header)
-					fprintf(prof_fp, "\n");
+					end_line(line_comment);
 				break;
 
 			default:
@@ -454,7 +504,7 @@ cleanup:
 			pp_free(t2);
 			pp_free(t1);
 			if (! in_for_header)
-				fprintf(prof_fp, "\n");
+				end_line(line_comment);
 			break; 
 
 		case Op_concat:
@@ -475,7 +525,7 @@ cleanup:
 			} else 				
 				fprintf(prof_fp, "%s %s", op2str(Op_K_delete), array);
 			if (! in_for_header)
-				fprintf(prof_fp, "\n");
+				end_line(line_comment);
 			pp_free(t1);
 		}
 			break;
@@ -587,7 +637,7 @@ cleanup:
 				fprintf(prof_fp, "%s%s", op2str(pc->opcode), tmp);
 			efree(tmp);
 			if (! in_for_header)
-				fprintf(prof_fp, "\n");
+				end_line(line_comment);
 			break;
 
 		case Op_push_re:
@@ -688,7 +738,8 @@ cleanup:
 		case Op_K_break:
 		case Op_K_nextfile:
 		case Op_K_next:
-			fprintf(prof_fp, "%s\n", op2str(pc->opcode));
+			fprintf(prof_fp, "%s", op2str(pc->opcode));
+			end_line(line_comment);
 			break;
 
 		case Op_K_return:
@@ -696,8 +747,11 @@ cleanup:
 			t1 = pp_pop();
 			if (is_binary(t1->type))
 				pp_parenthesize(t1);
-			if (pc->source_line > 0)	/* don't print implicit 'return' at end of function */
-				fprintf(prof_fp, "%s %s\n", op2str(pc->opcode), t1->pp_str);
+			if (pc->source_line > 0) {
+				/* don't print implicit 'return' at end of function */
+				fprintf(prof_fp, "%s %s", op2str(pc->opcode), t1->pp_str);
+				end_line(line_comment);
+			}
 			pp_free(t1);
 			break;
 
@@ -705,7 +759,7 @@ cleanup:
 			t1 = pp_pop();
 			fprintf(prof_fp, "%s", t1->pp_str);
 			if (! in_for_header)
-				fprintf(prof_fp, "\n");
+				end_line(line_comment);
 			pp_free(t1);
 			break;
 
@@ -832,10 +886,12 @@ cleanup:
 			indent(pc->stmt_start->exec_count);
 			if (pc->opcode == Op_K_case) {
 				t1 = pp_pop();
-				fprintf(prof_fp, "%s %s:\n", op2str(pc->opcode), t1->pp_str);
+				fprintf(prof_fp, "%s %s:", op2str(pc->opcode), t1->pp_str);
+				end_line(line_comment);
 				pp_free(t1);
 			} else
-				fprintf(prof_fp, "%s:\n", op2str(pc->opcode));
+				fprintf(prof_fp, "%s:", op2str(pc->opcode));
+				end_line(line_comment);
 			indent_in();
 			pprint(pc->stmt_start->nexti, pc->stmt_end->nexti, false);
 			indent_out();
@@ -851,14 +907,15 @@ cleanup:
 			ip = pc->branch_if;
 			if (ip->exec_count > 0)
 				fprintf(prof_fp, " # %ld", ip->exec_count);
-			fprintf(prof_fp, "\n");
+			end_line(line_comment);
 			indent_in();
 			pprint(ip->nexti, pc->branch_else, false);
 			indent_out();
 			pc = pc->branch_else;
 			if (pc->nexti->opcode == Op_no_op) {
 				indent(SPACEOVER);
-				fprintf(prof_fp, "}\n");
+				fprintf(prof_fp, "}");
+				end_line(line_comment);
 			}
 			break;
 
@@ -868,7 +925,8 @@ cleanup:
 			pprint(pc->nexti, pc->branch_end, false);
 			indent_out();
 			indent(SPACEOVER);
-			fprintf(prof_fp, "}\n");
+			fprintf(prof_fp, "}");
+			end_line(line_comment);
 			pc = pc->branch_end;
 			break;
 
@@ -907,10 +965,6 @@ cleanup:
 				indent(pc->exec_count);
 			break;
 
-		case Op_comment:
-			print_comment(pc, 0);
-			break;
-
 		case Op_list:
 			break;
 
@@ -920,6 +974,22 @@ cleanup:
 
 		if (pc == endp)
 			break;
+	}
+}
+
+/* end pretty print line with new line or on-line comment  */
+
+void 
+end_line(INSTRUCTION *ip)
+{
+	if (ip == NULL || ip->comment_text->comment_type < 0)
+		fprintf(prof_fp, "\n");
+	else {
+		fprintf(prof_fp, "\t");
+		print_comment(ip);
+		ip = NULL;
+		if (lind == 0)
+			indent(0);
 	}
 }
 
@@ -996,28 +1066,38 @@ print_lib_list(FILE *prof_fp)
 		fprintf(prof_fp, "\n");
 }
 
-/* print_comment --- print comment text with proper indentation */
+/* print_extra_comments  --- print any left over comments for the current source file and comment type  */
+
+void
+print_extra_comments(char *src, int ct)
+{
+	INSTRUCTION *ip;
+
+	for (ip = first_comment; ip != NULL; ip = ip->nexti) {
+		if (ip->comment_text->comment_type == current_comment_type
+		    && ip->source_file == src) {
+			print_comment(ip);
+		}
+	}
+}
+
+/* print_comment --- print comment text */
 
 static void
-print_comment(INSTRUCTION* pc, long in)
+print_comment(INSTRUCTION *ip)
 {
 	char *text;
 	size_t count;
-	bool after_newline = false;
 
-	count = pc->memory->stlen;
-	text = pc->memory->stptr;
+	count = ip->comment_text->stlen;
+	text = ip->comment_text->stptr;
 
-	indent(in);   /* is this correct? Where should comments go?  */
 	for (; count > 0; count--, text++) {
-		if (after_newline) {
-			indent(in);
-			after_newline = false;
-		}
 		putc(*text, prof_fp);
-		if (*text == '\n')
-			after_newline = true;
+		if (*text == '\n' && count > 1)
+			indent(0);
 	}
+	ip->comment_text->comment_type = -1;  /* turn off printed comment  */
 }
 
 /* dump_prog --- dump the program */
@@ -1037,6 +1117,7 @@ dump_prog(INSTRUCTION *code)
 	if (do_profile)
 		fprintf(prof_fp, _("\t# gawk profile, created %s\n"), ctime(& now));
 	print_lib_list(prof_fp);
+	current_comment_type = 0;  /* program  */
 	pprint(code, NULL, false);
 }
 
@@ -1582,13 +1663,8 @@ pp_func(INSTRUCTION *pc, void *data ATTRIBUTE_UNUSED)
 
 	fp = pc->nexti->nexti;
 	func = pc->func_body;
+	source = pc->source_file;
 	fprintf(prof_fp, "\n");
-
-	/* print any function comment */
-	if (fp->opcode == Op_comment && fp->source_line == 0) {
-		print_comment(fp, 0);
-		fp = fp->nexti;
-	}
 
 	indent(pc->nexti->exec_count);
 	fprintf(prof_fp, "%s %s(", op2str(Op_K_function), func->vname);

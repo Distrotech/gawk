@@ -58,6 +58,8 @@ static int load_library(INSTRUCTION *file);
 static void next_sourcefile(void);
 static char *tokexpand(void);
 static bool is_deferred_variable(const char *name);
+static void split_comment(void);
+static void append_comment(INSTRUCTION *ip);
 
 #define instruction(t)	bcalloc(t, 1, 0)
 
@@ -87,7 +89,6 @@ static void check_funcs(void);
 
 static ssize_t read_one_line(int fd, void *buffer, size_t count);
 static int one_line_close(int fd);
-static void split_comment(void);
 
 static bool want_source = false;
 static bool want_regexp = false;	/* lexical scanning kludge */
@@ -148,8 +149,6 @@ static INSTRUCTION *ip_endfile;
 static INSTRUCTION *ip_beginfile;
 
 static INSTRUCTION *comment = NULL;
-static INSTRUCTION *program_comment = NULL;
-static INSTRUCTION *function_comment = NULL;
 
 static bool func_first = true;
 
@@ -159,6 +158,12 @@ static inline INSTRUCTION *list_prepend(INSTRUCTION *l, INSTRUCTION *x);
 static inline INSTRUCTION *list_merge(INSTRUCTION *l1, INSTRUCTION *l2);
 
 extern double fmod(double x, double y);
+
+/* first and last pointers to comment list  */
+INSTRUCTION *first_comment = NULL;
+INSTRUCTION *last_comment = NULL;
+/* comment type (program=0, function=1)  */
+int current_comment_type = 0;
 
 #define YYSTYPE INSTRUCTION *
 %}
@@ -295,20 +300,12 @@ pattern
 	: /* empty */
 	  {
 		rule = Rule;
-		if (comment != NULL) {
-			$$ = list_create(comment);
-			comment = NULL;
-		} else
-			$$ = NULL;
+		$$ = NULL;
 	  }
 	| exp
 	  {
 		rule = Rule;
-		if (comment != NULL) {
-			$$ = list_prepend($1, comment);
-			comment = NULL;
-		} else
-			$$ = $1;
+		$$ = $1;
 	  }
 		
 	| exp ',' opt_nls exp
@@ -383,10 +380,16 @@ action
 	: l_brace statements r_brace opt_semi opt_nls
 	  {
 		INSTRUCTION *ip;
+		INSTRUCTION *tp;
 		if ($2 == NULL)
 			ip = list_create(instruction(Op_no_op));
-		else
-			ip = $2;
+		else {
+			if (do_pretty_print) {
+				tp = bcalloc(Op_no_op, 1, lastline);
+				ip = list_append($2, tp);
+			} else
+				ip = $2;
+		}
 		$$ = ip;
 	  }
 	;
@@ -421,14 +424,10 @@ function_prologue
 		 *  than one such comments, treat the last as a function
 		 *  comment.
 		 */
-		if (comment != NULL && func_first
-		    && strstr(comment->memory->stptr, "\n\n") != NULL)
+		current_comment_type = 1;
+		if (last_comment != NULL && func_first
+		    && strstr(last_comment->comment_text->stptr, "\n\n") != NULL)
 			split_comment();
-		/* save any other pre-function comment as function comment  */
-		if (comment != NULL) {
-			function_comment = comment;
-			comment = NULL;
-		}
 		func_first = false;
 		$1->source_file = source;
 		if (install_function($2->lextok, $1, $4) < 0)
@@ -488,34 +487,17 @@ a_slash
 statements
 	: /* empty */
 	  {
-		if (comment != NULL) {
-			$$ = list_create(comment);
-			comment = NULL;
-		} else $$ = NULL;
+		$$ = NULL;
 	  }
 	| statements statement
 	  {
 		if ($2 == NULL) {
-			if (comment == NULL)
-				$$ = $1;
-			else {
-				$$ = list_append($1, comment);
-				comment = NULL;
-			}
+			$$ = $1;
 		} else {
 			add_lint($2, LINT_no_effect);
 			if ($1 == NULL) {
-				if (comment == NULL)
-					$$ = $2;
-				else {
-					$$ = list_append($2, comment);
-					comment = NULL;
-				}
+				$$ = $2;
 			} else {
-				if (comment != NULL) {
-					list_append($2, comment);
-					comment = NULL;
-				}
 				$$ = list_merge($1, $2);
 			}
 		}
@@ -2282,13 +2264,6 @@ mk_program()
 				cp = end_block;
 			else
 				cp = list_merge(begin_block, end_block);
-			/*
-			 * We don't need to clear the comment variables
-			 * since they're not used anymore after this
-			 * function is called.
-			 */
-			if (comment != NULL)
-				(void) list_append(cp, comment);
 			(void) list_append(cp, ip_atexit);
 			(void) list_append(cp, instruction(Op_stop));
 
@@ -2321,12 +2296,6 @@ mk_program()
 	if (begin_block != NULL)
 		cp = list_merge(begin_block, cp);
 
-	if (program_comment != NULL) {
-		(void) list_prepend(cp, program_comment);
-	}  
-	if (comment != NULL) {
-		(void) list_append(cp, comment);
-	} 
 	(void) list_append(cp, ip_atexit);
 	(void) list_append(cp, instruction(Op_stop));
 
@@ -2976,11 +2945,10 @@ pushback(void)
 	(! lexeof && lexptr && lexptr > lexptr_begin ? lexptr-- : lexptr);
 }
 
-
 /* get_comment --- collect comment text */
 
 int
-get_comment(void)
+get_comment(int flag)
 {
 	int c;
 	int sl;
@@ -2991,6 +2959,12 @@ get_comment(void)
 	while (true) {
 		while ((c = nextc(false)) != '\n' && c != END_FILE) {
 			tokadd(c);
+		}
+		if (flag == 1) {
+			/* comment at end of line.  */
+			if (c == '\n')
+				tokadd(c);
+			break;
 		}
 		if (c == '\n') {
 			tokadd(c);
@@ -3006,6 +2980,7 @@ get_comment(void)
 				break;
 			else if (c != '#') {
 				pushback();
+				sourceline--;
 				break;
 			} else
 				tokadd(c);
@@ -3013,8 +2988,10 @@ get_comment(void)
 			break;
 	}
 	comment = bcalloc(Op_comment, 1, sl);
+	comment->comment_text = make_str_node(tokstart, tok - tokstart, 0);
 	comment->source_file = source;
-	comment->memory = make_str_node(tokstart, tok - tokstart, 0);
+	comment->comment_text->comment_type = current_comment_type;
+	append_comment(comment);
 
 	return c;
 }
@@ -3028,26 +3005,41 @@ split_comment(void)
 	int l;
 	NODE *n;
 
-	p = comment->memory->stptr;
-	l = comment->memory->stlen - 3;
+	p = last_comment->comment_text->stptr;
+	l = last_comment->comment_text->stlen - 3;
 	/* have at least two comments so split at last blank line (\n\n)  */
 	while (l >= 0) {
 		if (p[l] == '\n' && p[l+1] == '\n') {
-			function_comment = comment;
-			n = function_comment->memory;
-			function_comment->memory = make_str_node(p + l + 2, n->stlen - l - 2, 0);
-			/* create program comment  */
-			program_comment = bcalloc(Op_comment, 1, sourceline);
-			program_comment->source_file = comment->source_file;
+			n = last_comment->comment_text;
+			/* create function comment  */
+			comment = bcalloc(Op_comment, 1, sourceline);
+			comment->source_file = source;
+			comment->comment_text = make_str_node(p + l + 2, n->stlen - l - 2, 0);
 			p[l + 2] = 0;
-			program_comment->memory = make_str_node(p, l + 2, 0);
-			comment = NULL;
+			last_comment->comment_text = make_str_node(p, l + 2, 0);
+			append_comment(comment);
 			freenode(n);
 			break;
 		}
 		else
 			l--;
 	}
+}
+
+/* append_comment --- append latest comment to our list of comments */
+
+static void
+append_comment(INSTRUCTION *ip)
+{
+	if (first_comment == NULL) {
+		first_comment = ip;
+		last_comment = ip;
+	} else
+		last_comment->nexti = ip;
+
+	last_comment = ip;
+	last_comment->nexti = NULL;	
+	ip = NULL;
 }
 
 /* allow_newline --- allow newline after &&, ||, ? and : */
@@ -3066,7 +3058,7 @@ allow_newline(void)
 		if (c == '#') {
 			if (do_pretty_print && ! do_profile) {
 			/* collect comment byte code iff doing pretty print but not profiling.  */
-				c = get_comment();
+				c = get_comment(1);
 			} else {
 				while ((c = nextc(false)) != '\n' && c != END_FILE)
 					continue;
@@ -3278,7 +3270,10 @@ retry:
 			 * Collect comment byte code iff doing pretty print
 			 * but not profiling.
 			 */
-			c = get_comment();
+			if (lasttok == NEWLINE)
+				c = get_comment(2);
+			else
+				c = get_comment(1);
 
 			if (c == END_FILE)
 				return lasttok = NEWLINE_EOF;
@@ -3315,7 +3310,7 @@ retry:
 		_("use of `\\ #...' line continuation is not portable"));
 				}
 				if (do_pretty_print && ! do_profile)
-					c = get_comment();
+					c = get_comment(2);
 				else {
 					while ((c = nextc(false)) != '\n')
 						if (c == END_FILE)
@@ -4333,6 +4328,7 @@ void
 dump_funcs()
 {
 	NODE **funcs;
+	current_comment_type = 1;
 	funcs = function_list(true);
 	(void) foreach_func(funcs, (int (*)(INSTRUCTION *, void *)) pp_func, (void *) 0);
 	efree(funcs);
@@ -4385,14 +4381,6 @@ mk_function(INSTRUCTION *fi, INSTRUCTION *def)
 			(t + 1)->tail_call = true;
 	}
 
-	/* add any pre-function comment to start of action for profile.c  */
-
-	if (function_comment != NULL) {
-		function_comment->source_line = 0;
-		(void) list_prepend(def, function_comment);
-		function_comment = NULL;
-	}
-
 	/* add an implicit return at end;
 	 * also used by 'return' command in debugger
 	 */
@@ -4419,6 +4407,7 @@ mk_function(INSTRUCTION *fi, INSTRUCTION *def)
 
 	/* remove params from symbol table */
 	remove_params(thisfunc);
+	current_comment_type = 0;
 	return fi;
 }
 

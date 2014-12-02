@@ -530,6 +530,9 @@ typedef struct exp_node {
 #define adepth     sub.nodep.l.ll
 #define alevel     sub.nodep.x.xl
 
+/* Op_comment	*/
+#define comment_type	sub.val.idx
+
 /* --------------------------------lint warning types----------------------------*/
 typedef enum lintvals {
 	LINT_illegal,
@@ -793,6 +796,9 @@ typedef struct exp_instruction {
 
 /* Op_arrayfor_incr	*/
 #define array_var       x.xn
+
+/* Op_comment	*/
+#define comment_text    x.xn
 
 /* Op_line_range */
 #define triggered       x.xl
