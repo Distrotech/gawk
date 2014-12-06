@@ -1,3 +1,14 @@
+2014-12-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Start on changes to allow print/printf to return a value.
+
+	* awkgram.y (LEX_PRINT_EXP, LEX_PRINTF_EXP): New tokens.
+	(print_expression, print_exp): New non-terminals.
+	(mk_print): New function.
+	(exp -> print_expression): Add new production.
+	(yylex): Ugly hack on the scanner to return the expression version
+	of the tokens if not in a statement sort of context.
+
 2014-11-26         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* builtin.c (do_sub): Improve wording of gensub warnings.

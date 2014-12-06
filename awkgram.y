@@ -74,6 +74,7 @@ static INSTRUCTION *mk_binary(INSTRUCTION *s1, INSTRUCTION *s2, INSTRUCTION *op)
 static INSTRUCTION *mk_boolean(INSTRUCTION *left, INSTRUCTION *right, INSTRUCTION *op);
 static INSTRUCTION *mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op);
 static INSTRUCTION *mk_getline(INSTRUCTION *op, INSTRUCTION *opt_var, INSTRUCTION *redir, int redirtype);
+static INSTRUCTION *mk_print(INSTRUCTION *op, INSTRUCTION *exp_list, INSTRUCTION *redir);
 static NODE *make_regnode(int type, NODE *exp);
 static int count_expressions(INSTRUCTION **list, bool isarg);
 static INSTRUCTION *optimize_assignment(INSTRUCTION *exp);
@@ -171,6 +172,7 @@ extern double fmod(double x, double y);
 %token LEX_BEGIN LEX_END LEX_IF LEX_ELSE LEX_RETURN LEX_DELETE
 %token LEX_SWITCH LEX_CASE LEX_DEFAULT LEX_WHILE LEX_DO LEX_FOR LEX_BREAK LEX_CONTINUE
 %token LEX_PRINT LEX_PRINTF LEX_NEXT LEX_EXIT LEX_FUNCTION
+%token LEX_PRINT_EXP LEX_PRINTF_EXP
 %token LEX_BEGINFILE LEX_ENDFILE 
 %token LEX_GETLINE LEX_NEXTFILE
 %token LEX_IN
@@ -933,6 +935,13 @@ non_compound_stmt
 	| simple_stmt statement_term
 	;
 
+print_expression
+	: print_exp { in_print = true; in_parens = 0; } print_expression_list output_redir
+	  {
+		$$ = mk_print($1, $3, $4);
+	  }
+	;
+
 	/*
 	 * A simple_stmt exists to satisfy a constraint in the POSIX
 	 * grammar allowing them to occur as the 1st and 3rd parts
@@ -944,100 +953,7 @@ non_compound_stmt
 simple_stmt
 	: print { in_print = true; in_parens = 0; } print_expression_list output_redir
 	  {
-		/*
-		 * Optimization: plain `print' has no expression list, so $3 is null.
-		 * If $3 is NULL or is a bytecode list for $0 use Op_K_print_rec,
-		 * which is faster for these two cases.
-		 */
-
-		if ($1->opcode == Op_K_print &&
-			($3 == NULL
-				|| ($3->lasti->opcode == Op_field_spec
-					&& $3->nexti->nexti->nexti == $3->lasti
-					&& $3->nexti->nexti->opcode == Op_push_i
-					&& $3->nexti->nexti->memory->type == Node_val)
-			)
-		) {
-			static bool warned = false;
-			/*   -----------------
-			 *      output_redir
-			 *    [ redirect exp ]
-			 *   -----------------
-			 *     expression_list
-			 *   ------------------
-			 *    [Op_K_print_rec | NULL | redir_type | expr_count]
-			 */
-
-			if ($3 != NULL) {
-				NODE *n = $3->nexti->nexti->memory;
-
-				if (! iszero(n))
-					goto regular_print;
-
-				bcfree($3->lasti);			/* Op_field_spec */
-				unref(n);				/* Node_val */
-				bcfree($3->nexti->nexti);		/* Op_push_i */
-				bcfree($3->nexti);			/* Op_list */
-				bcfree($3);				/* Op_list */
-			} else {
-				if (do_lint && (rule == BEGIN || rule == END) && ! warned) {
-					warned = true;
-					lintwarn_ln($1->source_line,
-		_("plain `print' in BEGIN or END rule should probably be `print \"\"'"));
-				}
-			}
-
-			$1->expr_count = 0;
-			$1->opcode = Op_K_print_rec;
-			if ($4 == NULL) {    /* no redircetion */
-				$1->redir_type = redirect_none;
-				$$ = list_create($1);
-			} else {
-				INSTRUCTION *ip;
-				ip = $4->nexti;
-				$1->redir_type = ip->redir_type;
-				$4->nexti = ip->nexti;
-				bcfree(ip);
-				$$ = list_append($4, $1);
-			}
-		} else {
-			/*   -----------------
-			 *    [ output_redir    ]
-			 *    [ redirect exp    ]
-			 *   -----------------
-			 *    [ expression_list ]
-			 *   ------------------
-			 *    [$1 | NULL | redir_type | expr_count]
-			 *
-			 */
-regular_print:	 
-			if ($4 == NULL) {		/* no redirection */
-				if ($3 == NULL)	{	/* printf without arg */
-					$1->expr_count = 0;
-					$1->redir_type = redirect_none;
-					$$ = list_create($1);
-				} else {
-					INSTRUCTION *t = $3;
-					$1->expr_count = count_expressions(&t, false);
-					$1->redir_type = redirect_none;
-					$$ = list_append(t, $1);
-				}
-			} else {
-				INSTRUCTION *ip;
-				ip = $4->nexti;
-				$1->redir_type = ip->redir_type;
-				$4->nexti = ip->nexti;
-				bcfree(ip);
-				if ($3 == NULL) {
-					$1->expr_count = 0;
-					$$ = list_append($4, $1);
-				} else {
-					INSTRUCTION *t = $3;
-					$1->expr_count = count_expressions(&t, false);
-					$$ = list_append(list_merge($4, t), $1);
-				}
-			}
-		}
+		$$ = mk_print($1, $3, $4);
 	  }
 
 	| LEX_DELETE NAME { sub_counter = 0; } delete_subscript_list
@@ -1183,6 +1099,13 @@ print
 	: LEX_PRINT
 	  { $$ = $1; }
 	| LEX_PRINTF
+	  { $$ = $1; }
+	;
+
+print_exp
+	: LEX_PRINT_EXP
+	  { $$ = $1; }
+	| LEX_PRINTF_EXP
 	  { $$ = $1; }
 	;
 
@@ -1368,6 +1291,8 @@ exp
 	| exp '?' exp ':' exp
 	  { $$ = mk_condition($1, $2, $3, $4, $5); }
 	| common_exp
+	  { $$ = $1; }
+	| print_expression
 	  { $$ = $1; }
 	;
 
@@ -3128,6 +3053,7 @@ yylex(void)
 	bool inhex = false;
 	bool intlstr = false;
 	AWKNUM d;
+	int prev_lasttok;
 
 #define GET_INSTRUCTION(op) bcalloc(op, 1, sourceline)
 
@@ -3160,6 +3086,7 @@ yylex(void)
 	}
 #endif
 
+	prev_lasttok = lasttok;
 	lexeme = lexptr;
 	thisline = NULL;
 	if (want_regexp) {
@@ -3913,6 +3840,25 @@ make_instruction:
 			yylval = GET_INSTRUCTION(tokentab[mid].value);
 			if (class == LEX_BUILTIN || class == LEX_LENGTH)
 				yylval->builtin_idx = mid;
+			if (! do_traditional
+			    && (class == LEX_PRINT || class == LEX_PRINTF)) {
+				switch (prev_lasttok) {
+				case NEWLINE:
+				case LEX_ELSE:
+				case ':':	/* from case */
+				case ';':
+				case '{':
+				case '(':
+				case ')':
+					break;
+				default:
+					if (class == LEX_PRINT)
+						class = LEX_PRINT_EXP;
+					if (class == LEX_PRINTF)
+						class = LEX_PRINTF_EXP;
+					break;
+				}
+			}
 			break;
 		}
 		return lasttok = class;
@@ -5665,6 +5611,112 @@ mk_expression_list(INSTRUCTION *list, INSTRUCTION *s1)
 	r->nexti = s1;
 	list->lasti = s1->lasti;
 	return list;
+}
+
+/* mk_print --- print or printf */
+
+static INSTRUCTION *
+mk_print(INSTRUCTION *op, INSTRUCTION *exp_list, INSTRUCTION *redir)
+{
+	INSTRUCTION *ret = NULL;
+
+	/*
+	 * Optimization: plain `print' has no expression list, so exp_list is null.
+	 * If exp_list is NULL or is a bytecode list for $0 use Op_K_print_rec,
+	 * which is faster for these two cases.
+	 */
+
+	if (op->opcode == Op_K_print &&
+		(exp_list == NULL
+			|| (exp_list->lasti->opcode == Op_field_spec
+				&& exp_list->nexti->nexti->nexti == exp_list->lasti
+				&& exp_list->nexti->nexti->opcode == Op_push_i
+				&& exp_list->nexti->nexti->memory->type == Node_val)
+		)
+	) {
+		static bool warned = false;
+		/*   -----------------
+		 *      output_redir
+		 *    [ redirect exp ]
+		 *   -----------------
+		 *     expression_list
+		 *   ------------------
+		 *    [Op_K_print_rec | NULL | redir_type | expr_count]
+		 */
+
+		if (exp_list != NULL) {
+			NODE *n = exp_list->nexti->nexti->memory;
+
+			if (! iszero(n))
+				goto regular_print;
+
+			bcfree(exp_list->lasti);			/* Op_field_spec */
+			unref(n);				/* Node_val */
+			bcfree(exp_list->nexti->nexti);		/* Op_push_i */
+			bcfree(exp_list->nexti);			/* Op_list */
+			bcfree(exp_list);				/* Op_list */
+		} else {
+			if (do_lint && (rule == BEGIN || rule == END) && ! warned) {
+				warned = true;
+				lintwarn_ln(op->source_line,
+	_("plain `print' in BEGIN or END rule should probably be `print \"\"'"));
+			}
+		}
+
+		op->expr_count = 0;
+		op->opcode = Op_K_print_rec;
+		if (redir == NULL) {    /* no redircetion */
+			op->redir_type = redirect_none;
+			ret = list_create(op);
+		} else {
+			INSTRUCTION *ip;
+			ip = redir->nexti;
+			op->redir_type = ip->redir_type;
+			redir->nexti = ip->nexti;
+			bcfree(ip);
+			ret = list_append(redir, op);
+		}
+	} else {
+		/*   -----------------
+		 *    [ output_redir    ]
+		 *    [ redirect exp    ]
+		 *   -----------------
+		 *    [ expression_list ]
+		 *   ------------------
+		 *    [op | NULL | redir_type | expr_count]
+		 *
+		 */
+regular_print:	 
+		if (redir == NULL) {		/* no redirection */
+			if (exp_list == NULL)	{	/* printf without arg */
+				op->expr_count = 0;
+				op->redir_type = redirect_none;
+				ret = list_create(op);
+			} else {
+				INSTRUCTION *t = exp_list;
+				op->expr_count = count_expressions(&t, false);
+				op->redir_type = redirect_none;
+				ret = list_append(t, op);
+			}
+		} else {
+			INSTRUCTION *ip;
+			ip = redir->nexti;
+			op->redir_type = ip->redir_type;
+			redir->nexti = ip->nexti;
+			bcfree(ip);
+			if (exp_list == NULL) {
+				op->expr_count = 0;
+				ret = list_append(redir, op);
+			} else {
+				INSTRUCTION *t = exp_list;
+				op->expr_count = count_expressions(&t, false);
+				ret = list_append(list_merge(redir, t), op);
+			}
+		}
+	}
+
+	assert(ret != NULL);
+	return ret;
 }
 
 /* count_expressions --- fixup expression_list from mk_expression_list.
