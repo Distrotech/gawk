@@ -1,3 +1,22 @@
+2014-12-08         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* awk.h: Additional codes for the expression versions of print,
+	printf, and print_rec.
+	(do_print, do_printf, do_print_rec): Return NODE *, take additional
+	boolean parameter.
+	* awkgram.y (yylex): Improve scanner hack some.
+	(mk_print): Use the right opcodes.
+	* builtin.c (efwrite): Return ssize_t which is number of bytes written.
+	Add a parameter for if can fatal or not.
+	(do_print): Return NODE with number bytes written; fatal based
+	parameter setting.
+	(do_printf): Ditto.
+	(do_print_rec): Ditto.
+	* eval.c (optypetab): Update.
+	* interpret.h (r_interpret): Handle the different versions of
+	print/printf: expression vs. statement. This could be cleaned
+	up a bit more.
+
 2014-12-06         Arnold D. Robbins     <arnold@skeeve.com>
 
 	Start on changes to allow print/printf to return a value.

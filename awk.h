@@ -616,6 +616,9 @@ typedef enum opcodeval {
 	Op_K_print,
 	Op_K_print_rec,
 	Op_K_printf,
+	Op_K_print_exp,
+	Op_K_print_rec_exp,
+	Op_K_printf_exp,
 	Op_K_next,
 	Op_K_exit,
 	Op_K_return,
@@ -1345,15 +1348,15 @@ extern NODE *do_length(int nargs);
 extern NODE *do_log(int nargs);
 extern NODE *do_mktime(int nargs);
 extern NODE *do_sprintf(int nargs);
-extern void do_printf(int nargs, int redirtype);
+extern NODE *do_printf(int nargs, int redirtype, bool can_fatal);
 extern void print_simple(NODE *tree, FILE *fp);
 extern NODE *do_sqrt(int nargs);
 extern NODE *do_substr(int nargs);
 extern NODE *do_strftime(int nargs);
 extern NODE *do_systime(int nargs);
 extern NODE *do_system(int nargs);
-extern void do_print(int nargs, int redirtype);
-extern void do_print_rec(int args, int redirtype);
+extern NODE *do_print(int nargs, int redirtype, bool can_fatal);
+extern NODE *do_print_rec(int args, int redirtype, bool can_fatal);
 extern NODE *do_tolower(int nargs);
 extern NODE *do_toupper(int nargs);
 extern NODE *do_atan2(int nargs);

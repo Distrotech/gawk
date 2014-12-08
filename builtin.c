@@ -94,20 +94,24 @@ fatal(_("attempt to use array `%s' in a scalar context"), array_vname(s1)); \
 
 /* efwrite --- like fwrite, but with error checking */
 
-static void
+static ssize_t
 efwrite(const void *ptr,
 	size_t size,
 	size_t count,
 	FILE *fp,
 	const char *from,
 	struct redirect *rp,
-	bool flush)
+	bool flush,
+	bool can_fatal)
 {
+	ssize_t write_count = 0;
+
 	errno = 0;
 	if (rp != NULL) {
-		if (rp->output.gawk_fwrite(ptr, size, count, fp, rp->output.opaque) != count)
+		write_count = rp->output.gawk_fwrite(ptr, size, count, fp, rp->output.opaque);
+		if (write_count != count)
 			goto wrerror;
-	} else if (fwrite(ptr, size, count, fp) != count)
+	} else if ((write_count = fwrite(ptr, size, count, fp)) != count)
 		goto wrerror;
 	if (flush
 	  && ((fp == stdout && output_is_tty)
@@ -122,17 +126,20 @@ efwrite(const void *ptr,
 				goto wrerror;
 		}
 	}
-	return;
+	return write_count;
 
 wrerror:
-	/* die silently on EPIPE to stdout */
-	if (fp == stdout && errno == EPIPE)
-		gawk_exit(EXIT_FATAL);
+	if (can_fatal) {
+		/* die silently on EPIPE to stdout */
+		if (fp == stdout && errno == EPIPE)
+			gawk_exit(EXIT_FATAL);
 
-	/* otherwise die verbosely */
-	fatal(_("%s to \"%s\" failed (%s)"), from,
-		rp ? rp->value : _("standard output"),
-		errno ? strerror(errno) : _("reason unknown"));
+		/* otherwise die verbosely */
+		fatal(_("%s to \"%s\" failed (%s)"), from,
+			rp ? rp->value : _("standard output"),
+			errno ? strerror(errno) : _("reason unknown"));
+	}
+	return -1;
 }
 
 /* do_exp --- exponential function */
@@ -1627,14 +1634,15 @@ do_sprintf(int nargs)
 
 /* do_printf --- perform printf, including redirection */
 
-void
-do_printf(int nargs, int redirtype)
+NODE *
+do_printf(int nargs, int redirtype, bool can_fatal)
 {
 	FILE *fp = NULL;
 	NODE *tmp;
 	struct redirect *rp = NULL;
 	int errflg;	/* not used, sigh */
 	NODE *redir_exp = NULL;
+	ssize_t count;
 
 	if (nargs == 0) {
 		if (do_traditional) {
@@ -1648,7 +1656,7 @@ do_printf(int nargs, int redirtype)
 				DEREF(redir_exp);
 				decr_sp();
 			}
-			return;	/* bwk accepts it silently */
+			return make_number(0.0);	/* bwk accepts it silently */
 		}
 		fatal(_("printf: no arguments"));
 	}
@@ -1673,14 +1681,16 @@ do_printf(int nargs, int redirtype)
 	if (tmp != NULL) {
 		if (fp == NULL) {
 			DEREF(tmp);
-			return;
+			return make_number(0.0);
 		}
-		efwrite(tmp->stptr, sizeof(char), tmp->stlen, fp, "printf", rp, true);
+		count = efwrite(tmp->stptr, sizeof(char), tmp->stlen, fp, "printf", rp, true, can_fatal);
 		if (rp != NULL && (rp->flag & RED_TWOWAY) != 0)
 			rp->output.gawk_fflush(rp->output.fp, rp->output.opaque);
 		DEREF(tmp);
 	} else
 		gawk_exit(EXIT_FATAL);
+
+	return make_number((AWKNUM) count);
 }
 
 /* do_sqrt --- do the sqrt function */
@@ -2068,8 +2078,8 @@ do_system(int nargs)
 
 /* do_print --- print items, separated by OFS, terminated with ORS */
 
-void
-do_print(int nargs, int redirtype)
+NODE *
+do_print(int nargs, int redirtype, bool can_fatal)
 {
 	struct redirect *rp = NULL;
 	int errflg;	/* not used, sigh */
@@ -2077,6 +2087,7 @@ do_print(int nargs, int redirtype)
 	int i;
 	NODE *redir_exp = NULL;
 	NODE *tmp = NULL;
+	ssize_t count;
 
 	assert(nargs <= max_args);
 
@@ -2116,34 +2127,38 @@ do_print(int nargs, int redirtype)
 	if (fp == NULL) {
 		for (i = nargs; i > 0; i--)
 			DEREF(args_array[i]);
-		return;
+		return make_number(0.0);
 	}
 
+	count = 0;
 	for (i = nargs; i > 0; i--) {
-		efwrite(args_array[i]->stptr, sizeof(char), args_array[i]->stlen, fp, "print", rp, false);
+		count += efwrite(args_array[i]->stptr, sizeof(char), args_array[i]->stlen, fp, "print", rp, false, can_fatal);
 		DEREF(args_array[i]);
 		if (i != 1 && OFSlen > 0)
-			efwrite(OFS, sizeof(char), (size_t) OFSlen,
-				fp, "print", rp, false);
+			count += efwrite(OFS, sizeof(char), (size_t) OFSlen,
+				fp, "print", rp, false, can_fatal);
 
 	}
 	if (ORSlen > 0)
-		efwrite(ORS, sizeof(char), (size_t) ORSlen, fp, "print", rp, true);
+		count += efwrite(ORS, sizeof(char), (size_t) ORSlen, fp, "print", rp, true, can_fatal);
 
 	if (rp != NULL && (rp->flag & RED_TWOWAY) != 0)
 		rp->output.gawk_fflush(rp->output.fp, rp->output.opaque);
+
+	return make_number((AWKNUM) count);
 }
 
 /* do_print_rec --- special case printing of $0, for speed */
 
-void 
-do_print_rec(int nargs, int redirtype)
+NODE *
+do_print_rec(int nargs, int redirtype, bool can_fatal)
 {
 	FILE *fp = NULL;
 	NODE *f0;
 	struct redirect *rp = NULL;
 	int errflg;	/* not used, sigh */
 	NODE *redir_exp = NULL;
+	ssize_t count;
 
 	assert(nargs == 0);
 	if (redirtype != 0) {
@@ -2157,7 +2172,7 @@ do_print_rec(int nargs, int redirtype)
 		fp = output_fp;
 
 	if (fp == NULL)
-		return;
+		return make_number(0.0);
 
 	if (! field0_valid)
 		(void) get_field(0L, NULL);	/* rebuild record */
@@ -2167,13 +2182,15 @@ do_print_rec(int nargs, int redirtype)
 	if (do_lint && (f0->flags & NULL_FIELD) != 0)
 		lintwarn(_("reference to uninitialized field `$%d'"), 0);
 
-	efwrite(f0->stptr, sizeof(char), f0->stlen, fp, "print", rp, false);
+	count = efwrite(f0->stptr, sizeof(char), f0->stlen, fp, "print", rp, false, can_fatal);
 
 	if (ORSlen > 0)
-		efwrite(ORS, sizeof(char), (size_t) ORSlen, fp, "print", rp, true);
+		count += efwrite(ORS, sizeof(char), (size_t) ORSlen, fp, "print", rp, true, can_fatal);
 
 	if (rp != NULL && (rp->flag & RED_TWOWAY) != 0)
 		rp->output.gawk_fflush(rp->output.fp, rp->output.opaque);
+
+	return make_number((AWKNUM) count);
 }
 
 

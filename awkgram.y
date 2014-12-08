@@ -3053,7 +3053,6 @@ yylex(void)
 	bool inhex = false;
 	bool intlstr = false;
 	AWKNUM d;
-	int prev_lasttok;
 
 #define GET_INSTRUCTION(op) bcalloc(op, 1, sourceline)
 
@@ -3086,7 +3085,6 @@ yylex(void)
 	}
 #endif
 
-	prev_lasttok = lasttok;
 	lexeme = lexptr;
 	thisline = NULL;
 	if (want_regexp) {
@@ -3842,20 +3840,23 @@ make_instruction:
 				yylval->builtin_idx = mid;
 			if (! do_traditional
 			    && (class == LEX_PRINT || class == LEX_PRINTF)) {
-				switch (prev_lasttok) {
+				switch (lasttok) {
 				case NEWLINE:
 				case LEX_ELSE:
 				case ':':	/* from case */
 				case ';':
 				case '{':
-				case '(':
 				case ')':
 					break;
 				default:
-					if (class == LEX_PRINT)
+					if (class == LEX_PRINT) {
 						class = LEX_PRINT_EXP;
-					if (class == LEX_PRINTF)
+						yylval->opcode = Op_K_print_exp;
+					}
+					if (class == LEX_PRINTF) {
 						class = LEX_PRINTF_EXP;
+						yylval->opcode = Op_K_printf_exp;
+					}
 					break;
 				}
 			}
@@ -5626,7 +5627,7 @@ mk_print(INSTRUCTION *op, INSTRUCTION *exp_list, INSTRUCTION *redir)
 	 * which is faster for these two cases.
 	 */
 
-	if (op->opcode == Op_K_print &&
+	if ((op->opcode == Op_K_print || op->opcode == Op_K_print_exp) &&
 		(exp_list == NULL
 			|| (exp_list->lasti->opcode == Op_field_spec
 				&& exp_list->nexti->nexti->nexti == exp_list->lasti
@@ -5664,7 +5665,7 @@ mk_print(INSTRUCTION *op, INSTRUCTION *exp_list, INSTRUCTION *redir)
 		}
 
 		op->expr_count = 0;
-		op->opcode = Op_K_print_rec;
+		op->opcode = (op->opcode == Op_K_print ? Op_K_print_rec : Op_K_print_rec_exp);
 		if (redir == NULL) {    /* no redircetion */
 			op->redir_type = redirect_none;
 			ret = list_create(op);

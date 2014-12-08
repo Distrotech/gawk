@@ -51,6 +51,7 @@ r_interpret(INSTRUCTION *code)
 	Regexp *rp;
 	NODE *set_array = NULL;	/* array with a post-assignment routine */
 	NODE *set_idx = NULL;	/* the index of the array element */
+	bool print_fatal = true;
 
 
 /* array subscript */
@@ -967,16 +968,40 @@ arrayfor:
 			PUSH(r);
 			break;
 
+		case Op_K_print_exp:
+			print_fatal = false;
+			/* fall through */
 		case Op_K_print:
-			do_print(pc->expr_count, pc->redir_type);
+			r = do_print(pc->expr_count, pc->redir_type, print_fatal);
+			print_fatal = true;
+			if (op == Op_K_print_exp)
+				PUSH(r);
+			else
+				DEREF(r);
 			break;
 
+		case Op_K_printf_exp:
+			print_fatal = false;
+			/* fall through */
 		case Op_K_printf:
-			do_printf(pc->expr_count, pc->redir_type);
+			r = do_printf(pc->expr_count, pc->redir_type, print_fatal);
+			print_fatal = true;
+			if (op == Op_K_printf_exp)
+				PUSH(r);
+			else
+				DEREF(r);
 			break;
 
+		case Op_K_print_rec_exp:
+			print_fatal = false;
+			/* fall through */
 		case Op_K_print_rec:
-			do_print_rec(pc->expr_count, pc->redir_type);
+			r = do_print_rec(pc->expr_count, pc->redir_type, print_fatal);
+			print_fatal = true;
+			if (op == Op_K_print_rec_exp)
+				PUSH(r);
+			else
+				DEREF(r);
 			break;
 
 		case Op_push_re:
