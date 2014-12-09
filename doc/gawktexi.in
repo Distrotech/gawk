@@ -8565,6 +8565,7 @@ and discusses the @code{close()} built-in function.
                                 @command{gawk} allows access to inherited file
                                 descriptors.
 * Close Files And Pipes::       Closing Input and Output Files and Pipes.
+* Print Return Values::         Checking for output errors.
 * Output Summary::              Output summary.
 * Output Exercises::            Exercises.
 @end menu
@@ -9977,6 +9978,20 @@ when closing a pipe.
 @c ENDOFRANGE ofc
 @c ENDOFRANGE pc
 @c ENDOFRANGE cc
+
+@node Print Return Values
+@section Checking For Output Problems
+
+This @value{SECTION} describes a @command{gawk}-specific feature.
+
+In standard @command{awk}, both @code{print} and @code{printf}
+are statements; they do not return a value.  I/O errors that occur
+from @code{print} and @code{printf} are fatal errors:
+
+@example
+$ @kbd{gawk 'BEGIN @{ print "hi" > "/no/such/file" @}'}
+@error{} gawk: cmd. line:1: fatal: can't redirect to `/no/such/file' (No such file or directory)
+@end example
 
 @node Output Summary
 @section Summary

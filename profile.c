@@ -182,6 +182,7 @@ pprint(INSTRUCTION *startp, INSTRUCTION *endp, bool in_for_header)
 	int rule;
 	long lind;
 	static int rule_count[MAXRULE];
+	bool print_exp = false;
 
 	for (pc = startp; pc != endp; pc = pc->nexti) {
 		if (pc->source_line > 0)
@@ -564,10 +565,15 @@ cleanup:
 		}
 			break;
 
+		case Op_K_print_exp:
+		case Op_K_printf_exp:
+		case Op_K_print_rec_exp:
+			print_exp = true;
+			/* fall through */
 		case Op_K_print:
 		case Op_K_printf:
 		case Op_K_print_rec:
-			if (pc->opcode == Op_K_print_rec)
+			if (pc->opcode == Op_K_print_rec || pc->opcode == Op_K_print_rec_exp)
 				tmp = pp_group3(" ", op2str(Op_field_spec), "0");
 			else if (pc->redir_type != 0)
 				tmp = pp_list(pc->expr_count, "()", ", ");
@@ -577,17 +583,29 @@ cleanup:
 			}	
 
 			if (pc->redir_type != 0) {
+				char *str2;
+
 				t1 = pp_pop();
 				if (is_binary(t1->type))
 					pp_parenthesize(t1);
-				fprintf(prof_fp, "%s%s%s%s", op2str(pc->opcode),
-							tmp, redir2str(pc->redir_type), t1->pp_str);
+				str2 = pp_group3(op2str(pc->opcode),
+							tmp, redir2str(pc->redir_type));
+				str = pp_group3("", str2, t1->pp_str);
+				efree(str2);
 				pp_free(t1);
 			} else
-				fprintf(prof_fp, "%s%s", op2str(pc->opcode), tmp);
+				str = pp_group3("", op2str(pc->opcode), tmp);
+
 			efree(tmp);
-			if (! in_for_header)
-				fprintf(prof_fp, "\n");
+			if (print_exp) {
+				pp_push(pc->opcode, str, CAN_FREE);
+			} else {
+				fprintf(prof_fp, "%s", str);
+				efree(str);
+				if (! in_for_header)
+					fprintf(prof_fp, "\n");
+			}
+			print_exp = false;
 			break;
 
 		case Op_push_re:

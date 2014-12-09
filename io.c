@@ -261,7 +261,6 @@ struct recmatch {
 
 
 static int iop_close(IOBUF *iop);
-struct redirect *redirect(NODE *redir_exp, int redirtype, int *errflg);
 static void close_one(void);
 static int close_redir(struct redirect *rp, bool exitwarn, two_way_close_type how);
 #ifndef PIPES_SIMULATED
@@ -727,7 +726,7 @@ redflags2str(int flags)
 /* redirect --- Redirection for printf and print commands */
 
 struct redirect *
-redirect(NODE *redir_exp, int redirtype, int *errflg)
+redirect(NODE *redir_exp, int redirtype, int *errflg, bool allow_fatal)
 {
 	struct redirect *rp;
 	char *str;
@@ -932,6 +931,9 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 					*errflg = errno;
 					/* do not free rp, saving it for reuse (save_rp = rp) */
 					return NULL;
+				} else if (! allow_fatal) {
+					free(rp);
+					return NULL;
 				} else
 #endif
 					fatal(_("can't open two way pipe `%s' for input/output (%s)"),
@@ -1014,6 +1016,11 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 					*errflg = errno;
 				if (   redirtype == redirect_output
 				    || redirtype == redirect_append) {
+					if (! allow_fatal) {
+						efree(rp);
+						return NULL;
+					}
+
 					/* multiple messages make life easier for translators */
 					if (*direction == 'f')
 						fatal(_("can't redirect from `%s' (%s)"),
@@ -2421,7 +2428,7 @@ do_getline_redir(int into_variable, enum redirval redirtype)
 
 	assert(redirtype != redirect_none);
 	redir_exp = TOP();
-	rp = redirect(redir_exp, redirtype, & redir_error);
+	rp = redirect(redir_exp, redirtype, & redir_error, false);
 	DEREF(redir_exp);
 	decr_sp();
 	if (rp == NULL) {

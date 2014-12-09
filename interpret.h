@@ -36,6 +36,38 @@
 		DEREF(r); \
 	} \
 }
+
+/* guard this; the header is included twice */
+#ifndef BEEN_THERE_DONE_THAT
+#define BEEN_THERE_DONE_THAT	1
+static void
+run_print_command(OPCODE op, int nargs, int redirtype,
+	NODE* (*printfunc)(int nargs, int redirtype, bool can_fatal))
+{
+	NODE *r;
+	bool can_fatal;
+
+	switch (op) {
+	case Op_K_print_rec_exp:
+	case Op_K_print_exp:
+	case Op_K_printf_exp:
+		can_fatal = false;
+		break;
+	default:
+		can_fatal = true;
+		break;
+	}
+
+	r = printfunc(nargs, redirtype, can_fatal);
+	if (can_fatal)
+		DEREF(r);
+	else
+		PUSH(r);
+}
+#endif
+
+/* r_interpret --- the interpreter */
+
 int
 r_interpret(INSTRUCTION *code)
 {
@@ -51,7 +83,6 @@ r_interpret(INSTRUCTION *code)
 	Regexp *rp;
 	NODE *set_array = NULL;	/* array with a post-assignment routine */
 	NODE *set_idx = NULL;	/* the index of the array element */
-	bool print_fatal = true;
 
 
 /* array subscript */
@@ -969,39 +1000,18 @@ arrayfor:
 			break;
 
 		case Op_K_print_exp:
-			print_fatal = false;
-			/* fall through */
 		case Op_K_print:
-			r = do_print(pc->expr_count, pc->redir_type, print_fatal);
-			print_fatal = true;
-			if (op == Op_K_print_exp)
-				PUSH(r);
-			else
-				DEREF(r);
+			run_print_command(op, pc->expr_count, pc->redir_type, do_print);
 			break;
 
 		case Op_K_printf_exp:
-			print_fatal = false;
-			/* fall through */
 		case Op_K_printf:
-			r = do_printf(pc->expr_count, pc->redir_type, print_fatal);
-			print_fatal = true;
-			if (op == Op_K_printf_exp)
-				PUSH(r);
-			else
-				DEREF(r);
+			run_print_command(op, pc->expr_count, pc->redir_type, do_printf);
 			break;
 
 		case Op_K_print_rec_exp:
-			print_fatal = false;
-			/* fall through */
 		case Op_K_print_rec:
-			r = do_print_rec(pc->expr_count, pc->redir_type, print_fatal);
-			print_fatal = true;
-			if (op == Op_K_print_rec_exp)
-				PUSH(r);
-			else
-				DEREF(r);
+			run_print_command(op, pc->expr_count, pc->redir_type, do_print_rec);
 			break;
 
 		case Op_push_re:

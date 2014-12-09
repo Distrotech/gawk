@@ -1640,9 +1640,9 @@ do_printf(int nargs, int redirtype, bool can_fatal)
 	FILE *fp = NULL;
 	NODE *tmp;
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	NODE *redir_exp = NULL;
-	ssize_t count;
+	ssize_t count = 0;
 
 	if (nargs == 0) {
 		if (do_traditional) {
@@ -1652,11 +1652,11 @@ do_printf(int nargs, int redirtype, bool can_fatal)
 				redir_exp = TOP();
 				if (redir_exp->type != Node_val)
 					fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-				rp = redirect(redir_exp, redirtype, & errflg);
+				rp = redirect(redir_exp, redirtype, & errflg, can_fatal);
 				DEREF(redir_exp);
 				decr_sp();
 			}
-			return make_number(0.0);	/* bwk accepts it silently */
+			return make_number(errflg ? -1.0 : 0.0);
 		}
 		fatal(_("printf: no arguments"));
 	}
@@ -1665,9 +1665,11 @@ do_printf(int nargs, int redirtype, bool can_fatal)
 		redir_exp = PEEK(nargs);
 		if (redir_exp->type != Node_val)
 			fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, can_fatal);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg)
+			return make_number(-1.0);
 	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
 	else
@@ -2082,7 +2084,7 @@ NODE *
 do_print(int nargs, int redirtype, bool can_fatal)
 {
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	FILE *fp = NULL;
 	int i;
 	NODE *redir_exp = NULL;
@@ -2095,9 +2097,11 @@ do_print(int nargs, int redirtype, bool can_fatal)
 		redir_exp = PEEK(nargs);
 		if (redir_exp->type != Node_val)
 			fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, can_fatal);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg)
+			return make_number(-1.0);
 	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
 	else
@@ -2156,16 +2160,18 @@ do_print_rec(int nargs, int redirtype, bool can_fatal)
 	FILE *fp = NULL;
 	NODE *f0;
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	NODE *redir_exp = NULL;
 	ssize_t count;
 
 	assert(nargs == 0);
 	if (redirtype != 0) {
 		redir_exp = TOP();
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, can_fatal);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg)
+			return make_number(-1.0);
 		DEREF(redir_exp);
 		decr_sp();
 	} else

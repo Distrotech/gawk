@@ -1,3 +1,14 @@
+2014-12-09         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* builtin.c (do_printf): Allow for error return from redirect, pass
+	in the can_fatal value.
+	(do_print_rec, do_print): Ditto.
+	* interpret.h (run_print_command): New function.
+	(r_interpret): Use it in the right places.
+	* io.c (redirect): Add boolean allow_fatal parameter. Use it.
+	* profile.c (pprint): Handle expression versions of print - stack
+	the results if needed.
+
 2014-12-08         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* awk.h: Additional codes for the expression versions of print,

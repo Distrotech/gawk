@@ -1481,7 +1481,8 @@ extern void register_two_way_processor(awk_two_way_processor_t *processor);
 extern void set_FNR(void);
 extern void set_NR(void);
 
-extern struct redirect *redirect(NODE *redir_exp, int redirtype, int *errflg);
+extern struct redirect *redirect(NODE *redir_exp, int redirtype, int *errflg,
+		bool allow_fatal);
 extern NODE *do_close(int nargs);
 extern int flush_io(void);
 extern int close_io(bool *stdio_problem);

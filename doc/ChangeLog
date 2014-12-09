@@ -1,6 +1,7 @@
 2014-12-09         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* gawktexi.in: More minor fixes.
+	* gawktexi.in: Start to document print with return value.
 
 2014-12-07         Arnold D. Robbins     <arnold@skeeve.com>
 
