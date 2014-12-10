@@ -39,6 +39,10 @@
 	(yylex): Ugly hack on the scanner to return the expression version
 	of the tokens if not in a statement sort of context.
 
+2014-12-10         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* dfa.c: Sync with GNU grep.
+
 2014-11-26         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* builtin.c (do_sub): Improve wording of gensub warnings.
