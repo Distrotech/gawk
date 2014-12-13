@@ -309,7 +309,6 @@ typedef union bucket_item {
 		char *str;
 		size_t len;
 		size_t code;
-		struct exp_node *name;
 		struct exp_node *val;
 	} hs;
 	struct {
@@ -322,9 +321,8 @@ typedef union bucket_item {
 
 /* string hash table */
 #define ahnext		hs.next
-#define	ahname		hs.name	/* a string index node */
-#define	ahname_str	hs.str	/* shallow copy; = ahname->stptr */
-#define	ahname_len	hs.len	/* = ahname->stlen */
+#define	ahname_str	hs.str	/* private memory */
+#define	ahname_len	hs.len	/* length of subscript string */
 #define	ahvalue		hs.val
 #define	ahcode		hs.code
 

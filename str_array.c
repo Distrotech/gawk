@@ -190,9 +190,9 @@ str_lookup(NODE *symbol, NODE *subs)
 	getbucket(b);
 	b->ahnext = symbol->buckets[hash1];
 	symbol->buckets[hash1] = b;
-	b->ahname = subs;
-	b->ahname_str = subs->stptr;
+	b->ahname_str = estrdup(subs->stptr, subs->stlen);
 	b->ahname_len = subs->stlen;
+	DEREF(subs);
 	b->ahvalue = dupnode(Nnull_string);
 	b->ahcode = code1;
 	return & (b->ahvalue);
@@ -235,7 +235,7 @@ str_clear(NODE *symbol, NODE *subs ATTRIBUTE_UNUSED)
 				freenode(r);
 			} else
 				unref(r);
-			unref(b->ahname);
+			free(b->ahname_str);
 			freebucket(b);
 		}
 		symbol->buckets[i] = NULL;
@@ -276,7 +276,7 @@ str_remove(NODE *symbol, NODE *subs)
 			    || memcmp(b->ahname_str, s2->stptr, s1_len) == 0) {
 			/* item found */
 
-			unref(b->ahname);
+			free(b->ahname_str);
 			if (prev != NULL)
 				prev->ahnext = b->ahnext;
 			else
@@ -324,7 +324,7 @@ str_copy(NODE *symbol, NODE *newsymb)
 		for (chain = old[i], pnew = & new[i]; chain != NULL;
 				chain = chain->ahnext
 		) {
-			NODE *oldval, *newsubs;
+			NODE *oldval;
 
 			getbucket(newchain);
 
@@ -333,9 +333,8 @@ str_copy(NODE *symbol, NODE *newsymb)
 			 * value from the original input list
 			 */
 
-			newsubs = newchain->ahname = dupnode(chain->ahname);
-			newchain->ahname_str = newsubs->stptr;
-			newchain->ahname_len = newsubs->stlen;
+			newchain->ahname_str = estrdup(chain->ahname_str, chain->ahname_len);
+			newchain->ahname_len = chain->ahname_len;
 
 			oldval = chain->ahvalue;
 			if (oldval->type == Node_val)
@@ -396,10 +395,10 @@ str_list(NODE *symbol, NODE *t)
 	for (i = 0; i < symbol->array_size; i++) {
 		for (b = symbol->buckets[i]; b != NULL;	b = b->ahnext) {
 			/* index */
-			subs = b->ahname;
+			subs = make_string(b->ahname_str, b->ahname_len);
 			if ((assoc_kind & AINUM) != 0)
 				(void) force_number(subs);
-			list[k++] = dupnode(subs);
+			list[k++] = subs;
 
 			/* value */
 			if ((assoc_kind & AVALUE) != 0) {
@@ -511,8 +510,13 @@ str_dump(NODE *symbol, NODE *ndump)
 		fprintf(output_fp, "\n");
 		aname = make_aname(symbol);
 		for (i = 0; i < symbol->array_size; i++) {
-			for (b = symbol->buckets[i]; b != NULL;	b = b->ahnext)
-				assoc_info(b->ahname, b->ahvalue, ndump, aname);
+			for (b = symbol->buckets[i]; b != NULL;	b = b->ahnext) {
+				NODE *tmp;
+
+				tmp = make_string(b->ahname_str, b->ahname_len);
+				assoc_info(tmp, b->ahvalue, ndump, aname);
+				DEREF(tmp);
+			}
 		}
 	}
 

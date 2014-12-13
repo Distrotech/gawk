@@ -1,3 +1,22 @@
+2014-12-13         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* awk.h (bucket_item): Remove 'struct exp_node *name'. The string index
+	will be held directly in the bucket instead of via a pointer to a
+	NODE.  This saves memory when the NODE is not referenced elsewhere,
+	but costs memory if the NODE is still required due to other references.
+	(ahname): Remove define, since hs.name is gone.
+	(ahname_str, ahname_len): Update comments.
+	* str_array.c (str_lookup): Instead of holding a pointer to the
+	subscript NODE, make a copy of the string and call DEREF to release
+	the NODE.
+	(str_clear, str_remove): Free the allocated string subscript memory
+	instead of decreasing the reference count on the node.
+	(str_copy): Instead of calling dupnode, use estrdup to copy the
+	subscript string.
+	(str_list): Must call make_string to create a new string node instead
+	of calling dupnode.
+	(str_dump): Must create a string NODE to pass to assoc_info.
+
 2014-12-12        Stephen Davies         <sdavies@sdc.com.au>
 
 	Improve comment handling in pretty printing.
