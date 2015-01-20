@@ -61,12 +61,15 @@ EXTRA_DIST = \
 # The order to do things in.
 # Build explicitly in "." in order to build gawk first, so
 # that `make check' without a prior `make' works.
+# Build in awklib after in doc, since we want to extract
+# sample files if doc/gawk.texi changed.
 SUBDIRS = \
 	. \
-	awklib \
 	doc \
+	awklib \
 	po \
 	extension \
+	extras \
 	test
 
 # what to make and install
@@ -144,6 +147,9 @@ CLEANFILES = core core.*
 # We want hard links for install-exec-hook, below
 LN= ln
 
+# For some make's, e.g. OpenBSD, that don't define this
+RM = rm -f
+
 # First, add a link from gawk to gawk-X.Y.Z.
 #
 # For GNU systems where gawk is awk, add a link to awk.
@@ -152,14 +158,14 @@ LN= ln
 install-exec-hook:
 	(cd $(DESTDIR)$(bindir); \
 	$(LN) gawk$(EXEEXT) gawk-$(VERSION)$(EXEEXT) 2>/dev/null ; \
-	if [ ! -f awk ]; \
-	then	$(LN_S) gawk$(EXEEXT) awk; \
+	if [ ! -f awk$(EXEEXT) ]; \
+	then	$(LN_S) gawk$(EXEEXT) awk$(EXEEXT); \
 	fi; exit 0)
 
 # Undo the above when uninstalling
 uninstall-links:
 	(cd $(DESTDIR)$(bindir); \
-	if [ -f awk ] && cmp awk gawk$(EXEEXT) > /dev/null; then rm -f awk; fi ; \
+	if [ -f awk$(EXEEXT) ] && cmp awk$(EXEEXT) gawk$(EXEEXT) > /dev/null; then rm -f awk$(EXEEXT); fi ; \
 	rm -f gawk-$(VERSION)$(EXEEXT); exit 0)
 
 uninstall-recursive: uninstall-links

@@ -23,7 +23,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
-
+#define UNFIELD(l, r) \
+{ \
+	/* if was a field, turn it into a var */ \
+	if ((r->flags & FIELD) == 0) { \
+		l = r; \
+	} else if (r->valref == 1) { \
+		r->flags &= ~FIELD; \
+		l = r; \
+	} else { \
+		l = dupnode(r); \
+		DEREF(r); \
+	} \
+}
 int
 r_interpret(INSTRUCTION *code)
 {
@@ -340,7 +352,12 @@ uninitialized_scalar:
 			lhs = r_get_field(t1, (Func_ptr *) 0, true);
 			decr_sp();
 			DEREF(t1);
-			r = dupnode(*lhs);     /* can't use UPREF here */
+			/* only for $0, up ref count */
+			if (*lhs == fields_arr[0]) {
+				r = *lhs;
+				UPREF(r);
+			} else
+				r = dupnode(*lhs);
 			PUSH(r);
 			break;
 
@@ -635,7 +652,8 @@ mod:
 			}
 
 			unref(*lhs);
-			*lhs = POP_SCALAR();
+			r = POP_SCALAR();
+			UNFIELD(*lhs, r);
 
 			/* execute post-assignment routine if any */
 			if (t1->astore != NULL)
@@ -655,11 +673,12 @@ mod:
 				fatal(_("cannot assign to defined constant"));
 			unref(*lhs);
 			r = pc->initval;	/* constant initializer */
-			if (r == NULL)
-				*lhs = POP_SCALAR();
-			else {
+			if (r != NULL) {
 				UPREF(r);
 				*lhs = r;
+			} else {
+				r = POP_SCALAR();
+				UNFIELD(*lhs, r);
 			}
 			break;
 
@@ -675,7 +694,8 @@ mod:
 			decr_sp();
 			DEREF(t1);
 			unref(*lhs);
-			*lhs = POP_SCALAR();
+			r = POP_SCALAR();
+			UNFIELD(*lhs, r);
 			assert(assign != NULL);
 			assign();
 		}
@@ -703,7 +723,6 @@ mod:
 				t1->stptr[nlen] = '\0';
 				t1->flags &= ~(NUMCUR|NUMBER|NUMINT);
 
-#if MBS_SUPPORT
 				if ((t1->flags & WSTRCUR) != 0 && (t2->flags & WSTRCUR) != 0) {
 					size_t wlen = t1->wstlen + t2->wstlen;
 
@@ -715,7 +734,6 @@ mod:
 					t1->flags |= WSTRCUR;
 				} else
 					free_wstr(*lhs);
-#endif
 			} else {
 				size_t nlen = t1->stlen + t2->stlen;  
 				char *p;
@@ -738,6 +756,7 @@ mod:
 			*lhs = r;
 			UPREF(r);
 			REPLACE(r);
+			UNFIELD(*lhs, r);
 			break;
 
 		case Op_assign_const:
@@ -746,8 +765,8 @@ mod:
 				fatal(_("cannot assign to defined constant"));
 			r = TOP_SCALAR();
 			unref(*lhs);
+			r->flags |= VAR_CONST;
 			*lhs = r;
-			(*lhs)->flags |= VAR_CONST;
 			UPREF(r);
 			REPLACE(r);
 			break;
@@ -1064,10 +1083,44 @@ match_re:
 				f = lookup(t1->stptr);
 			}
 
-			if (f == NULL || f->type != Node_func) {
-				if (f->type == Node_ext_func || f->type == Node_old_ext_func)
-					fatal(_("cannot (yet) call extension functions indirectly"));
-				else
+			if (f == NULL) {
+				fatal(_("`%s' is not a function, so it cannot be called indirectly"),
+						t1->stptr);
+			} else if (f->type == Node_builtin_func) {
+				int arg_count = (pc + 1)->expr_count;
+				builtin_func_t the_func = lookup_builtin(t1->stptr);
+				
+				assert(the_func != NULL);
+
+				/* call it */
+				r = the_func(arg_count);
+				PUSH(r);
+				break;
+			} else if (f->type != Node_func) {
+				if (   f->type == Node_ext_func
+				    || f->type == Node_old_ext_func) {
+					/* code copied from below, keep in sync */
+					INSTRUCTION *bc;
+					char *fname = pc->func_name;
+					int arg_count = (pc + 1)->expr_count;
+					static INSTRUCTION npc[2];
+
+					npc[0] = *pc;
+
+					bc = f->code_ptr;
+					assert(bc->opcode == Op_symbol);
+					if (f->type == Node_ext_func)
+						npc[0].opcode = Op_ext_builtin;	/* self modifying code */
+					else
+						npc[0].opcode = Op_old_ext_builtin;	/* self modifying code */
+					npc[0].extfunc = bc->extfunc;
+					npc[0].expr_count = arg_count;		/* actual argument count */
+					npc[1] = pc[1];
+					npc[1].func_name = fname;	/* name of the builtin */
+					npc[1].expr_count = bc->expr_count;	/* defined max # of arguments */
+					ni = npc; 
+					JUMPTO(ni);
+				} else
 					fatal(_("function called indirectly through `%s' does not exist"),
 							pc->func_name);	
 			}
@@ -1094,6 +1147,7 @@ match_re:
 			}
 
 			if (f->type == Node_ext_func || f->type == Node_old_ext_func) {
+				/* keep in sync with indirect call code */
 				INSTRUCTION *bc;
 				char *fname = pc->func_name;
 				int arg_count = (pc + 1)->expr_count;
@@ -1127,10 +1181,6 @@ match_re:
 			JUMPTO(ni);
 
 		case Op_K_getline_redir:
-			if ((currule == BEGINFILE || currule == ENDFILE)
-					&& pc->into_var == false
-					&& pc->redir_type == redirect_input)
-				fatal(_("`getline' invalid inside `%s' rule"), ruletab[currule]);
 			r = do_getline_redir(pc->into_var, pc->redir_type);
 			PUSH(r);
 			break;
@@ -1224,10 +1274,13 @@ match_re:
 				JUMPTO(ni);
 			}
 
-			if (inrec(curfile, & errcode) != 0) {
-				if (errcode > 0 && (do_traditional || ! pc->has_endfile))
-					fatal(_("error reading input file `%s': %s"),
+			if (! inrec(curfile, & errcode)) {
+				if (errcode > 0) {
+					update_ERRNO_int(errcode);
+					if (do_traditional || ! pc->has_endfile)
+						fatal(_("error reading input file `%s': %s"),
 						curfile->public.name, strerror(errcode));
+				}
 
 				JUMPTO(ni);
 			} /* else
@@ -1385,6 +1438,7 @@ match_re:
 		case Op_K_if:
 		case Op_K_else:
 		case Op_cond_exp:
+		case Op_comment:
 			break;
 
 		default:

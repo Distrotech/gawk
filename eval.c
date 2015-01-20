@@ -216,6 +216,7 @@ load_casetable(void)
 		return;
 
 #ifndef ZOS_USS
+	/* use of isalpha is ok here (see is_alpha in awkgram.y) */
 	for (i = 0200; i <= 0377; i++) {
 		if (isalpha(i) && islower(i) && i != toupper(i))
 			casetable[i] = toupper(i);
@@ -241,6 +242,7 @@ static const char *const nodetypes[] = {
 	"Node_func",
 	"Node_ext_func",
 	"Node_old_ext_func",
+	"Node_builtin_func",
 	"Node_array_ref",
 	"Node_array_tree",
 	"Node_array_leaf",
@@ -361,6 +363,7 @@ static struct optypetab {
 	{ "Op_after_beginfile", NULL },
 	{ "Op_after_endfile", NULL },
 	{ "Op_func", NULL },
+	{ "Op_comment", NULL },
 	{ "Op_exec_count", NULL },
 	{ "Op_breakpoint", NULL },
 	{ "Op_lint", NULL },
@@ -530,7 +533,7 @@ posix_compare(NODE *s1, NODE *s2)
 		 * In either case, ret will be the right thing to return.
 		 */
 	}
-#if MBS_SUPPORT
+#if ! defined(__DJGPP__)
 	else {
 		/* Similar logic, using wide characters */
 		(void) force_wstring(s1);
@@ -610,15 +613,14 @@ cmp_nodes(NODE *t1, NODE *t2)
 		const unsigned char *cp1 = (const unsigned char *) t1->stptr;
 		const unsigned char *cp2 = (const unsigned char *) t2->stptr;
 
-#if MBS_SUPPORT
 		if (gawk_mb_cur_max > 1) {
 			ret = strncasecmpmbs((const unsigned char *) cp1,
 					     (const unsigned char *) cp2, l);
-		} else
-#endif
-		/* Could use tolower() here; see discussion above. */
-		for (ret = 0; l-- > 0 && ret == 0; cp1++, cp2++)
-			ret = casetable[*cp1] - casetable[*cp2];
+		} else {
+			/* Could use tolower() here; see discussion above. */
+			for (ret = 0; l-- > 0 && ret == 0; cp1++, cp2++)
+				ret = casetable[*cp1] - casetable[*cp2];
+		}
 	} else
 		ret = memcmp(t1->stptr, t2->stptr, l);
 
@@ -805,9 +807,35 @@ set_BINMODE()
 void
 set_OFS()
 {
+	static bool first = true;
+	size_t new_ofs_len;
+
+	if (first)	/* true when called from init_vars() in main() */
+		first = false;
+	else {
+		/* rebuild $0 using OFS that was current when $0 changed */
+		if (! field0_valid) {
+			get_field(UNLIMITED - 1, NULL);
+			rebuild_record();
+		}
+	}
+
+	/*
+	 * Save OFS value for use in building record and in printing.
+	 * Can't just have OFS point into the OFS_node since it's
+	 * already updated when we come into this routine, and we need
+	 * the old value to rebuild the record (see above).
+	 */
 	OFS_node->var_value = force_string(OFS_node->var_value);
-	OFS = OFS_node->var_value->stptr;
-	OFSlen = OFS_node->var_value->stlen;
+	new_ofs_len = OFS_node->var_value->stlen;
+
+	if (OFS == NULL)
+		emalloc(OFS, char *, new_ofs_len + 2, "set_OFS");
+	else if (OFSlen < new_ofs_len)
+		erealloc(OFS, char *, new_ofs_len + 2, "set_OFS");
+
+	memcpy(OFS, OFS_node->var_value->stptr, OFS_node->var_value->stlen);
+	OFSlen = new_ofs_len;
 	OFS[OFSlen] = '\0';
 }
 

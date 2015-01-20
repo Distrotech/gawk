@@ -441,7 +441,10 @@ node_to_awk_value(NODE *node, awk_value_t *val, awk_valtype_t wanted)
 
 		case AWK_UNDEFINED:
 			/* return true and actual type for request of undefined */
-			if ((node->flags & NUMBER) != 0) {
+			if (node == Nnull_string) {
+				val->val_type = AWK_UNDEFINED;
+				ret = awk_true;
+			} else if ((node->flags & NUMBER) != 0) {
 				val->val_type = AWK_NUMBER;
 				val->num_value = get_number_d(node);
 				ret = awk_true;
@@ -810,7 +813,6 @@ api_set_array_element(awk_ext_id_t id, awk_array_t a_cookie,
 		elem->parent_array = array;
 		elem->vname = estrdup(index->str_value.str,
 					index->str_value.len);
-		make_aname(elem);
 	}
 
 	return awk_true;

@@ -72,7 +72,7 @@ r_force_number(NODE *n)
 	 * This also allows hexadecimal floating point. Ugh.
 	 */
 	if (! do_posix) {
-		if (isalpha((unsigned char) *cp)) {
+		if (is_alpha((unsigned char) *cp)) {
 			return n;
 		} else if (n->stlen == 4 && is_ieee_magic_val(n->stptr)) {
 			if ((n->flags & MAYBE_NUM) != 0)
@@ -94,7 +94,7 @@ r_force_number(NODE *n)
 
 	if (   cp == cpend		/* only spaces, or */
 	    || (! do_posix		/* not POSIXLY paranoid and */
-	        && (isalpha((unsigned char) *cp)	/* letter, or */
+	        && (is_alpha((unsigned char) *cp)	/* letter, or */
 					/* CANNOT do non-decimal and saw 0x */
 		    || (! do_non_decimal_data && cp[0] == '0'
 		        && (cp[1] == 'x' || cp[1] == 'X'))))) {
@@ -286,7 +286,6 @@ copynode:
 	r->flags &= ~(FIELD|VAR_CONST);
 	r->flags |= MALLOC;
 	r->valref = 1;
-#if MBS_SUPPORT
 	/*
 	 * DON'T call free_wstr(r) here!
 	 * r->wstptr still points at n->wstptr's value, and we
@@ -294,13 +293,11 @@ copynode:
 	 */
 	r->wstptr = NULL;
 	r->wstlen = 0;
-#endif /* MBS_SUPPORT */
 
 	if ((n->flags & STRCUR) != 0) {
 		emalloc(r->stptr, char *, n->stlen + 2, "r_dupnode");
 		memcpy(r->stptr, n->stptr, n->stlen);
 		r->stptr[n->stlen] = '\0';
-#if MBS_SUPPORT
 		if ((n->flags & WSTRCUR) != 0) {
 			r->wstlen = n->wstlen;
 			emalloc(r->wstptr, wchar_t *, sizeof(wchar_t) * (n->wstlen + 2), "r_dupnode");
@@ -308,7 +305,6 @@ copynode:
 			r->wstptr[n->wstlen] = L'\0';
 			r->flags |= WSTRCUR;
 		}
-#endif /* MBS_SUPPORT */
 	}
 	
 	return r;
@@ -327,10 +323,8 @@ r_make_number(double x)
 	r->valref = 1;
 	r->stptr = NULL;
 	r->stlen = 0;
-#if MBS_SUPPORT
 	r->wstptr = NULL;
 	r->wstlen = 0;
-#endif /* defined MBS_SUPPORT */
 	return r;
 }
 
@@ -373,11 +367,8 @@ make_str_node(const char *s, size_t len, int flags)
 	r->flags = (MALLOC|STRING|STRCUR);
 	r->valref = 1;
 	r->stfmt = -1;
-
-#if MBS_SUPPORT
 	r->wstptr = NULL;
 	r->wstlen = 0;
-#endif /* MBS_SUPPORT */
 
 	if ((flags & ALREADY_MALLOCED) != 0)
 		r->stptr = (char *) s;
@@ -392,15 +383,12 @@ make_str_node(const char *s, size_t len, int flags)
 		char *ptm;
 		int c;
 		const char *end;
-#if MBS_SUPPORT
 		mbstate_t cur_state;
 
 		memset(& cur_state, 0, sizeof(cur_state));
-#endif
 
 		end = &(r->stptr[len]);
 		for (pf = ptm = r->stptr; pf < end;) {
-#if MBS_SUPPORT
 			/*
 			 * Keep multibyte characters together. This avoids
 			 * problems if a subsequent byte of a multibyte
@@ -417,7 +405,7 @@ make_str_node(const char *s, size_t len, int flags)
 					continue;
 				}
 			}
-#endif
+
 			c = *pf++;
 			if (c == '\\') {
 				c = parse_escape(&pf);
@@ -562,9 +550,8 @@ parse_escape(const char **string_ptr)
 			warning(_("no hex digits in `\\x' escape sequence"));
 			return ('x');
 		}
-		i = j = 0;
 		start = *string_ptr;
-		for (;; j++) {
+		for (i = j = 0; j < 2; j++) {
 			/* do outside test to avoid multiple side effects */
 			c = *(*string_ptr)++;
 			if (isxdigit(c)) {
@@ -647,7 +634,6 @@ get_numbase(const char *s, bool use_locale)
 	return 8;
 }
 
-#if MBS_SUPPORT
 /* str2wstr --- convert a multibyte string to a wide string */
 
 NODE *
@@ -896,7 +882,6 @@ out:	;
 
 	return NULL;
 }
-#endif /* MBS_SUPPORT */
 
 /* is_ieee_magic_val --- return true for +inf, -inf, +nan, -nan */
 
@@ -943,7 +928,6 @@ get_ieee_magic_val(const char *val)
 	return v;
 }
 
-#if MBS_SUPPORT
 wint_t btowc_cache[256];
 
 /* init_btowc_cache --- initialize the cache */
@@ -956,7 +940,6 @@ void init_btowc_cache()
 		btowc_cache[i] = btowc(i);
 	}
 }
-#endif
 
 #define BLOCKCHUNK 100
 

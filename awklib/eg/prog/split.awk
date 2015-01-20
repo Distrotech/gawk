@@ -4,8 +4,9 @@
 #
 # Arnold Robbins, arnold@skeeve.com, Public Domain
 # May 1993
+# Revised slightly, May 2014
 
-# usage: split [-num] [file] [outname]
+# usage: split [-count] [file] [outname]
 
 BEGIN {
     outfile = "x"    # default
@@ -14,14 +15,14 @@ BEGIN {
         usage()
 
     i = 1
-    if (ARGV[i] ~ /^-[[:digit:]]+$/) {
+    if (i in ARGV && ARGV[i] ~ /^-[[:digit:]]+$/) {
         count = -ARGV[i]
         ARGV[i] = ""
         i++
     }
     # test argv in case reading from stdin instead of file
     if (i in ARGV)
-        i++    # skip data file name
+        i++    # skip datafile name
     if (i in ARGV) {
         outfile = ARGV[i]
         ARGV[i] = ""
@@ -49,9 +50,8 @@ BEGIN {
     }
     print > out
 }
-function usage(   e)
+function usage()
 {
-    e = "usage: split [-num] [file] [outname]"
-    print e > "/dev/stderr"
+    print("usage: split [-num] [file] [outname]") > "/dev/stderr"
     exit 1
 }

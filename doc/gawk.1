@@ -13,7 +13,7 @@
 .		if \w'\(rq' .ds rq "\(rq
 .	\}
 .\}
-.TH GAWK 1 "Mar 08 2014" "Free Software Foundation" "Utility Commands"
+.TH GAWK 1 "Aug 03 2014" "Free Software Foundation" "Utility Commands"
 .SH NAME
 gawk \- pattern scanning and processing language
 .SH SYNOPSIS
@@ -231,7 +231,8 @@ and so on.)
 .PD
 \fB\-\^\-debug\fR[\fB=\fIfile\fR]
 Enable debugging of \*(AK programs.
-By default, the debugger reads commands interactively from the terminal.
+By default, the debugger reads commands interactively from the keyboard
+(standard input).
 The optional
 .IR file
 argument specifies a file with a list
@@ -626,7 +627,7 @@ specifies a search path to use when finding source files named with
 the
 .B \-l
 option.  If this variable does not exist, the default path is
-\fB".:/usr/local/lib/gawk"\fR.
+\fB"/usr/local/lib/gawk"\fR.
 (The actual directory may vary, depending upon how
 .I gawk
 was built and installed.)
@@ -1132,9 +1133,14 @@ For each identifier, the value of the element is one of the following:
 \fB"array"\fR
 The identifier is an array.
 .TP
+\fB"builtin"\fR
+The identifier is a built-in function.
+.TP
 \fB"extension"\fR
 The identifier is an extension function loaded via
-.BR @load .
+.B @load
+or
+.BR \-l .
 .TP
 \fB"scalar"\fR
 The identifier is a scalar.
@@ -2629,6 +2635,23 @@ Return the cosine of
 .IR expr ,
 which is in radians.
 .TP
+.BI div( num ", " denom ", " result )
+Truncate
+.I num
+and
+.I denom
+to integers. Return the quotient of
+.I num
+divided by
+.I denom
+in \fIresult\fB["quotient"]\fR
+and the remainder in
+in \fIresult\fB["remainder"]\fR.
+This is a
+.I gawk
+extension, primarily of value when working with
+arbitrarily large integers.
+.TP
 .BI exp( expr )
 The exponential function.
 .TP
@@ -3270,7 +3293,7 @@ sign, like so:
 .RS
 .ft B
 .nf
-function  myfunc()
+function myfunc()
 {
 	print "myfunc called"
 	\&.\|.\|.
@@ -3284,6 +3307,8 @@ function  myfunc()
 .fi
 .ft R
 .RE
+As of version 4.1.2, this works with user-defined functions,
+built-in functions, and extension functions.
 .PP
 If
 .B \-\^\-lint
@@ -3912,11 +3937,6 @@ The
 .B \-F
 option is not necessary given the command line variable assignment feature;
 it remains only for backwards compatibility.
-.PP
-Syntactically invalid single character programs tend to overflow
-the parse stack, generating a rather unhelpful message.  Such programs
-are surprisingly difficult to diagnose in the completely general case,
-and the effort to do so really is not worth it.
 .SH SEE ALSO
 .IR egrep (1),
 .IR sed (1),

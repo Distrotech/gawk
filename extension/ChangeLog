@@ -1,3 +1,47 @@
+2015-01-07         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* testext.c (var_test): Adjust for PROCINFO now being there.
+
+2014-11-23         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* inplace.c (do_inplace_begin): Jump through hoops to silence
+	GCC warnings about return value of chown.
+
+2014-10-12         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (uninstall-so): Remove *.lib too, per suggestion
+	from Andreas Buening.
+
+2014-10-12         KO Myung-Hun          <komh78@gmail.com>
+
+	Fixes for OS/2:
+
+	* Makefile.am (uninstall-so): Remove *.dll and *.a, also.
+
+2014-10-08         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* inplace.c (do_inplace_begin): Use a cast to void in front
+	of the second call to chown to avoid compiler warnings from clang.
+
+2014-09-29         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* filefuncs.c: Minor edits to sync with documentation.
+	* testext.c: Add test to get PROCINFO, expected to fail.
+
+2014-08-12         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* Makefile.am (RM): Define for makes that don't have it,
+	such as on OpenBSD.  Thanks to Jeremie Courreges-Anglas
+	<jca@wxcvbn.org> for the report.
+
+2014-06-13         Paul Gortmaker        <paul.gortmaker@windriver.com>
+
+	* Makefile.am (uninstall-so): Came across below bug while cross
+	compiling, and changed both install-data-hook and uninstall-so
+	to use $(DESTDIR) on v4.1.1 before seeing most of the fix in
+	gawk-4.1.1-3-g976f73ab0356; here we ensure uninstall-so also
+	uses the $(DESTDIR) prefix on its use of pkgextensiondir.
+
 2014-04-11         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* Makefile.am (install-data-hook): Use $(DESTDIR) when removing

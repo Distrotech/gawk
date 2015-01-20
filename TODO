@@ -1,13 +1,9 @@
-Thu Oct 24 22:11:44 IDT 2013
+Sun Sep 28 22:19:10 IDT 2014
 ============================
 
 There were too many files tracking different thoughts and ideas for
 things to do, or consider doing.  This file merges them into one. As
-tasks are completed, they should be moved to the DONE section, below,
-or simply removed.
-
-Upon creation of a release (major or patch release), items from the
-previous release should be removed.
+tasks are completed, they should be removed.
 
 This file should exist only in the master branch or branches based off
 of it for development, but not in the stable branch. This may require some
@@ -23,9 +19,6 @@ Minor Cleanups and Code Improvements
 	order to nuke the use of libtool. [ Partially started in the
 	nolibtool branch. ]
 
-	Enhance profiling to save comments in a byte-code that does nothing
-	but that can be used when pretty printing the program.
-
 	API:
 		??? #if !defined(GAWK) && !defined(GAWK_OMIT_CONVENIENCE_MACROS)
 
@@ -33,20 +26,17 @@ Minor Cleanups and Code Improvements
 
 	Look at function order within files.
 
-	regex.h - remove underscores in param names
-
 	Consider removing use of and/or need for the protos.h file.
 
 	Recheck if gnulib regex can be dropped in
 
-	Fully synchronize whitespaces tests (for \s, \S in Unicode
+	Fully synchronize whitespace tests (for \s, \S in Unicode
 	environment) with those of GNU grep.
 
 Minor New Features
 ------------------
 
-	Add a div() function to do integer division result. Needed
-	esp for MPFR with large ints.
+	Enable command line source text in the debugger.
 
 	Enhance extension/fork.c waitpid to allow the caller to specify
 	the options.  And add an optional array argument to wait and
@@ -56,10 +46,6 @@ Minor New Features
 
 	Make it possible to put print/printf + redirections into
 	an expression.
-
-	Have pretty printing not run the program and nuke the
-	undocumented GAWK_NO_PP_RUN env var. Requires test suite
-	adjustments.
 
 	? Add an optional base to strtonum, allowing 2-36.
 
@@ -77,8 +63,6 @@ Major New Features
 
 	Also needed:
 
-		Indirect calls of built-ins
-		Indirect calls of extension functions
 		Indirect through array elements, not just scalar variables
 
 	Some way to make regexp constants first class citizens:
@@ -90,9 +74,6 @@ Major New Features
 
 	Consider a typeof() function that returns a string (scalar, array,
 	regexp).
-
-	Fix the early chapters in the doc with more up-to-date examples.
-	No-one uses Bulletin Board Systems anymore.
 
 	Add ability to do decimal arithmetic.
 
@@ -124,12 +105,12 @@ Things To Think About That May Never Happen
 	https://github.com/emeryberger/DieHard
 
 	Implement namespaces.  Arnold suggested the following in an email:
-	- Extend the definition of an 'identifier' to include "." as a valid character
-	  although an identifier can't start with it.
+	- Extend the definition of an 'identifier' to include "." as a valid
+	  character although an identifier can't start with it.
 	- Extension libraries install functions and global variables with names
 	  that have a "." in them:  XML.parse(), XML.name, whatever.
-	- Awk code can read/write such variables and call such functions, but they
-	  cannot define such functions
+	- Awk code can read/write such variables and call such functions,
+	  but they cannot define such functions
 	 function XML.foo() { .. }	# error
 	  or create a variable with such a name if it doesn't exist. This would
 	  be a run-time error, not a parse-time error.
@@ -139,10 +120,10 @@ Things To Think About That May Never Happen
 	to be very important.
 
 	Include a sample rpm spec file in a new packaging subdirectory.
+	(Really needed?)
 
 	Patch lexer for @include and @load to make quotes optional.
-
-	? Have strftime() pay attention to the value of ENVIRON["TZ"]
+	(Really needed?)
 
 	Add a lint check if the return value of a function is used but
 	the function did not supply a value.
@@ -155,18 +136,6 @@ Things To Think About That May Never Happen
 	Enhance FIELDWIDTHS with some way to indicate "the rest of the record".
 	E.g., a length of 0 or -1 or something.  Maybe "n"?
 
-
-DONE
-====
-
-Minor Cleanups and Code Improvements
-------------------------------------
-
-Minor New Features
-------------------
-
-Major New Features
-------------------
 
 Things That We Decided We Will Never Do
 =======================================

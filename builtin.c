@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2015 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -247,7 +247,6 @@ do_fflush(int nargs)
 	return make_number((AWKNUM) status);
 }
 
-#if MBS_SUPPORT
 /* strncasecmpmbs --- like strncasecmp (multibyte string version)  */
 
 int
@@ -327,14 +326,6 @@ index_multibyte_buffer(char* src, char* dest, int len)
 		dest[idx] = mbclen;
     }
 }
-#else
-/* a dummy function */
-static void
-index_multibyte_buffer(char* src ATTRIBUTE_UNUSED, char* dest ATTRIBUTE_UNUSED, int len ATTRIBUTE_UNUSED)
-{
-	cant_happen();
-}
-#endif
 
 /* do_index --- find index of a string */
 
@@ -345,7 +336,6 @@ do_index(int nargs)
 	const char *p1, *p2;
 	size_t l1, l2;
 	long ret;
-#if MBS_SUPPORT
 	bool do_single_byte = false;
 	mbstate_t mbs1, mbs2;
 
@@ -353,7 +343,6 @@ do_index(int nargs)
 		memset(& mbs1, 0, sizeof(mbstate_t));
 		memset(& mbs2, 0, sizeof(mbstate_t));
 	}
-#endif
 
 	POP_TWO_SCALARS(s1, s2);
 
@@ -383,7 +372,6 @@ do_index(int nargs)
 		goto out;
 	}
 
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1) {
 		s1 = force_wstring(s1);
 		s2 = force_wstring(s2);
@@ -394,14 +382,12 @@ do_index(int nargs)
 		do_single_byte = ((s1->wstlen == 0 && s1->stlen > 0) 
 					|| (s2->wstlen == 0 && s2->stlen > 0));
 	}
-#endif
 
 	/* IGNORECASE will already be false if posix */
 	if (IGNORECASE) {
 		while (l1 > 0) {
 			if (l2 > l1)
 				break;
-#if MBS_SUPPORT
 			if (! do_single_byte && gawk_mb_cur_max > 1) {
 				const wchar_t *pos;
 
@@ -412,21 +398,18 @@ do_index(int nargs)
 					ret = pos - s1->wstptr + 1;	/* 1-based */
 				goto out;
 			} else {
-#endif
-			/*
-			 * Could use tolower(*p1) == tolower(*p2) here.
-			 * See discussion in eval.c as to why not.
-			 */
-			if (casetable[(unsigned char)*p1] == casetable[(unsigned char)*p2]
-			    && (l2 == 1 || strncasecmp(p1, p2, l2) == 0)) {
-				ret = 1 + s1->stlen - l1;
-				break;
+				/*
+				 * Could use tolower(*p1) == tolower(*p2) here.
+				 * See discussion in eval.c as to why not.
+				 */
+				if (casetable[(unsigned char)*p1] == casetable[(unsigned char)*p2]
+				    && (l2 == 1 || strncasecmp(p1, p2, l2) == 0)) {
+					ret = 1 + s1->stlen - l1;
+					break;
+				}
+				l1--;
+				p1++;
 			}
-			l1--;
-			p1++;
-#if MBS_SUPPORT
-			}
-#endif
 		}
 	} else {
 		while (l1 > 0) {
@@ -437,7 +420,6 @@ do_index(int nargs)
 				ret = 1 + s1->stlen - l1;
 				break;
 			}
-#if MBS_SUPPORT
 			if (! do_single_byte && gawk_mb_cur_max > 1) {
 				const wchar_t *pos;
 
@@ -451,10 +433,6 @@ do_index(int nargs)
 				l1--;
 				p1++;
 			}
-#else
-			l1--;
-			p1++;
-#endif
 		}
 	}
 out:
@@ -532,6 +510,9 @@ do_length(int nargs)
 		 * Support for deferred loading of array elements requires that
 		 * we use the array length interface even though it isn't 
 		 * necessary for the built-in array types.
+		 *
+		 * 1/2015: The deferred arrays are gone, but this is probably
+		 * still a good idea.
 		 */
 
 		size = assoc_length(tmp);
@@ -544,7 +525,6 @@ do_length(int nargs)
 		lintwarn(_("length: received non-string argument"));
 	tmp = force_string(tmp);
 
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1) {
 		tmp = force_wstring(tmp);
 		len = tmp->wstlen;
@@ -555,7 +535,6 @@ do_length(int nargs)
 		 if (len == 0 && tmp->stlen > 0)
 			 len = tmp->stlen;
 	} else
-#endif
 		len = tmp->stlen;
 
 	DEREF(tmp);
@@ -928,7 +907,10 @@ check_pos:
 		case '*':
 			if (cur == NULL)
 				break;
-			if (! do_traditional && isdigit((unsigned char) *s1)) {
+			if (! do_traditional && used_dollar && ! isdigit((unsigned char) *s1)) {
+				fatal(_("fatal: must use `count$' on all formats or none"));
+				break;	/* silence warnings */
+			} else if (! do_traditional && isdigit((unsigned char) *s1)) {
 				int val = 0;
 
 				for (; n0 > 0 && *s1 && isdigit((unsigned char) *s1); s1++, n0--) {
@@ -1058,7 +1040,6 @@ check_pos:
 				(void) force_number(arg);
 			if ((arg->flags & NUMBER) != 0) {
 				uval = get_number_uj(arg);
-#if MBS_SUPPORT
 				if (gawk_mb_cur_max > 1) {
 					char buf[100];
 					wchar_t wc;
@@ -1066,13 +1047,29 @@ check_pos:
 					size_t count;
 
 					memset(& mbs, 0, sizeof(mbs));
+
+					/* handle systems with too small wchar_t */
+					if (sizeof(wchar_t) < 4 && uval > 0xffff) {
+						if (do_lint)
+							lintwarn(
+						_("[s]printf: value %g is too big for %%c format"),
+									arg->numbr);
+
+						goto out0;
+					}
+
 					wc = uval;
 
 					count = wcrtomb(buf, wc, & mbs);
 					if (count == 0
-					    || count == (size_t)-1
-					    || count == (size_t)-2)
+					    || count == (size_t) -1) {
+						if (do_lint)
+							lintwarn(
+						_("[s]printf: value %g is not a valid wide character"),
+									arg->numbr);
+
 						goto out0;
+					}
 
 					memcpy(cpbuf, buf, count);
 					prec = count;
@@ -1083,11 +1080,7 @@ out0:
 				;
 				/* else,
 					fall through */
-#endif
-				if (do_lint && uval > 255) {
-					lintwarn("[s]printf: value %g is too big for %%c format",
-							arg->numbr);
-				}
+
 				cpbuf[0] = uval;
 				prec = 1;
 				cp = cpbuf;
@@ -1101,7 +1094,6 @@ out0:
 			 */
 			cp = arg->stptr;
 			prec = 1;
-#if MBS_SUPPORT
 			/*
 			 * First character can be multiple bytes if
 			 * it's a multibyte character. Grr.
@@ -1112,14 +1104,13 @@ out0:
 
 				memset(& state, 0, sizeof(state));
 				count = mbrlen(cp, arg->stlen, & state);
-				if (count > 0) {
+				if (count != (size_t) -1 && count != (size_t) -2 && count > 0) {
 					prec = count;
 					/* may need to increase fw so that padding happens, see pr_tail code */
 					if (fw > 0)
 						fw += count - 1;
 				}
 			}
-#endif
 			goto pr_tail;
 		case 's':
 			need_format = false;
@@ -1557,7 +1548,7 @@ mpf1:
 			s0 = s1;
 			break;
 		default:
-			if (do_lint && isalpha(cs1))
+			if (do_lint && is_alpha(cs1))
 				lintwarn(_("ignoring unknown format specifier character `%c': no argument converted"), cs1);
 			break;
 		}
@@ -1747,7 +1738,14 @@ do_substr(int nargs)
 			else if (do_lint == DO_LINT_INVALID && ! (d_length >= 0))
 				lintwarn(_("substr: length %g is not >= 0"), d_length);
 			DEREF(t1);
-			return dupnode(Nnull_string);
+			/*
+			 * Return explicit null string instead of doing
+			 * dupnode(Nnull_string) so that if the result
+			 * is checked with the combination of length()
+			 * and lint, no error is reported about using
+			 * an uninitialized value. Same thing later, too.
+			 */
+			return make_string("", 0);
 		}
 		if (do_lint) {
 			if (double_to_int(d_length) != d_length)
@@ -1786,13 +1784,11 @@ do_substr(int nargs)
 	if (nargs == 2) {	/* third arg. missing */
 		/* use remainder of string */
 		length = t1->stlen - indx;	/* default to bytes */
-#if MBS_SUPPORT
 		if (gawk_mb_cur_max > 1) {
 			t1 = force_wstring(t1);
 			if (t1->wstlen > 0)	/* use length of wide char string if we have one */
 				length = t1->wstlen - indx;
 		}
-#endif
 		d_length = length;	/* set here in case used in diagnostics, below */
 	}
 
@@ -1801,16 +1797,14 @@ do_substr(int nargs)
 		if (do_lint && (do_lint == DO_LINT_ALL || ((indx | length) != 0)))
 			lintwarn(_("substr: source string is zero length"));
 		DEREF(t1);
-		return dupnode(Nnull_string);
+		return make_string("", 0);
 	}
 
 	/* get total len of input string, for following checks */
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1) {
 		t1 = force_wstring(t1);
 		src_len = t1->wstlen;
 	} else
-#endif
 		src_len = t1->stlen;
 
 	if (indx >= src_len) {
@@ -1818,7 +1812,7 @@ do_substr(int nargs)
 			lintwarn(_("substr: start index %g is past end of string"),
 				d_index);
 		DEREF(t1);
-		return dupnode(Nnull_string);
+		return make_string("", 0);
 	}
 	if (length > src_len - indx) {
 		if (do_lint)
@@ -1828,7 +1822,6 @@ do_substr(int nargs)
 		length = src_len - indx;
 	}
 
-#if MBS_SUPPORT
 	/* force_wstring() already called */
 	if (gawk_mb_cur_max == 1 || t1->wstlen == t1->stlen)
 		/* single byte case */
@@ -1858,9 +1851,6 @@ do_substr(int nargs)
 		*cp = '\0';
 		r = make_str_node(substr, cp - substr, ALREADY_MALLOCED);
 	}
-#else
-	r = make_string(t1->stptr + indx, length);
-#endif
 
 	DEREF(t1);
 	return r;
@@ -2192,7 +2182,6 @@ do_print_rec(int nargs, int redirtype)
 		rp->output.gawk_fflush(rp->output.fp, rp->output.opaque);
 }
 
-#if MBS_SUPPORT
 
 /* is_wupper --- function version of iswupper for passing function pointers */
 
@@ -2257,7 +2246,6 @@ wide_tolower(wchar_t *wstr, size_t wlen)
 {
 	wide_change_case(wstr, wlen, is_wupper, to_wlower);
 }
-#endif
 
 /* do_tolower --- lower case a string */
 
@@ -2280,14 +2268,11 @@ do_tolower(int nargs)
 			cp < cp2; cp++)
 			if (isupper(*cp))
 				*cp = tolower(*cp);
-	}
-#if MBS_SUPPORT
-	else {
+	} else {
 		force_wstring(t2);
 		wide_tolower(t2->wstptr, t2->wstlen);
 		wstr2str(t2);
 	}
-#endif
 
 	DEREF(t1);
 	return t2;
@@ -2314,14 +2299,11 @@ do_toupper(int nargs)
 			cp < cp2; cp++)
 			if (islower(*cp))
 				*cp = toupper(*cp);
-	}
-#if MBS_SUPPORT
-	else {
+	} else {
 		force_wstring(t2);
 		wide_toupper(t2->wstptr, t2->wstlen);
 		wstr2str(t2);
 	}
-#endif
 
 	DEREF(t1);
 	return t2;
@@ -2454,8 +2436,14 @@ do_rand(int nargs ATTRIBUTE_UNUSED)
  	 */
  
 	do {
-	 	tmprand = 0.5 + ( (random()/RAND_DIVISOR + random())
-					/ RAND_DIVISOR);
+		long d1, d2;
+		/*
+		 * Do the calls in predictable order to avoid
+		 * compiler differences in order of evaluation.
+		 */
+		d1 = random();
+		d2 = random();
+	 	tmprand = 0.5 + ( (d1/RAND_DIVISOR + d2) / RAND_DIVISOR );
 		tmprand -= 0.5;
 	} while (tmprand == 1.0);
 
@@ -2526,13 +2514,12 @@ do_match(int nargs)
 		size_t *wc_indices = NULL;
 
 		rlength = REEND(rp, t1->stptr) - RESTART(rp, t1->stptr);	/* byte length */
-#if MBS_SUPPORT
 		if (rlength > 0 && gawk_mb_cur_max > 1) {
 			t1 = str2wstr(t1, & wc_indices);
 			rlength = wc_indices[rstart + rlength - 1] - wc_indices[rstart] + 1;
 			rstart = wc_indices[rstart];
 		}
-#endif
+
 		rstart++;	/* now it's 1-based indexing */
 	
 		/* Build the array only if the caller wants the optional subpatterns */
@@ -2554,12 +2541,10 @@ do_match(int nargs)
 					start = t1->stptr + s;
 					subpat_start = s;
 					subpat_len = len = SUBPATEND(rp, t1->stptr, ii) - s;
-#if MBS_SUPPORT
 					if (len > 0 && gawk_mb_cur_max > 1) {
 						subpat_start = wc_indices[s];
 						subpat_len = wc_indices[s + len - 1] - subpat_start + 1;
 					}
-#endif
 	
 					it = make_string(start, len);
 					it->flags |= MAYBE_NUM;	/* user input */
@@ -2702,23 +2687,28 @@ do_match(int nargs)
  * 2001 standard:
  * 
  * sub(ere, repl[, in ])
- *  Substitute the string repl in place of the first instance of the extended regular
- *  expression ERE in string in and return the number of substitutions. An ampersand
- *  ('&') appearing in the string repl shall be replaced by the string from in that
- *  matches the ERE. An ampersand preceded with a backslash ('\') shall be
- *  interpreted as the literal ampersand character. An occurrence of two consecutive
- *  backslashes shall be interpreted as just a single literal backslash character. Any
- *  other occurrence of a backslash (for example, preceding any other character) shall
- *  be treated as a literal backslash character. Note that if repl is a string literal (the
- *  lexical token STRING; see Grammar (on page 170)), the handling of the
- *  ampersand character occurs after any lexical processing, including any lexical
- *  backslash escape sequence processing. If in is specified and it is not an lvalue (see
- *  Expressions in awk (on page 156)), the behavior is undefined. If in is omitted, awk
- *  shall use the current record ($0) in its place.
+ *  Substitute the string repl in place of the first instance of the
+ *  extended regular expression ERE in string in and return the number of
+ *  substitutions. An ampersand ('&') appearing in the string repl shall
+ *  be replaced by the string from in that matches the ERE. An ampersand
+ *  preceded with a backslash ('\') shall be interpreted as the literal
+ *  ampersand character. An occurrence of two consecutive backslashes shall
+ *  be interpreted as just a single literal backslash character. Any other
+ *  occurrence of a backslash (for example, preceding any other character)
+ *  shall be treated as a literal backslash character. Note that if repl is a
+ *  string literal (the lexical token STRING; see Grammar (on page 170)), the
+ *  handling of the ampersand character occurs after any lexical processing,
+ *  including any lexical backslash escape sequence processing. If in is
+ *  specified and it is not an lvalue (see Expressions in awk (on page 156)),
+ *  the behavior is undefined. If in is omitted, awk shall use the current
+ *  record ($0) in its place.
  *
- * 11/2010: The text in the 2008 standard is the same as just quoted.  However, POSIX behavior
- * is now the default.  This can change the behavior of awk programs.  The old behavior
- * is not available.
+ * 11/2010: The text in the 2008 standard is the same as just quoted.
+ * However, POSIX behavior is now the default.  This can change the behavior
+ * of awk programs.  The old behavior is not available.
+ *
+ * 7/2011: Reverted backslash handling to what it used to be. It was in
+ * gawk for too long. Should have known better.
  */
 
 /*
@@ -2773,6 +2763,8 @@ do_sub(int nargs, unsigned int flags)
 				if ((t1->flags & NUMCUR) != 0)
 					goto set_how_many;
 
+				warning(_("gensub: third argument `%.*s' treated as 1"),
+						(int) t1->stlen, t1->stptr);
 				how_many = 1;
 			}
 		} else {
@@ -2785,8 +2777,8 @@ set_how_many:
 				how_many = d;
 			else
 				how_many = LONG_MAX;
-			if (d == 0)
-				warning(_("gensub: third argument of 0 treated as 1"));
+			if (d <= 0)
+				warning(_("gensub: third argument %g treated as 1"), d);
 		}
 		DEREF(t1);
 
@@ -2826,14 +2818,11 @@ set_how_many:
 
 	text = t->stptr;
 	textlen = t->stlen;
-	buflen = textlen + 2;
 
 	repl = s->stptr;
 	replend = repl + s->stlen;
 	repllen = replend - repl;
-	emalloc(buf, char *, buflen + 2, "do_sub");
-	buf[buflen] = '\0';
-	buf[buflen + 1] = '\0';
+
 	ampersands = 0;
 
 	/*
@@ -2892,6 +2881,13 @@ set_how_many:
 	}
 
 	lastmatchnonzero = false;
+
+	/* guesstimate how much room to allocate; +2 forces > 0 */
+	buflen = textlen + (ampersands + 1) * repllen + 2;
+	emalloc(buf, char *, buflen + 2, "do_sub");
+	buf[buflen] = '\0';
+	buf[buflen + 1] = '\0';
+
 	bp = buf;
 	for (current = 1;; current++) {
 		matches++;
@@ -3601,13 +3597,78 @@ do_bindtextdomain(int nargs)
 	return make_string(the_result, strlen(the_result));
 }
 
+/* do_div --- do integer division, return quotient and remainder in dest array */
+
+/*
+ * We define the semantics as:
+ * 	numerator = int(numerator)
+ *	denominator = int(denonmator)
+ *	quotient = int(numerator / denomator)
+ *	remainder = int(numerator % denomator)
+ */
+
+NODE *
+do_div(int nargs)
+{
+	NODE *numerator, *denominator, *result;
+	double num, denom, quotient, remainder;
+	NODE *sub, **lhs;
+
+	result = POP_PARAM();
+	if (result->type != Node_var_array)
+		fatal(_("div: third argument is not an array"));
+	assoc_clear(result);
+
+	denominator = POP_SCALAR();
+	numerator = POP_SCALAR();
+
+	if (do_lint) {
+		if ((numerator->flags & (NUMCUR|NUMBER)) == 0)
+			lintwarn(_("div: received non-numeric first argument"));
+		if ((denominator->flags & (NUMCUR|NUMBER)) == 0)
+			lintwarn(_("div: received non-numeric second argument"));
+	}
+
+	(void) force_number(numerator);
+	(void) force_number(denominator);
+	num = double_to_int(get_number_d(numerator));
+	denom = double_to_int(get_number_d(denominator));
+
+	if (denom == 0.0)
+		fatal(_("div: division by zero attempted"));
+
+	quotient = double_to_int(num / denom);
+	/*
+	 * FIXME: This code is duplicated, factor it out to a
+	 * separate function.
+	 */
+#ifdef HAVE_FMOD
+	remainder = fmod(num, denom);
+#else	/* ! HAVE_FMOD */
+	(void) modf(num / denom, & remainder);
+	remainder = num - remainder * denom;
+#endif	/* ! HAVE_FMOD */
+	remainder = double_to_int(remainder);
+
+	sub = make_string("quotient", 8);
+	lhs = assoc_lookup(result, sub);
+	unref(*lhs);
+	*lhs = make_number((AWKNUM) quotient);
+
+	sub = make_string("remainder", 9);
+	lhs = assoc_lookup(result, sub);
+	unref(*lhs);
+	*lhs = make_number((AWKNUM) remainder);
+
+	return make_number((AWKNUM) 0.0);
+}
+
 
 /* mbc_byte_count --- return number of bytes for corresponding numchars multibyte characters */
 
 static size_t
 mbc_byte_count(const char *ptr, size_t numchars)
 {
-#if MBS_SUPPORT
 	mbstate_t cur_state;
 	size_t sum = 0;
 	int mb_len;
@@ -3628,9 +3689,6 @@ mbc_byte_count(const char *ptr, size_t numchars)
 	}
 
 	return sum;
-#else
-	return numchars;
-#endif
 }
 
 /* mbc_char_count --- return number of m.b. chars in string, up to numbytes bytes */
@@ -3638,7 +3696,6 @@ mbc_byte_count(const char *ptr, size_t numchars)
 static size_t
 mbc_char_count(const char *ptr, size_t numbytes)
 {
-#if MBS_SUPPORT
 	mbstate_t cur_state;
 	size_t sum = 0;
 	int mb_len;
@@ -3661,7 +3718,4 @@ mbc_char_count(const char *ptr, size_t numbytes)
 	}
 
 	return sum;
-#else
-	return numbytes;
-#endif
 }
