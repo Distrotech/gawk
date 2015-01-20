@@ -1023,7 +1023,7 @@ LOCALE_CHARSET_TESTS = \
 	mbprintf1 mbprintf2 mbprintf3 mbprintf4 rebt8b2 rtlenmb sort1 sprintfc
 
 SHLIB_TESTS = \
-	asignconst \
+	assignconst \
 	fnmatch filefuncs fork fork2 fts functab4 inplace1 inplace2 inplace3 \
 	ordchr ordchr2 readdir readfile readfile2 revout revtwoway rwarray testext time
 
