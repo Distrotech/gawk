@@ -918,7 +918,6 @@ struct redirect {
 #		define	RED_PTY		512
 #		define	RED_SOCKET	1024
 #		define	RED_TCP		2048
-#		define	RED_NON_FATAL	4096
 	char *value;
 	FILE *ifp;	/* input fp, needed for PIPES_SIMULATED */
 	IOBUF *iop;
@@ -1318,6 +1317,7 @@ extern NODE *do_asort(int nargs);
 extern NODE *do_asorti(int nargs);
 extern unsigned long (*hash)(const char *s, size_t len, unsigned long hsize, size_t *code);
 extern void init_env_array(NODE *env_node);
+extern void init_proc_array(NODE *proc_node);
 /* awkgram.c */
 extern NODE *variable(int location, char *name, NODETYPE type);
 extern int parse_program(INSTRUCTION **pcode);
@@ -1495,7 +1495,7 @@ extern NODE *do_getline(int intovar, IOBUF *iop);
 extern struct redirect *getredirect(const char *str, int len);
 extern bool inrec(IOBUF *iop, int *errcode);
 extern int nextfile(IOBUF **curfile, bool skipping);
-extern bool is_non_fatal_std(FILE *fp);
+extern bool non_fatal_io;
 /* main.c */
 extern int arg_assign(char *arg, bool initing);
 extern int is_std_var(const char *var);

@@ -908,6 +908,7 @@ load_procinfo()
 	been_here = true;
 
 	PROCINFO_node = install_symbol(estrdup("PROCINFO", 8), Node_var_array);
+	init_proc_array(PROCINFO_node);
 
 	update_PROCINFO_str("version", VERSION);
 	update_PROCINFO_str("strftime", def_strftime_format);

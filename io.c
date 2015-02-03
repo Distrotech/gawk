@@ -208,6 +208,8 @@
 #define INCREMENT_REC(X)	X++
 #endif
 
+bool non_fatal_io = false;
+
 typedef enum { CLOSE_ALL, CLOSE_TO, CLOSE_FROM } two_way_close_type;
 
 /* Several macros to make the code a bit clearer. */
@@ -718,7 +720,6 @@ redflags2str(int flags)
 		{ RED_PTY,	"RED_PTY" },
 		{ RED_SOCKET,	"RED_SOCKET" },
 		{ RED_TCP,	"RED_TCP" },
-		{ RED_NON_FATAL,	"RED_NON_FATAL" },
 		{ 0, NULL }
 	};
 
@@ -745,9 +746,6 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 	static struct redirect *save_rp = NULL;	/* hold onto rp that should
 	                                         * be freed for reuse
 	                                         */
-	bool is_output = false;
-	bool is_non_fatal = false;
-
 	if (do_sandbox)
 		fatal(_("redirection not allowed in sandbox mode"));
 
@@ -756,7 +754,6 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 		tflag = RED_APPEND;
 		/* FALL THROUGH */
 	case redirect_output:
-		is_output = true;
 		outflag = (RED_FILE|RED_WRITE);
 		tflag |= outflag;
 		if (redirtype == redirect_output)
@@ -765,7 +762,6 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 			what = ">>";
 		break;
 	case redirect_pipe:
-		is_output = true;
 		tflag = (RED_PIPE|RED_WRITE);
 		what = "|";
 		break;
@@ -778,7 +774,6 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 		what = "<";
 		break;
 	case redirect_twoway:
-		is_output = true;
 		tflag = (RED_READ|RED_WRITE|RED_TWOWAY);
 		what = "|&";
 		break;
@@ -799,14 +794,6 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 			|| strncmp(str, "1", redir_exp->stlen) == 0))
 		lintwarn(_("filename `%s' for `%s' redirection may be result of logical expression"),
 				str, what);
-
-	/* input files/pipes are automatically nonfatal */
-	if (is_output) {
-		is_non_fatal = (in_PROCINFO("nonfatal", NULL, NULL) != NULL
-				|| in_PROCINFO(str, "nonfatal", NULL) != NULL);
-		if (is_non_fatal)
-			tflag |= RED_NON_FATAL;
-	}
 
 #ifdef HAVE_SOCKETS
 	/*
@@ -907,7 +894,7 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 
 			os_restore_mode(fileno(stdin));
 			/*
-			 * Don't check is_non_fatal; see input pipe below.
+			 * Don't check non_fatal_io; see input pipe below.
 			 * Note that the failure happens upon failure to fork,
 			 * using a non-existant program will still succeed the
 			 * popen().
@@ -948,11 +935,7 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 			direction = "to/from";
 			if (! two_way_open(str, rp)) {
 #ifdef HAVE_SOCKETS
-				if (inetfile(str, NULL)) {
-					*errflg = errno;
-					/* do not free rp, saving it for reuse (save_rp = rp) */
-					return NULL;
-				} else if (is_non_fatal) {
+				if (inetfile(str, NULL) || non_fatal_io) {
 					*errflg = errno;
 					/* do not free rp, saving it for reuse (save_rp = rp) */
 					return NULL;
@@ -1038,7 +1021,7 @@ redirect(NODE *redir_exp, int redirtype, int *errflg)
 				 */
 				if (errflg != NULL)
 					*errflg = errno;
-				if (! is_non_fatal &&
+				if (! non_fatal_io &&
 				    (redirtype == redirect_output
 				     || redirtype == redirect_append)) {
 					/* multiple messages make life easier for translators */
@@ -1083,25 +1066,6 @@ getredirect(const char *str, int len)
 			return rp;
 
 	return NULL;
-}
-
-/* is_non_fatal_std --- return true if fp is stdout/stderr and nonfatal */
-
-bool
-is_non_fatal_std(FILE *fp)
-{
-	if (in_PROCINFO("nonfatal", NULL, NULL))
-		return true;
-
-	/* yucky logic. sigh. */
-	if (fp == stdout) {
-		return (   in_PROCINFO("-", "nonfatal", NULL) != NULL
-		        || in_PROCINFO("/dev/stdout", "nonfatal", NULL) != NULL);
-	} else if (fp == stderr) {
-		return (in_PROCINFO("/dev/stderr", "nonfatal", NULL) != NULL);
-	}
-
-	return false;
 }
 
 /* close_one --- temporarily close an open file to re-use the fd */

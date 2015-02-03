@@ -1,3 +1,8 @@
+2015-02-03         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in: Document that it's now just PROCINFO["nonfatal"].
+	* gawk.1: Documment PROCINFO["nonfatal"].
+
 2015-02-02         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* gawktexi.in: O'Reilly fixes.

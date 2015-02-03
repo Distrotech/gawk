@@ -13,7 +13,7 @@
 .		if \w'\(rq' .ds rq "\(rq
 .	\}
 .\}
-.TH GAWK 1 "Aug 03 2014" "Free Software Foundation" "Utility Commands"
+.TH GAWK 1 "Feb 03 2015" "Free Software Foundation" "Utility Commands"
 .SH NAME
 gawk \- pattern scanning and processing language
 .SH SYNOPSIS
@@ -1258,6 +1258,15 @@ This entry is not present if loading dynamic extensions is not available.
 \fBPROCINFO["version"]\fP
 the version of
 .IR gawk .
+.TP
+\fBPROCINFO["nonfatal"]\fP
+If this element exists, outut with
+.B print
+and
+.B printf
+set
+.B ERRNO
+upon failure, instead of exiting.
 .RE
 .TP
 .B ROUNDMODE

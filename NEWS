@@ -44,6 +44,9 @@ Changes from 4.1.x to 4.2.0
     system, these files belong in /etc/profile.d, but the appropriate location
     may be different on other platforms.
 
+11. If PROCINFO["nonfatal"] exists, output with print/printf sets ERRNO
+    upon failure, instead of exiting.
+
 Changes from 4.1.1 to 4.1.2
 ---------------------------
 

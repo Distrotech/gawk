@@ -129,15 +129,15 @@ wrerror:
 	if (fp == stdout && errno == EPIPE)
 		gawk_exit(EXIT_FATAL);
 
-
-	/* otherwise die verbosely */
-	if (   (rp != NULL && (rp->flag & RED_NON_FATAL) != 0)
-	    || is_non_fatal_std(fp)) {
+	/* if non-fatal, update ERRNO and be done */
+	if (non_fatal_io) {
 		update_ERRNO_int(errno);
-	} else
+	} else {
+		/* otherwise die verbosely */
 		fatal(_("%s to \"%s\" failed (%s)"), from,
 			rp ? rp->value : _("standard output"),
 			errno ? strerror(errno) : _("reason unknown"));
+	}
 }
 
 /* do_exp --- exponential function */
@@ -2175,16 +2175,16 @@ do_print_rec(int nargs, int redirtype)
 	} else
 		fp = output_fp;
 
+	if (errflg) {
+		update_ERRNO_int(errflg);
+		return;
+	}
+
 	if (fp == NULL)
 		return;
 
 	if (! field0_valid)
 		(void) get_field(0L, NULL);	/* rebuild record */
-
-	if (errflg) {
-		update_ERRNO_int(errflg);
-		return;
-	}
 
 	f0 = fields_arr[0];
 

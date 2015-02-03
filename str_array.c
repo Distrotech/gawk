@@ -88,6 +88,25 @@ afunc_t env_array_func[] = {
 	env_store,
 };
 
+static NODE **proc_remove(NODE *symbol, NODE *subs);
+static NODE **proc_store(NODE *symbol, NODE *subs);
+static NODE **proc_clear(NODE *symbol, NODE *subs);
+
+/* special case for PROCINFO */
+afunc_t proc_array_func[] = {
+	str_array_init,
+	(afunc_t) 0,
+	null_length,
+	str_lookup,
+	str_exists,
+	proc_clear,
+	proc_remove,
+	str_list,
+	str_copy,
+	str_dump,
+	proc_store,
+};
+
 static inline NODE **str_find(NODE *symbol, NODE *s1, size_t code1, unsigned long hash1);
 static void grow_table(NODE *symbol);
 
@@ -815,4 +834,46 @@ init_env_array(NODE *env_node)
 		return;
 
 	env_node->array_funcs = env_array_func;
+}
+
+/* proc_remove --- handle removing an element */
+
+static NODE **
+proc_remove(NODE *symbol, NODE *subs)
+{
+	if (subs && subs->stptr && strcmp(subs->stptr, "nonfatal") == 0)
+		non_fatal_io = false;
+
+	return str_remove(symbol, subs);
+}
+
+/* proc_store --- handle storing an element */
+
+static NODE **
+proc_store(NODE *symbol, NODE *subs)
+{
+	NODE **val = str_exists(symbol, subs);
+
+	if (subs && subs->stptr && strcmp(subs->stptr, "nonfatal") == 0)
+		non_fatal_io = true;
+
+	return val;
+}
+
+/* proc_clear --- handle clearing the whole array */
+
+static NODE **
+proc_clear(NODE *symbol, NODE *subs)
+{
+	non_fatal_io = false;
+
+	return str_clear(symbol, subs);
+}
+
+/* init_proc_array --- set up the pointers for PROCINFO. A bit hacky. */
+
+void
+init_proc_array(NODE *proc_node)
+{
+	proc_node->array_funcs = proc_array_func;
 }

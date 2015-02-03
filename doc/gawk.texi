@@ -10453,21 +10453,10 @@ $ @kbd{gawk 'BEGIN @{ print "hi" > "/no/such/file" @}'}
 @command{gawk} makes it possible to detect that an error has
 occurred, allowing you to possibly recover from the error, or
 at least print an error message of your choosing before exiting.
-You can do this in one of two ways:
-
-@itemize @bullet
-@item
-For all output files, by assigning any value to @code{PROCINFO["nonfatal"]}.
-
-@item
-On a per-file basis, by assigning any value to
-@code{PROCINFO[@var{filename}, "nonfatal"]}.
-Here, @var{filename} is the name of the file to which
-you wish output to be nonfatal.
-@end itemize
+You can do this by assigning any value to @code{PROCINFO["nonfatal"]}.
 
 Once you have enabled nonfatal output, you must check @code{ERRNO}
-after every relevant @code{print} or @code{printf} statement to
+after every @code{print} or @code{printf} statement to
 see if something went wrong.  It is also a good idea to initialize
 @code{ERRNO} to zero before attempting the output. For example:
 
@@ -10489,9 +10478,6 @@ Here, @command{gawk} did not produce a fatal error; instead
 it let the @command{awk} program code detect the problem and handle it.
 
 This mechanism works also for standard output and standard error.
-For standard output, you may use @code{PROCINFO["-", "nonfatal"]}
-or @code{PROCINFO["/dev/stdout", "nonfatal"]}.  For standard error, use
-@code{PROCINFO["/dev/stderr", "nonfatal"]}.
 
 @node Output Summary
 @section Summary
