@@ -26593,7 +26593,7 @@ the separator can considerably simplify such tasks.
 
 @item
 The examples here demonstrate the usefulness of the library
-functions from @ref{Library Functions}
+functions from @DBREF{Library Functions}
 for a number of real (if small) programs.
 
 @item
