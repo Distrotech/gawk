@@ -1478,6 +1478,8 @@ socketopen(int family, int type, const char *localpname,
 		if (rerror) {
 			if (lres0 != NULL)
 				freeaddrinfo(lres0);
+			if (non_fatal_io)
+				return INVALID_HANDLE;
 			fatal(_("remote host and port information (%s, %s) invalid"), remotehostname, remotepname);
 		}
 		rres0 = rres;

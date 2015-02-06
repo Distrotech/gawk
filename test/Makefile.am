@@ -597,6 +597,10 @@ EXTRA_DIST = \
 	nondec.ok \
 	nondec2.awk \
 	nondec2.ok \
+	nonfatal1.awk \
+	nonfatal1.ok \
+	nonfatal2.awk \
+	nonfatal2.ok \
 	nonl.awk \
 	nonl.ok \
 	noparms.awk \
@@ -1042,6 +1046,7 @@ GAWK_EXT_TESTS = \
 	lint lintold lintwarn \
 	manyfiles match1 match2 match3 mbstr1 \
 	nastyparm next nondec nondec2 \
+	nonfatal1 nonfatal2 \
 	patsplit posix printfbad1 printfbad2 printfbad3 printfbad4 printhuge procinfs \
 	profile1 profile2 profile3 profile4 profile5 profile6 profile7 \
 	profile8 pty1 \

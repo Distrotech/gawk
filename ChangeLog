@@ -1,3 +1,10 @@
+2015-02-06         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* io.c (socketopen): If host lookup fails, check non_fatal_io and
+	return INVALID_HANDLE if set instead of throwing a fatal error.
+	* str_array.c (proc_lookup): New function.
+	(proc_array_func): Use it in the vtable.
+
 2015-02-05         Andrew J. Schorr     <aschorr@telemetry-investments.com>
 
 	* eval.c (set_IGNORECASE): If IGNORECASE has a numeric value, try

@@ -91,13 +91,14 @@ afunc_t env_array_func[] = {
 static NODE **proc_remove(NODE *symbol, NODE *subs);
 static NODE **proc_store(NODE *symbol, NODE *subs);
 static NODE **proc_clear(NODE *symbol, NODE *subs);
+static NODE **proc_lookup(NODE *symbol, NODE *subs);
 
 /* special case for PROCINFO */
 afunc_t proc_array_func[] = {
 	str_array_init,
 	(afunc_t) 0,
 	null_length,
-	str_lookup,
+	proc_lookup,
 	str_exists,
 	proc_clear,
 	proc_remove,
@@ -845,6 +846,19 @@ proc_remove(NODE *symbol, NODE *subs)
 		non_fatal_io = false;
 
 	return str_remove(symbol, subs);
+}
+
+/* proc_lookup --- handle looking up and creating element */
+
+static NODE **
+proc_lookup(NODE *symbol, NODE *subs)
+{
+	NODE **val = str_lookup(symbol, subs);
+
+	if (subs && subs->stptr && strcmp(subs->stptr, "nonfatal") == 0)
+		non_fatal_io = true;
+
+	return val;
 }
 
 /* proc_store --- handle storing an element */
