@@ -680,6 +680,11 @@ mod:
 				r = POP_SCALAR();
 				UNFIELD(*lhs, r);
 			}
+			if (((*lhs)->flags & VAR_CONST) != 0) {
+				NODE *t = *lhs;
+				*lhs = dupnode(t);
+				unref(t);
+			}
 			break;
 
 		case Op_store_field:

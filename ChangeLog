@@ -1,5 +1,9 @@
 2015-02-13         Arnold D. Robbins     <arnold@skeeve.com>
 
+	* interpet.h (Op_store_var): Handle assignment from a constant.
+
+2015-02-13         Arnold D. Robbins     <arnold@skeeve.com>
+
 	* awkgram.y (yylex): Be more careful about passing true to
 	nextc() when collecting a regexp.  Some systems' iscntrl()
 	are not as forgiving as GLIBC's. E.g., Solaris.
