@@ -134,6 +134,8 @@ EXTRA_DIST = \
 	beginfile2.ok \
 	beginfile2.sh \
 	binmode1.ok \
+	callparam.awk \
+	callparam.ok \
 	charasbytes.awk \
 	charasbytes.in \
 	charasbytes.ok \
@@ -644,6 +646,10 @@ EXTRA_DIST = \
 	out1.ok \
 	out2.ok \
 	out3.ok \
+	paramasfunc1.awk \
+	paramasfunc1.ok \
+	paramasfunc2.awk \
+	paramasfunc2.ok \
 	paramdup.awk \
 	paramdup.ok \
 	paramres.awk \
@@ -706,6 +712,8 @@ EXTRA_DIST = \
 	prmreuse.ok \
 	procinfs.awk \
 	procinfs.ok \
+	profile0.awk \
+	profile0.ok \
 	profile2.ok \
 	profile3.awk \
 	profile3.ok \
@@ -989,7 +997,7 @@ BASIC_TESTS = \
 	arynocls aryprm1 aryprm2 aryprm3 aryprm4 aryprm5 aryprm6 aryprm7 \
 	aryprm8 arysubnm asgext awkpath \
 	back89 backgsub badassign1 badbuild \
-	childin clobber closebad clsflnam compare compare2 concat1 concat2 \
+	callparam childin clobber closebad clsflnam compare compare2 concat1 concat2 \
 	concat3 concat4 convfmt \
 	datanonl defref delargv delarpm2 delarprm delfunc dfamb1 dfastress dynlj \
 	eofsplit exit2 exitval1 exitval2 \
@@ -1007,6 +1015,7 @@ BASIC_TESTS = \
 	nlinstr nlstrina noeffect nofile nofmtch noloop1 noloop2 nonl \
 	noparms nors nulrsend numindex numsubstr \
 	octsub ofmt ofmta ofmtbig ofmtfidl ofmts ofs1 onlynl opasnidx opasnslf \
+	paramasfunc1 paramasfunc2 \
 	paramdup paramres paramtyp paramuninitglobal parse1 parsefld parseme \
 	pcntplus posix2008sub prdupval prec printf0 printf1 prmarscl prmreuse \
 	prt1eval prtoeval \
@@ -1038,7 +1047,7 @@ GAWK_EXT_TESTS = \
 	manyfiles match1 match2 match3 mbstr1 \
 	nastyparm next nondec nondec2 \
 	patsplit posix printfbad1 printfbad2 printfbad3 printfbad4 printhuge procinfs \
-	profile1 profile2 profile3 profile4 profile5 profile6 profile7 \
+	profile0 profile1 profile2 profile3 profile4 profile5 profile6 profile7 \
 	profile8 pty1 \
 	rebuf regnul1 regnul2 regx8bit reginttrad reint reint2 rsgetline rsglstdin rsstart1 \
 	rsstart2 rsstart3 rstest6 shadow sortfor sortu split_after_fpat \
@@ -1690,6 +1699,12 @@ dumpvars::
 	@grep -v ENVIRON < awkvars.out | grep -v PROCINFO > _$@; rm awkvars.out
 	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
 
+profile0:
+	@echo $@
+	@$(AWK) --profile=ap-$@.out -f "$(srcdir)"/$@.awk "$(srcdir)"/$@.in > /dev/null
+	@sed 1,2d < ap-$@.out > _$@; rm ap-$@.out
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
+
 profile1:
 	@echo $@
 	@$(AWK) -f "$(srcdir)"/xref.awk "$(srcdir)"/dtdgport.awk > _$@.out1
@@ -2031,6 +2046,15 @@ genpot:
 	@AWKPATH="$(srcdir)" $(AWK) -f $@.awk --gen-pot >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
 
+paramasfunc1::
+	@echo $@
+	@AWKPATH="$(srcdir)" $(AWK) -f $@.awk --posix >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
+
+paramasfunc2::
+	@echo $@
+	@AWKPATH="$(srcdir)" $(AWK) -f $@.awk --posix >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
 
 # Targets generated for other tests:
 include Maketests
