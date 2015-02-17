@@ -1,3 +1,18 @@
+2015-02-17         Arnold D. Robbins     <arnold@skeeve.com>
+
+	Disallow := to special variables.
+
+	* awk.h (VAR_SPEC): New flag for the value of special variables.
+	* array.c (set_SUBSEP): Set it.
+	* eval.c (flags2str): Add an entry for it.
+	(update_NR, update_NF): Set it.
+	* field.c (set_NF, set_FS, set_FIELDWIDTHS, set_FPAT): Set it.
+	* interpret.h (r_interpret): At Op_assign_const, check it.
+	* io.c (set_FNR, set_NR, set_RS): Set it.
+	* main.c (init_args): Set it for ARGC.
+	(init_vars): Set it for the others.
+	* mpfr.c (set_PREC, set_ROUNDMODE): Set it.
+
 2015-02-13         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* interpet.h (Op_store_var): Handle assignment from a constant.

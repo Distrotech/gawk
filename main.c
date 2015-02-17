@@ -715,6 +715,7 @@ init_args(int argc0, int argc, const char *argv0, char **argv)
 
 	ARGC_node = install_symbol(estrdup("ARGC", 4), Node_var);
 	ARGC_node->var_value = make_number((AWKNUM) j);
+	ARGC_node->var_value->flags |= VAR_SPEC;
 }
 
 
@@ -792,6 +793,7 @@ init_vars()
 		n->var_update = (Func_ptr) vp->update;
 		if (vp->do_assign)
 			(*(vp->assign))();
+		n->flags |= VAR_SPEC;
 	}
 
 	/* Load PROCINFO and ENVIRON */

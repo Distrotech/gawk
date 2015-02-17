@@ -340,6 +340,7 @@ set_NF()
 
 	assert(NF != -1);
 
+	NF_node->var_value->flags |= VAR_SPEC;
 	(void) force_number(NF_node->var_value);
 	nf = get_number_si(NF_node->var_value); 
 	if (nf < 0)
@@ -1179,6 +1180,8 @@ set_FIELDWIDTHS()
 	}
 	FIELDWIDTHS[i+1] = -1;
 
+	FIELDWIDTHS_node->var_value->flags |= VAR_SPEC;
+
 	update_PROCINFO_str("FS", "FIELDWIDTHS");
 	if (fatal_error)
 		fatal(_("invalid FIELDWIDTHS value, near `%s'"),
@@ -1315,6 +1318,7 @@ choose_fs_function:
 	if (fs->stlen == 1 && parse_field == re_parse_field)
 		FS_regexp = FS_re_yes_case;
 
+	FS_node->var_value->flags |= VAR_SPEC;
 	update_PROCINFO_str("FS", "FS");
 }
 
@@ -1429,6 +1433,7 @@ set_fpat_function:
 		FPAT_regexp = (IGNORECASE ? FPAT_re_no_case : FPAT_re_yes_case);
 	}
 
+	FPAT_node->var_value->flags |= VAR_SPEC;
 	update_PROCINFO_str("FS", "FPAT");
 }
 

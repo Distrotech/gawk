@@ -1,3 +1,7 @@
+2015-02-17         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gawktexi.in (Symbol table by name): Document sym_constant().
+
 2015-02-13         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* gawktexi.in: O'Reilly fixes. Through QC1 review.

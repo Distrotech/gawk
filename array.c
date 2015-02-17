@@ -375,6 +375,7 @@ void
 set_SUBSEP()
 {
 	SUBSEP_node->var_value = force_string(SUBSEP_node->var_value);
+	SUBSEP_node->var_value->flags |= VAR_SPEC;
 	SUBSEP = SUBSEP_node->var_value->stptr;
 	SUBSEPlen = SUBSEP_node->var_value->stlen;
 }

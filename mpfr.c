@@ -521,6 +521,7 @@ set_PREC()
 	if (! do_mpfr)
 		return;
 
+	PREC_node->var_value->flags |= VAR_SPEC;
 	val = PREC_node->var_value;
 	if ((val->flags & MAYBE_NUM) != 0)
 		force_number(val);
@@ -613,6 +614,7 @@ set_ROUNDMODE()
 			ROUND_MODE = rndm;
 		} else
 			warning(_("RNDMODE value `%.*s' is invalid"), (int) n->stlen, n->stptr);
+		ROUNDMODE_node->var_value->flags |= VAR_SPEC;
 	}
 }
 

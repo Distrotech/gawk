@@ -563,6 +563,7 @@ set_FNR()
 	else
 #endif
 	FNR = get_number_si(n);
+	FNR_node->var_value->flags |= VAR_SPEC;
 }
 
 /* set_NR --- update internal NR from awk variable */
@@ -578,6 +579,7 @@ set_NR()
 	else
 #endif
 	NR = get_number_si(n);
+	NR_node->var_value->flags |= VAR_SPEC;
 }
 
 /* inrec --- This reads in a record from the input file */
@@ -3646,6 +3648,7 @@ set_RS()
 set_FS:
 	if (current_field_sep() == Using_FS)
 		set_FS();
+	RS_node->var_value->flags |= VAR_SPEC;
 }
 
 

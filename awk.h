@@ -428,6 +428,7 @@ typedef struct exp_node {
 		                                      * See cint_array.c */
 #		define	XARRAY		0x20000
 #		define	VAR_CONST	0x40000	    /* value is for a const */
+#		define	VAR_SPEC	0x80000	    /* value belongs to a special var */
 } NODE;
 
 #define vname sub.nodep.name

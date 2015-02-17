@@ -449,6 +449,7 @@ flags2str(int flagval)
 		{ HALFHAT, "HALFHAT" },
 		{ XARRAY, "XARRAY" },
 		{ VAR_CONST, "VAR_CONST" },
+		{ VAR_SPEC, "VAR_SPEC" },
 		{ 0,	NULL },
 	};
 
@@ -1068,6 +1069,7 @@ update_NR()
 	if (NR_node->var_value->numbr != NR) {
 		unref(NR_node->var_value);
 		NR_node->var_value = make_number(NR);
+		NR_node->var_value->flags |= VAR_SPEC;
 	}
 }
 
@@ -1084,6 +1086,7 @@ update_NF()
 			(void) get_field(UNLIMITED - 1, NULL); /* parse record */
 		unref(NF_node->var_value);
 		NF_node->var_value = make_number(NF);
+		NF_node->var_value->flags |= VAR_SPEC;
 	}
 }
 

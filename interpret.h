@@ -766,8 +766,12 @@ mod:
 
 		case Op_assign_const:
 			lhs = POP_ADDRESS();
-			if (*lhs != NULL && ((*lhs)->flags & VAR_CONST) != 0)
-				fatal(_("cannot assign to defined constant"));
+			if (*lhs != NULL) {
+				if (((*lhs)->flags & VAR_CONST) != 0)
+					fatal(_("cannot assign to defined constant"));
+				else if (((*lhs)->flags & VAR_SPEC) != 0)
+					fatal(_("cannot convert built-in variable to constant"));
+			}
 			r = TOP_SCALAR();
 			unref(*lhs);
 			r->flags |= VAR_CONST;
