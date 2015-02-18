@@ -1,3 +1,7 @@
+2015-02-18         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* profile.c (pprint): Add case for Op_assign_const.
+
 2015-02-17         Arnold D. Robbins     <arnold@skeeve.com>
 
 	Disallow := to special variables.

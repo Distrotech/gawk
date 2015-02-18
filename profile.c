@@ -444,6 +444,7 @@ cleanup:
 			break;
 
 		case Op_assign:
+		case Op_assign_const:
 		case Op_assign_plus:
 		case Op_assign_minus:
 		case Op_assign_times:
