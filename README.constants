@@ -1,3 +1,13 @@
+Wed Feb 18 20:46:22 IST 2015
+============================
+
+I have managed to fix the problems outlined below.  The only work remaining
+is to document := in the manual, man page, and reference card.
+
+I am leaving this work as unmerged. Brian Kernighan recommends against
+adding more features to awk, pointing out that Python also doesn't have
+constants....
+
 Fri Mar 15 14:03:02 IST 2013
 ============================
 
