@@ -40,7 +40,7 @@ then
 fi
 
 AC_PREREQ(2.69)
-AM_INIT_AUTOMAKE([1.14 dist-xz dist-lzip])
+AM_INIT_AUTOMAKE([1.15 dist-xz dist-lzip])
 
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -88,11 +88,7 @@ if test -f $srcdir/.developing
 then
 	# add other debug flags as appropriate, save GAWKDEBUG for emergencies
 	CFLAGS="$CFLAGS -DARRAYDEBUG -DYYDEBUG -DLOCALEDEBUG"
-	if grep dbug $srcdir/.developing
-	then
-		CFLAGS="$CFLAGS -DDBUG"
-		LIBS="$LIBS dbug/libdbug.a"
-	fi
+
 	# turn on compiler warnings if we're doing development
 	# enable debugging using macros also
 	if test "$GCC" = yes
@@ -131,7 +127,7 @@ AC_LANG([C])
 
 dnl initialize GNU gettext
 AM_GNU_GETTEXT([external])
-AM_GNU_GETTEXT_VERSION([0.19.3])
+AM_GNU_GETTEXT_VERSION([0.19.4])
 AM_LANGINFO_CODESET
 gt_LC_MESSAGES
 
@@ -258,9 +254,9 @@ AC_CHECK_FUNC(getaddrinfo, [AC_DEFINE(HAVE_GETADDRINFO, 1, [have getaddrinfo])],
 			    [AC_DEFINE(HAVE_GETADDRINFO, 1,
 				       [have getaddrinfo])])])
 
-AC_CHECK_LIB(m, fmod)
-AC_CHECK_LIB(m, isinf)
-AC_CHECK_LIB(m, ismod)
+AC_SEARCH_LIBS(fmod, m)
+AC_SEARCH_LIBS(isinf, m)
+AC_SEARCH_LIBS(ismod, m)
 dnl Don't look for libsigsegv on OSF/1, gives us severe headaches
 case $host_os in
 osf1)	: ;;
