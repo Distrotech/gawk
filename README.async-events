@@ -1,0 +1,10 @@
+Sun Apr  5 10:57:51 IDT 2015
+============================
+
+This branch provides a simple hook for running functions defined in
+extensions that are meant to handle asynchronous events, such as signal
+handlers.
+
+Documentation for how to use this new facility still needs to be written.
+
+It would seem to be subsumed by the 'select' extension in gawkextlib.
