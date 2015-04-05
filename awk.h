@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2015 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -529,6 +529,11 @@ typedef struct exp_node {
 /* Node_array_print */
 #define adepth     sub.nodep.l.ll
 #define alevel     sub.nodep.x.xl
+
+/* Op_comment	*/
+#define comment_type	sub.val.idx
+#define EOL_COMMENT 1
+#define FULL_COMMENT 2
 
 /* --------------------------------lint warning types----------------------------*/
 typedef enum lintvals {
@@ -1324,7 +1329,6 @@ extern void shadow_funcs(void);
 extern int check_special(const char *name);
 extern SRCFILE *add_srcfile(enum srctype stype, char *src, SRCFILE *curr, bool *already_included, int *errcode);
 extern void free_srcfile(SRCFILE *thisfile);
-extern void register_deferred_variable(const char *name, NODE *(*load_func)(void));
 extern int files_are_same(char *path, SRCFILE *src);
 extern void valinfo(NODE *n, Func_print print_func, FILE *fp);
 extern void negate_num(NODE *n);
@@ -1334,6 +1338,7 @@ extern void install_builtins(void);
 extern bool is_alpha(int c);
 extern bool is_alnum(int c);
 extern bool is_identchar(int c);
+extern NODE *make_regnode(int type, NODE *exp);
 /* builtin.c */
 extern double double_to_int(double d);
 extern NODE *do_exp(int nargs);
@@ -1363,6 +1368,9 @@ extern NODE *do_rand(int nargs);
 extern NODE *do_srand(int nargs);
 extern NODE *do_match(int nargs);
 extern NODE *do_sub(int nargs, unsigned int flags);
+extern NODE *call_sub(const char *name, int nargs);
+extern NODE *call_match(int nargs);
+extern NODE *call_split_func(const char *name, int nargs);
 extern NODE *format_tree(const char *, size_t, NODE **, long);
 extern NODE *do_lshift(int nargs);
 extern NODE *do_rshift(int nargs);
@@ -1375,7 +1383,7 @@ extern AWKNUM nondec2awknum(char *str, size_t len);
 extern NODE *do_dcgettext(int nargs);
 extern NODE *do_dcngettext(int nargs);
 extern NODE *do_bindtextdomain(int nargs);
-extern NODE *do_div(int nargs);
+extern NODE *do_intdiv(int nargs);
 extern int strncasecmpmbs(const unsigned char *,
 			  const unsigned char *, size_t);
 /* eval.c */
@@ -1410,6 +1418,7 @@ extern NODE **r_get_lhs(NODE *n, bool reference);
 extern STACK_ITEM *grow_stack(void);
 extern void dump_fcall_stack(FILE *fp);
 extern int register_exec_hook(Func_pre_exec preh, Func_post_exec posth);
+extern NODE **r_get_field(NODE *n, Func_ptr *assign, bool reference);
 /* ext.c */
 extern NODE *do_ext(int nargs);
 void load_ext(const char *lib_name);	/* temporary */
@@ -1478,7 +1487,10 @@ extern void register_two_way_processor(awk_two_way_processor_t *processor);
 extern void set_FNR(void);
 extern void set_NR(void);
 
-extern struct redirect *redirect(NODE *redir_exp, int redirtype, int *errflg);
+extern struct redirect *redirect(NODE *redir_exp, int redirtype, int *errflg, bool failure_fatal);
+extern struct redirect *redirect_string(const char *redir_exp_str,
+		size_t redir_exp_len, bool not_string_flag, int redirtype,
+		int *errflg, int extfd, bool failure_fatal);
 extern NODE *do_close(int nargs);
 extern int flush_io(void);
 extern int close_io(bool *stdio_problem);
@@ -1490,6 +1502,8 @@ extern NODE *do_getline(int intovar, IOBUF *iop);
 extern struct redirect *getredirect(const char *str, int len);
 extern bool inrec(IOBUF *iop, int *errcode);
 extern int nextfile(IOBUF **curfile, bool skipping);
+extern bool is_non_fatal_std(FILE *fp);
+extern bool is_non_fatal_redirect(const char *str);
 /* main.c */
 extern int arg_assign(char *arg, bool initing);
 extern int is_std_var(const char *var);
@@ -1497,6 +1511,7 @@ extern int is_off_limits_var(const char *var);
 extern char *estrdup(const char *str, size_t len);
 extern void update_global_values();
 extern long getenv_long(const char *name);
+extern void after_beginfile(IOBUF **curfile);
 
 /* mpfr.c */
 extern void set_PREC(void);
@@ -1511,9 +1526,9 @@ extern NODE *do_mpfr_and(int);
 extern NODE *do_mpfr_atan2(int);
 extern NODE *do_mpfr_compl(int);
 extern NODE *do_mpfr_cos(int);
-extern NODE *do_mpfr_div(int);
 extern NODE *do_mpfr_exp(int);
 extern NODE *do_mpfr_int(int);
+extern NODE *do_mpfr_intdiv(int);
 extern NODE *do_mpfr_log(int);
 extern NODE *do_mpfr_lshift(int);
 extern NODE *do_mpfr_or(int);
@@ -1612,6 +1627,7 @@ extern void free_context(AWK_CONTEXT *ctxt, bool keep_globals);
 extern NODE **variable_list();
 extern NODE **function_list(bool sort);
 extern void print_vars(NODE **table, Func_print print_func, FILE *fp);
+extern bool check_param_names(void);
 
 /* floatcomp.c */
 #ifdef HAVE_UINTMAX_T

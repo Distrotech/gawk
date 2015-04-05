@@ -1,11 +1,19 @@
-2013-12-23         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+2015-03-18         Arnold D. Robbins     <arnold@skeeve.com>
 
-	* libtool.m4, ltoptions.m4, ltsugar.m4, ltversion.m4, lt~obsolete.m4:
-	Remove libtool support.
+	* libtoolm4, ltversion.m4: Updated to libtool 2.4.6.
+
+2015-01-24         Arnold D. Robbins     <arnold@skeeve.com>
+
+	* gettext.m4, iconv.m4, intlmacosx.m4, po.m4: Removed.
 
 2014-04-08         Arnold D. Robbins     <arnold@skeeve.com>
 
 	* 4.1.1: Release tar ball made.
+
+2013-12-23         Andrew J. Schorr     <aschorr@telemetry-investments.com>
+
+	* libtool.m4, ltoptions.m4, ltsugar.m4, ltversion.m4, lt~obsolete.m4:
+	Remove libtool support.
 
 2013-12-21         Arnold D. Robbins     <arnold@skeeve.com>
 

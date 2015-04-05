@@ -25,7 +25,6 @@
 
 #include "awk.h"
 
-extern void after_beginfile(IOBUF **curfile);
 extern double pow(double x, double y);
 extern double modf(double x, double *yp);
 extern double fmod(double x, double y);
@@ -708,6 +707,8 @@ set_IGNORECASE()
 	load_casetable();
 	if (do_traditional)
 		IGNORECASE = false;
+	else if ((n->flags & (NUMCUR|NUMBER)) != 0)
+		IGNORECASE = ! iszero(n);
 	else if ((n->flags & (STRING|STRCUR)) != 0) {
 		if ((n->flags & MAYBE_NUM) == 0) {
 			(void) force_string(n);
@@ -716,9 +717,7 @@ set_IGNORECASE()
 			(void) force_number(n);
 			IGNORECASE = ! iszero(n);
 		}
-	} else if ((n->flags & (NUMCUR|NUMBER)) != 0)
-		IGNORECASE = ! iszero(n);
-	else
+	} else
 		IGNORECASE = false;		/* shouldn't happen */
                  
 	set_RS();	/* set_RS() calls set_FS() if need be, for us */
@@ -1026,6 +1025,7 @@ update_ERRNO_int(int errcode)
 {
 	char *cp;
 
+	update_PROCINFO_num("errno", errcode);
 	if (errcode) {
 		cp = strerror(errcode);
 		cp = gettext(cp);
@@ -1040,6 +1040,7 @@ update_ERRNO_int(int errcode)
 void
 update_ERRNO_string(const char *string)
 {
+	update_PROCINFO_num("errno", 0);
 	unref(ERRNO_node->var_value);
 	ERRNO_node->var_value = make_string(string, strlen(string));
 }
@@ -1049,6 +1050,7 @@ update_ERRNO_string(const char *string)
 void
 unset_ERRNO(void)
 {
+	update_PROCINFO_num("errno", 0);
 	unref(ERRNO_node->var_value);
 	ERRNO_node->var_value = dupnode(Nnull_string);
 }
@@ -1181,7 +1183,7 @@ r_get_lhs(NODE *n, bool reference)
 
 /* r_get_field --- get the address of a field node */
  
-static inline NODE **
+NODE **
 r_get_field(NODE *n, Func_ptr *assign, bool reference)
 {
 	long field_num;

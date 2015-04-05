@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2015 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -129,10 +129,14 @@ wrerror:
 	if (fp == stdout && errno == EPIPE)
 		gawk_exit(EXIT_FATAL);
 
+
 	/* otherwise die verbosely */
-	fatal(_("%s to \"%s\" failed (%s)"), from,
-		rp ? rp->value : _("standard output"),
-		errno ? strerror(errno) : _("reason unknown"));
+	if ((rp != NULL) ? is_non_fatal_redirect(rp->value) : is_non_fatal_std(fp))
+		update_ERRNO_int(errno);
+	else
+		fatal(_("%s to \"%s\" failed (%s)"), from,
+			rp ? rp->value : _("standard output"),
+			errno ? strerror(errno) : _("reason unknown"));
 }
 
 /* do_exp --- exponential function */
@@ -510,6 +514,9 @@ do_length(int nargs)
 		 * Support for deferred loading of array elements requires that
 		 * we use the array length interface even though it isn't 
 		 * necessary for the built-in array types.
+		 *
+		 * 1/2015: The deferred arrays are gone, but this is probably
+		 * still a good idea.
 		 */
 
 		size = assoc_length(tmp);
@@ -904,7 +911,10 @@ check_pos:
 		case '*':
 			if (cur == NULL)
 				break;
-			if (! do_traditional && isdigit((unsigned char) *s1)) {
+			if (! do_traditional && used_dollar && ! isdigit((unsigned char) *s1)) {
+				fatal(_("fatal: must use `count$' on all formats or none"));
+				break;	/* silence warnings */
+			} else if (! do_traditional && isdigit((unsigned char) *s1)) {
 				int val = 0;
 
 				for (; n0 > 0 && *s1 && isdigit((unsigned char) *s1); s1++, n0--) {
@@ -1633,7 +1643,7 @@ do_printf(int nargs, int redirtype)
 	FILE *fp = NULL;
 	NODE *tmp;
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	NODE *redir_exp = NULL;
 
 	if (nargs == 0) {
@@ -1644,7 +1654,7 @@ do_printf(int nargs, int redirtype)
 				redir_exp = TOP();
 				if (redir_exp->type != Node_val)
 					fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-				rp = redirect(redir_exp, redirtype, & errflg);
+				rp = redirect(redir_exp, redirtype, & errflg, true);
 				DEREF(redir_exp);
 				decr_sp();
 			}
@@ -1657,9 +1667,13 @@ do_printf(int nargs, int redirtype)
 		redir_exp = PEEK(nargs);
 		if (redir_exp->type != Node_val)
 			fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, true);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg) {
+			update_ERRNO_int(errflg);
+			return;
+		}
 	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
 	else
@@ -2072,7 +2086,7 @@ void
 do_print(int nargs, int redirtype)
 {
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	FILE *fp = NULL;
 	int i;
 	NODE *redir_exp = NULL;
@@ -2084,9 +2098,13 @@ do_print(int nargs, int redirtype)
 		redir_exp = PEEK(nargs);
 		if (redir_exp->type != Node_val)
 			fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, true);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg) {
+			update_ERRNO_int(errflg);
+			return;
+		}
 	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
 	else
@@ -2142,19 +2160,24 @@ do_print_rec(int nargs, int redirtype)
 	FILE *fp = NULL;
 	NODE *f0;
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	NODE *redir_exp = NULL;
 
 	assert(nargs == 0);
 	if (redirtype != 0) {
 		redir_exp = TOP();
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, true);
 		if (rp != NULL)
 			fp = rp->output.fp;
 		DEREF(redir_exp);
 		decr_sp();
 	} else
 		fp = output_fp;
+
+	if (errflg) {
+		update_ERRNO_int(errflg);
+		return;
+	}
 
 	if (fp == NULL)
 		return;
@@ -3049,6 +3072,146 @@ done:
 	return make_number((AWKNUM) matches);
 }
 
+/* call_sub --- call do_sub indirectly */
+
+NODE *
+call_sub(const char *name, int nargs)
+{
+	unsigned int flags = 0;
+	NODE *regex, *replace, *glob_flag;
+	NODE **lhs, *rhs;
+	NODE *zero = make_number(0.0);
+	NODE *result;
+
+	if (name[0] == 'g') {
+		if (name[1] == 'e')
+			flags = GENSUB;
+		else
+			flags = GSUB;
+	}
+
+	if (flags == 0 || flags == GSUB) {
+		/* sub or gsub */
+		if (nargs != 2)
+			fatal(_("%s: can be called indirectly only with two arguments"), name);
+
+		replace = POP_STRING();
+		regex = POP();	/* the regex */
+		/*
+		 * push regex
+		 * push replace
+		 * push $0
+		 */
+		regex = make_regnode(Node_regex, regex);
+		PUSH(regex);
+		PUSH(replace);
+		lhs = r_get_field(zero, (Func_ptr *) 0, true);
+		nargs++;
+		PUSH_ADDRESS(lhs);
+	} else {
+		/* gensub */
+		if (nargs == 4)
+			rhs = POP();
+		else
+			rhs = NULL;
+		glob_flag = POP_STRING();
+		replace = POP_STRING();
+		regex = POP();	/* the regex */
+		/*
+		 * push regex
+		 * push replace
+		 * push glob_flag
+		 * if (nargs = 3) {
+		 *	 push $0
+		 *	 nargs++
+		 * }
+		 */
+		regex = make_regnode(Node_regex, regex);
+		PUSH(regex);
+		PUSH(replace);
+		PUSH(glob_flag);
+		if (rhs == NULL) {
+			lhs = r_get_field(zero, (Func_ptr *) 0, true);
+			rhs = *lhs;
+			UPREF(rhs);
+			PUSH(rhs);
+			nargs++;
+		}
+		PUSH(rhs);
+	}
+
+
+	unref(zero);
+	result = do_sub(nargs, flags);
+	if (flags != GENSUB)
+		reset_record();
+	return result;
+}
+
+/* call_match --- call do_match indirectly */
+
+NODE *
+call_match(int nargs)
+{
+	NODE *regex, *text, *array;
+	NODE *result;
+
+	regex = text = array = NULL;
+	if (nargs == 3)
+		array = POP();
+	regex = POP();
+
+	/* Don't need to pop the string just to push it back ... */
+
+	regex = make_regnode(Node_regex, regex);
+	PUSH(regex);
+
+	if (array)
+		PUSH(array);
+
+	result = do_match(nargs);
+	return result;
+}
+
+/* call_split_func --- call do_split or do_pat_split indirectly */
+
+NODE *
+call_split_func(const char *name, int nargs)
+{
+	NODE *regex, *seps;
+	NODE *result;
+
+	regex = seps = NULL;
+	if (nargs < 2)
+		fatal(_("indirect call to %s requires at least two arguments"),
+				name);
+
+	if (nargs == 4)
+		seps = POP();
+
+	if (nargs >= 3) {
+		regex = POP_STRING();
+		regex = make_regnode(Node_regex, regex);
+	} else {
+		if (name[0] == 's') {
+			regex = make_regnode(Node_regex, FS_node->var_value);
+			regex->re_flags |= FS_DFLT;
+		} else
+			regex = make_regnode(Node_regex, FPAT_node->var_value);
+		nargs++;
+	}
+
+	/* Don't need to pop the string or the data array */
+
+	PUSH(regex);
+
+	if (seps)
+		PUSH(seps);
+
+	result = (name[0] == 's') ? do_split(nargs) : do_patsplit(nargs);
+
+	return result;
+}
 
 /* make_integer - Convert an integer to a number node.  */
 
@@ -3589,7 +3752,7 @@ do_bindtextdomain(int nargs)
 	return make_string(the_result, strlen(the_result));
 }
 
-/* do_div --- do integer division, return quotient and remainder in dest array */
+/* do_intdiv --- do integer division, return quotient and remainder in dest array */
 
 /*
  * We define the semantics as:
@@ -3600,7 +3763,7 @@ do_bindtextdomain(int nargs)
  */
 
 NODE *
-do_div(int nargs)
+do_intdiv(int nargs)
 {
 	NODE *numerator, *denominator, *result;
 	double num, denom, quotient, remainder;
@@ -3608,7 +3771,7 @@ do_div(int nargs)
 
 	result = POP_PARAM();
 	if (result->type != Node_var_array)
-		fatal(_("div: third argument is not an array"));
+		fatal(_("intdiv: third argument is not an array"));
 	assoc_clear(result);
 
 	denominator = POP_SCALAR();
@@ -3616,9 +3779,9 @@ do_div(int nargs)
 
 	if (do_lint) {
 		if ((numerator->flags & (NUMCUR|NUMBER)) == 0)
-			lintwarn(_("div: received non-numeric first argument"));
+			lintwarn(_("intdiv: received non-numeric first argument"));
 		if ((denominator->flags & (NUMCUR|NUMBER)) == 0)
-			lintwarn(_("div: received non-numeric second argument"));
+			lintwarn(_("intdiv: received non-numeric second argument"));
 	}
 
 	(void) force_number(numerator);
@@ -3627,7 +3790,7 @@ do_div(int nargs)
 	denom = double_to_int(get_number_d(denominator));
 
 	if (denom == 0.0)
-		fatal(_("div: division by zero attempted"));
+		fatal(_("intdiv: division by zero attempted"));
 
 	quotient = double_to_int(num / denom);
 	/*
