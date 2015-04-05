@@ -1,0 +1,16 @@
+Sun Apr  5 11:33:31 IDT 2015
+============================
+
+This branch excises libtool from the extension subdirectory, instead
+using infrastructure based on how Bash does things.
+
+Andrew Schorr originally did this work. It still needs additional
+work for the install and uninstall and possibly other targets.
+
+Having moved the libtool dependency out of the mainline code, I've
+sort of reached a truce with it; I'm not sure it's worth the effort
+to continue this branch, so it's being saved, but not otherwise
+being further worked on.
+
+Arnold Robbins
+arnold@skeeve.com
