@@ -1,0 +1,6 @@
+Sun Apr  5 13:28:23 IDT 2015
+============================
+
+See the README.num-handler file; this branch is based off that
+one and adds long double support. It too does not pass make check
+and will probably never be merged into master.
