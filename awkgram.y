@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2015 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -57,7 +57,6 @@ static int include_source(INSTRUCTION *file);
 static int load_library(INSTRUCTION *file);
 static void next_sourcefile(void);
 static char *tokexpand(void);
-static bool is_deferred_variable(const char *name);
 
 #define instruction(t)	bcalloc(t, 1, 0)
 
@@ -73,12 +72,9 @@ static void fix_break_continue(INSTRUCTION *list, INSTRUCTION *b_target, INSTRUC
 static INSTRUCTION *mk_boolean(INSTRUCTION *left, INSTRUCTION *right, INSTRUCTION *op);
 static INSTRUCTION *mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op);
 static INSTRUCTION *mk_getline(INSTRUCTION *op, INSTRUCTION *opt_var, INSTRUCTION *redir, int redirtype);
-static NODE *make_regnode(int type, NODE *exp);
 static int count_expressions(INSTRUCTION **list, bool isarg);
 static INSTRUCTION *optimize_assignment(INSTRUCTION *exp);
 static void add_lint(INSTRUCTION *list, LINTTYPE linttype);
-
-static void process_deferred();
 
 enum defref { FUNC_DEFINE, FUNC_USE, FUNC_EXT };
 static void func_use(const char *name, enum defref how);
@@ -86,11 +82,13 @@ static void check_funcs(void);
 
 static ssize_t read_one_line(int fd, void *buffer, size_t count);
 static int one_line_close(int fd);
+static void split_comment(void);
+static void check_comment(void);
 
+static bool at_seen = false;
 static bool want_source = false;
 static bool want_regexp = false;	/* lexical scanning kludge */
 static char *in_function;		/* parsing kludge */
-static bool symtab_used = false;	/* program used SYMTAB */
 static int rule = 0;
 
 const char *const ruletab[] = {
@@ -144,6 +142,15 @@ static INSTRUCTION *ip_atexit = NULL;
 static INSTRUCTION *ip_end;
 static INSTRUCTION *ip_endfile;
 static INSTRUCTION *ip_beginfile;
+INSTRUCTION *main_beginfile;
+
+static INSTRUCTION *comment = NULL;
+static INSTRUCTION *program_comment = NULL;
+static INSTRUCTION *function_comment = NULL;
+static INSTRUCTION *block_comment = NULL;
+
+static bool func_first = true;
+static bool first_rule = true;
 
 static inline INSTRUCTION *list_create(INSTRUCTION *x);
 static inline INSTRUCTION *list_append(INSTRUCTION *l, INSTRUCTION *x);
@@ -205,8 +212,6 @@ program
 	| program LEX_EOF
 	  {
 		next_sourcefile();
-		if (sourcefile == srcfiles)
-			process_deferred();
 	  }
 	| program error
 	  {
@@ -223,6 +228,7 @@ rule
 	: pattern action
 	  {
 		(void) append_rule($1, $2);
+		first_rule = false;
 	  }
 	| pattern statement_term
 	  {
@@ -244,11 +250,13 @@ rule
 	| '@' LEX_INCLUDE source statement_term
 	  {
 		want_source = false;
+		at_seen = false;
 		yyerrok;
 	  }
 	| '@' LEX_LOAD library statement_term
 	  {
 		want_source = false;
+		at_seen = false;
 		yyerrok;
 	  }
 	;
@@ -285,9 +293,24 @@ library
 
 pattern
 	: /* empty */
-	  {	$$ = NULL; rule = Rule; }
+	  {
+		rule = Rule;
+		if (comment != NULL) {
+			$$ = list_create(comment);
+			comment = NULL;
+		} else
+			$$ = NULL;
+	  }
 	| exp
-	  {	$$ = $1; rule = Rule; }
+	  {
+		rule = Rule;
+		if (comment != NULL) {
+			$$ = list_prepend($1, comment);
+			comment = NULL;
+		} else
+			$$ = $1;
+	  }
+		
 	| exp ',' opt_nls exp
 	  {
 		INSTRUCTION *tp;
@@ -311,41 +334,55 @@ pattern
 			($1->nexti + 1)->condpair_left = $1->lasti;
 			($1->nexti + 1)->condpair_right = $4->lasti;
 		}
-		$$ = list_append(list_merge($1, $4), tp);
+		if (comment != NULL) {
+			$$ = list_append(list_merge(list_prepend($1, comment), $4), tp);
+			comment = NULL;
+		} else
+			$$ = list_append(list_merge($1, $4), tp);
 		rule = Rule;
 	  }
 	| LEX_BEGIN
 	  {
 		static int begin_seen = 0;
+
+		func_first = false;
 		if (do_lint_old && ++begin_seen == 2)
 			warning_ln($1->source_line,
 				_("old awk does not support multiple `BEGIN' or `END' rules"));
 
 		$1->in_rule = rule = BEGIN;
 		$1->source_file = source;
+		check_comment();
 		$$ = $1;
 	  }
 	| LEX_END
 	  {
 		static int end_seen = 0;
+
+		func_first = false;
 		if (do_lint_old && ++end_seen == 2)
 			warning_ln($1->source_line,
 				_("old awk does not support multiple `BEGIN' or `END' rules"));
 
 		$1->in_rule = rule = END;
 		$1->source_file = source;
+		check_comment();
 		$$ = $1;
 	  }
 	| LEX_BEGINFILE
 	  {
+		func_first = false;
 		$1->in_rule = rule = BEGINFILE;
 		$1->source_file = source;
+		check_comment();
 		$$ = $1;
 	  }
 	| LEX_ENDFILE
 	  {
+		func_first = false;
 		$1->in_rule = rule = ENDFILE;
 		$1->source_file = source;
+		check_comment();
 		$$ = $1;
 	  }
 	;
@@ -353,10 +390,12 @@ pattern
 action
 	: l_brace statements r_brace opt_semi opt_nls
 	  {
+		INSTRUCTION *ip;
 		if ($2 == NULL)
-			$$ = list_create(instruction(Op_no_op));
+			ip = list_create(instruction(Op_no_op));
 		else
-			$$ = $2;
+			ip = $2;
+		$$ = ip;
 	  }
 	;
 
@@ -372,7 +411,10 @@ func_name
 		YYABORT;
 	  }
 	| '@' LEX_EVAL
-	  { $$ = $2; }
+	  {
+		$$ = $2;
+		at_seen = false;
+	  }
 	;
 
 lex_builtin
@@ -383,6 +425,22 @@ lex_builtin
 function_prologue
 	: LEX_FUNCTION func_name '(' opt_param_list r_paren opt_nls
 	  {
+		/*
+		 *  treat any comments between BOF and the first function
+		 *  definition (with no intervening BEGIN etc block) as
+		 *  program comments.  Special kludge: iff there are more
+		 *  than one such comments, treat the last as a function
+		 *  comment.
+		 */
+		if (comment != NULL && func_first
+		    && strstr(comment->memory->stptr, "\n\n") != NULL)
+			split_comment();
+		/* save any other pre-function comment as function comment  */
+		if (comment != NULL) {
+			function_comment = comment;
+			comment = NULL;
+		}
+		func_first = false;
 		$1->source_file = source;
 		if (install_function($2->lextok, $1, $4) < 0)
 			YYABORT;
@@ -440,19 +498,39 @@ a_slash
 
 statements
 	: /* empty */
-	  {	$$ = NULL; }
+	  {
+		if (comment != NULL) {
+			$$ = list_create(comment);
+			comment = NULL;
+		} else $$ = NULL;
+	  }
 	| statements statement
 	  {
-		if ($2 == NULL)
-			$$ = $1;
-		else {
+		if ($2 == NULL) {
+			if (comment == NULL)
+				$$ = $1;
+			else {
+				$$ = list_append($1, comment);
+				comment = NULL;
+			}
+		} else {
 			add_lint($2, LINT_no_effect);
-			if ($1 == NULL)
-				$$ = $2;
-			else
+			if ($1 == NULL) {
+				if (comment == NULL)
+					$$ = $2;
+				else {
+					$$ = list_append($2, comment);
+					comment = NULL;
+				}
+			} else {
+				if (comment != NULL) {
+					list_append($2, comment);
+					comment = NULL;
+				}
 				$$ = list_merge($1, $2);
+			}
 		}
-	    yyerrok;
+		yyerrok;
 	  }
 	| statements error
 	  {	$$ = NULL; }
@@ -496,7 +574,7 @@ statement
 		} /*  else
 				curr = NULL; */
 
-		for(; curr != NULL; curr = nextc) {
+		for (; curr != NULL; curr = nextc) {
 			INSTRUCTION *caseexp = curr->case_exp;
 			INSTRUCTION *casestmt = curr->case_stmt;
 
@@ -1184,7 +1262,7 @@ opt_param_list
 	: /* empty */
 	  { $$ = NULL; }
 	| param_list
-	  { $$ = $1 ; }
+	  { $$ = $1; }
 	;
 
 param_list
@@ -1616,12 +1694,24 @@ func_call
 		 */
 
 		$$ = list_prepend($2, t);
+		at_seen = false;
 	  }
 	;
 
 direct_func_call
 	: FUNC_CALL '(' opt_expression_list r_paren
 	  {
+		NODE *n;
+
+		if (! at_seen) {
+			n = lookup($1->func_name);
+			if (n != NULL && n->type != Node_func
+			    && n->type != Node_ext_func && n->type != Node_old_ext_func) {
+				error_ln($1->source_line,
+					_("attempt to use non-function `%s' in function call"),
+						$1->func_name);
+			}
+		}
 		param_sanity($3);
 		$1->opcode = Op_func_call;
 		$1->func_body = NULL;
@@ -1852,7 +1942,6 @@ static struct token tokentab[] = {
 {"dcngettext",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3)|A(4)|A(5),	do_dcngettext },
 {"default",	Op_K_default,	 LEX_DEFAULT,	GAWKX,		0 },
 {"delete",	Op_K_delete,	 LEX_DELETE,	NOT_OLD,	0 },
-{"div",		Op_builtin,      LEX_BUILTIN,	GAWKX|A(3)|ARG3_IS_ARR, do_div },
 {"do",		Op_K_do,	 LEX_DO,	NOT_OLD|BREAK|CONTINUE,	0 },
 {"else",	Op_K_else,	 LEX_ELSE,	0,		0 },
 {"eval",	Op_symbol,	 LEX_EVAL,	0,		0 },
@@ -1873,6 +1962,7 @@ static struct token tokentab[] = {
 {"include",  Op_symbol,	 LEX_INCLUDE,	GAWKX,	0 },
 {"index",	Op_builtin,	 LEX_BUILTIN,	A(2),	do_index },
 {"int",		Op_builtin,	 LEX_BUILTIN,	A(1),	0 },
+{"intdiv",	Op_builtin,      LEX_BUILTIN,	GAWKX|A(3)|ARG3_IS_ARR, do_intdiv },
 {"isarray",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_isarray },
 {"length",	Op_builtin,	 LEX_LENGTH,	A(0)|A(1),	do_length },
 {"load",  	Op_symbol,	 LEX_LOAD,	GAWKX,		0 },
@@ -1910,7 +2000,6 @@ static struct token tokentab[] = {
 {"xor",		Op_builtin,    LEX_BUILTIN,	GAWKX,		0 },
 };
 
-#if MBS_SUPPORT
 /* Variable containing the current shift state.  */
 static mbstate_t cur_mbstate;
 /* Ring buffer containing current characters.  */
@@ -1922,10 +2011,6 @@ static int cur_ring_idx;
 /* This macro means that last nextc() return a singlebyte character
    or 1st byte of a multibyte character.  */
 #define nextc_is_1stbyte (cur_char_ring[cur_ring_idx] == 1)
-#else /* MBS_SUPPORT */
-/* a dummy */
-#define nextc_is_1stbyte 1
-#endif /* MBS_SUPPORT */
 
 /* getfname --- return name of a builtin function (for pretty printing) */
 
@@ -2185,6 +2270,11 @@ mk_program()
 				cp = end_block;
 			else
 				cp = list_merge(begin_block, end_block);
+			if (program_comment != NULL) {
+				(void) list_prepend(cp, program_comment);
+			}  
+			if (comment != NULL)
+				(void) list_append(cp, comment);
 			(void) list_append(cp, ip_atexit);
 			(void) list_append(cp, instruction(Op_stop));
 
@@ -2217,6 +2307,12 @@ mk_program()
 	if (begin_block != NULL)
 		cp = list_merge(begin_block, cp);
 
+	if (program_comment != NULL) {
+		(void) list_prepend(cp, program_comment);
+	}  
+	if (comment != NULL) {
+		(void) list_append(cp, comment);
+	} 
 	(void) list_append(cp, ip_atexit);
 	(void) list_append(cp, instruction(Op_stop));
 
@@ -2224,6 +2320,10 @@ out:
 	/* delete the Op_list, not needed */
 	tmp = cp->nexti;
 	bcfree(cp);
+	/* these variables are not used again but zap them anyway.  */
+	comment = NULL;
+	function_comment = NULL;
+	program_comment = NULL;
 	return tmp;
 
 #undef begin_block
@@ -2250,7 +2350,7 @@ parse_program(INSTRUCTION **pcode)
 		ip_newfile = ip_rec = ip_atexit = ip_beginfile = ip_endfile = NULL;
 	else {
 		ip_endfile = instruction(Op_no_op);
-		ip_beginfile = instruction(Op_no_op);
+		main_beginfile = ip_beginfile = instruction(Op_no_op);
 		ip_rec = instruction(Op_get_record); /* target for `next', also ip_newfile */
 		ip_newfile = bcalloc(Op_newfile, 2, 0); /* target for `nextfile' */
 		ip_newfile->target_jmp = ip_end;
@@ -2279,6 +2379,9 @@ parse_program(INSTRUCTION **pcode)
 	sourceline = 0;
 	if (ret == 0)	/* avoid spurious warning if parser aborted with YYABORT */
 		check_funcs();
+
+	if (do_posix && ! check_param_names())
+		errcount++;
 
 	if (args_array == NULL)
 		emalloc(args_array, NODE **, (max_args + 2) * sizeof(NODE *), "parse_program");
@@ -2718,7 +2821,7 @@ get_src_buf()
 		lexend = lexptr + n;
 		if (n == 0) {
 			static bool warned = false;
-			if (do_lint && newfile && ! warned){
+			if (do_lint && newfile && ! warned) {
 				warned = true;
 				sourceline = 0;
 				lintwarn(_("source file `%s' is empty"), source);
@@ -2780,12 +2883,10 @@ check_bad_char(int c)
 	}
 
 	if (iscntrl(c) && ! isspace(c))
-		fatal(_("PEBKAC error: invalid character '\\%03o' in source code"), c);
+		fatal(_("PEBKAC error: invalid character '\\%03o' in source code"), c & 0xFF);
 }
 
 /* nextc --- get the next input character */
-
-#if MBS_SUPPORT
 
 static int
 nextc(bool check_for_bad)
@@ -2811,7 +2912,7 @@ again:
 			mbstate_t tmp_state;
 			size_t mbclen;
 	
-			for (idx = 0 ; lexptr + idx < lexend ; idx++) {
+			for (idx = 0; lexptr + idx < lexend; idx++) {
 				tmp_state = cur_mbstate;
 				mbclen = mbrlen(lexptr, idx + 1, &tmp_state);
 
@@ -2857,38 +2958,116 @@ again:
 	}
 }
 
-#else /* MBS_SUPPORT */
-
-int
-nextc(bool check_for_bad)
-{
-	do {
-		if (lexeof)
-			return END_FILE;
-		if (lexptr && lexptr < lexend) {
-			if (check_for_bad)
-				check_bad_char(*lexptr);
-			return ((int) (unsigned char) *lexptr++);
-		}
-	} while (get_src_buf());
-	return END_SRC;
-}
-
-#endif /* MBS_SUPPORT */
-
 /* pushback --- push a character back on the input */
 
 static inline void
 pushback(void)
 {
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1)
 		cur_ring_idx = (cur_ring_idx == 0)? RING_BUFFER_SIZE - 1 :
 			cur_ring_idx - 1;
-#endif
 	(! lexeof && lexptr && lexptr > lexptr_begin ? lexptr-- : lexptr);
 }
 
+/* check_comment --- check for block comment */
+
+void
+check_comment(void)
+{
+	if (comment != NULL) {
+		if (first_rule) {
+			program_comment = comment;
+		} else 
+			block_comment = comment;
+		comment = NULL;
+	}
+	first_rule = false;
+}
+
+/*
+ * get_comment --- collect comment text.
+ * 	Flag = EOL_COMMENT for end-of-line comments.
+ * 	Flag = FULL_COMMENT for self-contained comments.
+ */
+
+int
+get_comment(int flag)
+{
+	int c;
+	int sl;
+	tok = tokstart;
+	tokadd('#');
+	sl = sourceline;
+
+	while (true) {
+		while ((c = nextc(false)) != '\n' && c != END_FILE) {
+			tokadd(c);
+		}
+		if (flag == EOL_COMMENT) {
+			/* comment at end of line.  */
+			if (c == '\n')
+				tokadd(c);
+			break;
+		}
+		if (c == '\n') {
+			tokadd(c);
+			sourceline++;
+			do {
+				c = nextc(false);
+				if (c == '\n') {
+					sourceline++;
+					tokadd(c);
+				}
+			} while (isspace(c) && c != END_FILE);
+			if (c == END_FILE)
+				break;
+			else if (c != '#') {
+				pushback();
+				sourceline--;
+				break;
+			} else
+				tokadd(c);
+		} else
+			break;
+	}
+	comment = bcalloc(Op_comment, 1, sl);
+	comment->source_file = source;
+	comment->memory = make_str_node(tokstart, tok - tokstart, 0);
+	comment->memory->comment_type = flag;
+
+	return c;
+}
+
+/* split_comment --- split initial comment text into program and function parts */
+
+static void
+split_comment(void)
+{
+	char *p;
+	int l;
+	NODE *n;
+
+	p = comment->memory->stptr;
+	l = comment->memory->stlen - 3;
+	/* have at least two comments so split at last blank line (\n\n)  */
+	while (l >= 0) {
+		if (p[l] == '\n' && p[l+1] == '\n') {
+			function_comment = comment;
+			n = function_comment->memory;
+			function_comment->memory = make_str_node(p + l + 2, n->stlen - l - 2, 0);
+			/* create program comment  */
+			program_comment = bcalloc(Op_comment, 1, sourceline);
+			program_comment->source_file = comment->source_file;
+			p[l + 2] = 0;
+			program_comment->memory = make_str_node(p, l + 2, 0);
+			comment = NULL;
+			freenode(n);
+			break;
+		}
+		else
+			l--;
+	}
+}
 
 /* allow_newline --- allow newline after &&, ||, ? and : */
 
@@ -2904,8 +3083,13 @@ allow_newline(void)
 			break;
 		}
 		if (c == '#') {
-			while ((c = nextc(false)) != '\n' && c != END_FILE)
-				continue;
+			if (do_pretty_print && ! do_profile) {
+			/* collect comment byte code iff doing pretty print but not profiling.  */
+				c = get_comment(EOL_COMMENT);
+			} else {
+				while ((c = nextc(false)) != '\n' && c != END_FILE)
+					continue;
+			}
 			if (c == END_FILE) {
 				pushback();
 				break;
@@ -2928,7 +3112,8 @@ allow_newline(void)
  * removes the warnings.
  */
 
-static int newline_eof()
+static int
+newline_eof()
 {
 	/* NB: a newline at end does not start a source line. */
 	if (lasttok != NEWLINE) {
@@ -2975,7 +3160,7 @@ yylex(void)
 	if (lasttok == LEX_EOF)		/* error earlier in current source, must give up !! */
 		return 0;
 
-	c = nextc(true);
+	c = nextc(! want_regexp);
 	if (c == END_SRC)
 		return 0;
 	if (c == END_FILE)
@@ -3017,30 +3202,31 @@ yylex(void)
 		want_regexp = false;
 		tok = tokstart;
 		for (;;) {
-			c = nextc(true);
+			c = nextc(false);
 
 			if (gawk_mb_cur_max == 1 || nextc_is_1stbyte) switch (c) {
 			case '[':
 				/* one day check for `.' and `=' too */
-				if (nextc(true) == ':' || in_brack == 0)
+				if (nextc(false) == ':' || in_brack == 0)
 					in_brack++;
 				pushback();
 				break;
 			case ']':
-				if (tokstart[0] == '['
-				    && (tok == tokstart + 1
-					|| (tok == tokstart + 2
-					    && tokstart[1] == '^')))
+				if (tok[-1] == '['
+				    || (tok[-2] == '[' && tok[-1] == '^'))
 					/* do nothing */;
 				else
 					in_brack--;
 				break;
 			case '\\':
-				if ((c = nextc(true)) == END_FILE) {
+				if ((c = nextc(false)) == END_FILE) {
 					pushback();
 					yyerror(_("unterminated regexp ends with `\\' at end of file"));
 					goto end_regexp; /* kludge */
-				} else if (c == '\n') {
+				}
+				if (c == '\r')	/* allow MS-DOS files. bleah */
+					c = nextc(true);
+				if (c == '\n') {
 					sourceline++;
 					continue;
 				} else {
@@ -3093,9 +3279,7 @@ retry:
 	thisline = NULL;
 	tok = tokstart;
 
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max == 1 || nextc_is_1stbyte)
-#endif
 	switch (c) {
 	case END_SRC:
 		return 0;
@@ -3108,20 +3292,35 @@ retry:
 		return lasttok = NEWLINE;
 
 	case '#':		/* it's a comment */
-		while ((c = nextc(false)) != '\n') {
+		if (do_pretty_print && ! do_profile) {
+			/*
+			 * Collect comment byte code iff doing pretty print
+			 * but not profiling.
+			 */
+			if (lasttok == NEWLINE || lasttok == 0)
+				c = get_comment(FULL_COMMENT);
+			else
+				c = get_comment(EOL_COMMENT);
+
 			if (c == END_FILE)
 				return lasttok = NEWLINE_EOF;
+		} else {
+			while ((c = nextc(false)) != '\n') {
+				if (c == END_FILE)
+					return lasttok = NEWLINE_EOF;
+			}
 		}
 		sourceline++;
 		return lasttok = NEWLINE;
 
 	case '@':
+		at_seen = true;
 		return lasttok = '@';
 
 	case '\\':
 #ifdef RELAXED_CONTINUATION
 		/*
-		 * This code puports to allow comments and/or whitespace
+		 * This code purports to allow comments and/or whitespace
 		 * after the `\' at the end of a line used for continuation.
 		 * Use it at your own risk. We think it's a bad idea, which
 		 * is why it's not on by default.
@@ -3138,9 +3337,13 @@ retry:
 					lintwarn(
 		_("use of `\\ #...' line continuation is not portable"));
 				}
-				while ((c = nextc(false)) != '\n')
-					if (c == END_FILE)
-						break;
+				if (do_pretty_print && ! do_profile)
+					c = get_comment(EOL_COMMENT);
+				else {
+					while ((c = nextc(false)) != '\n')
+						if (c == END_FILE)
+							break;
+				}
 			}
 			pushback();
 		}
@@ -3237,7 +3440,7 @@ retry:
 		return lasttok = '*';
 
 	case '/':
-		if (nextc(true) == '=') {
+		if (nextc(false) == '=') {
 			pushback();
 			return lasttok = SLASH_BEFORE_EQUAL;
 		}
@@ -3352,14 +3555,18 @@ retry:
 				lastline = sourceline;
 			return lasttok = c;
 		}
-		did_newline++;
+		did_newline = true;
 		--lexptr;	/* pick up } next time */
 		return lasttok = NEWLINE;
 
 	case '"':
 	string:
 		esc_seen = false;
-		while ((c = nextc(true)) != '"') {
+		/*
+		 * Allow any kind of junk in quoted string,
+		 * so pass false to nextc().
+		 */
+		while ((c = nextc(false)) != '"') {
 			if (c == '\n') {
 				pushback();
 				yyerror(_("unterminated string"));
@@ -3368,6 +3575,8 @@ retry:
 			if ((gawk_mb_cur_max == 1 || nextc_is_1stbyte) &&
 			    c == '\\') {
 				c = nextc(true);
+				if (c == '\r')	/* allow MS-DOS files. bleah */
+					c = nextc(true);
 				if (c == '\n') {
 					sourceline++;
 					continue;
@@ -4152,6 +4361,14 @@ mk_function(INSTRUCTION *fi, INSTRUCTION *def)
 			(t + 1)->tail_call = true;
 	}
 
+	/* add any pre-function comment to start of action for profile.c  */
+
+	if (function_comment != NULL) {
+		function_comment->source_line = 0;
+		(void) list_prepend(def, function_comment);
+		function_comment = NULL;
+	}
+
 	/* add an implicit return at end;
 	 * also used by 'return' command in debugger
 	 */
@@ -4194,7 +4411,7 @@ install_function(char *fname, INSTRUCTION *fi, INSTRUCTION *plist)
 	int pcount = 0;
 
 	r = lookup(fname);
-	if (r != NULL || is_deferred_variable(fname)) {
+	if (r != NULL) {
 		error_ln(fi->source_line, _("function name `%s' previously defined"), fname);
 		return -1;
 	}
@@ -4387,50 +4604,6 @@ param_sanity(INSTRUCTION *arglist)
 	}
 }
 
-/* deferred variables --- those that are only defined if needed. */
-
-/*
- * Is there any reason to use a hash table for deferred variables?  At the
- * moment, there are only 1 to 3 such variables, so it may not be worth
- * the overhead.  If more modules start using this facility, it should
- * probably be converted into a hash table.
- */
-
-static struct deferred_variable {
-	NODE *(*load_func)(void);
-	struct deferred_variable *next;
-	char name[1];	/* variable-length array */
-} *deferred_variables;
-
-/* register_deferred_variable --- add a var name and loading function to the list */
-
-void
-register_deferred_variable(const char *name, NODE *(*load_func)(void))
-{
-	struct deferred_variable *dv;
-	size_t sl = strlen(name);
-
-	emalloc(dv, struct deferred_variable *, sizeof(*dv)+sl,
-		"register_deferred_variable");
-	dv->load_func = load_func;
-	dv->next = deferred_variables;
-	memcpy(dv->name, name, sl+1);
-	deferred_variables = dv;
-}
-
-/* is_deferred_variable --- check if NAME is a deferred variable */
-
-static bool
-is_deferred_variable(const char *name)
-{
-	struct deferred_variable *dv;
-	for (dv = deferred_variables; dv != NULL; dv = dv->next)
-		if (strcmp(name, dv->name) == 0)
-			return true;
-	return false;
-}
-
-
 /* variable --- make sure NAME is in the symbol table */
 
 NODE *
@@ -4442,47 +4615,17 @@ variable(int location, char *name, NODETYPE type)
 		if (r->type == Node_func || r->type == Node_ext_func )
 			error_ln(location, _("function `%s' called with space between name and `(',\nor used as a variable or an array"),
 				r->vname);
-		if (r == symbol_table)
-			symtab_used = true;
 	} else {
 		/* not found */
-		struct deferred_variable *dv;
-
-		for (dv = deferred_variables; true; dv = dv->next) {
-			if (dv == NULL) {
-				/*
-				 * This is the only case in which we may not free the string.
-				 */
-				return install_symbol(name, type);
-			}
-			if (strcmp(name, dv->name) == 0) {
-				r = (*dv->load_func)();
-				break;
-			}
-		}
+		return install_symbol(name, type);
 	}
 	efree(name);
 	return r;
 }
 
-/* process_deferred --- if the program uses SYMTAB, load deferred variables */
-
-static void
-process_deferred()
-{
-	struct deferred_variable *dv;
-
-	if (! symtab_used)
-		return;
-
-	for (dv = deferred_variables; dv != NULL; dv = dv->next) {
-		(void) dv->load_func();
-	}
-}
-
 /* make_regnode --- make a regular expression node */
 
-static NODE *
+NODE *
 make_regnode(int type, NODE *exp)
 {
 	NODE *n;
@@ -4817,7 +4960,11 @@ append_rule(INSTRUCTION *pattern, INSTRUCTION *action)
 		(rp + 1)->lasti = action->lasti;
 		(rp + 2)->first_line = pattern->source_line;
 		(rp + 2)->last_line = lastline;
-		ip = list_prepend(action, rp);
+		if (block_comment != NULL) {
+			ip = list_prepend(list_prepend(action, block_comment), rp);
+			block_comment = NULL;
+		} else
+			ip = list_prepend(action, rp);
 
 	} else {
 		rp = bcalloc(Op_rule, 3, 0);
@@ -4859,7 +5006,6 @@ append_rule(INSTRUCTION *pattern, INSTRUCTION *action)
 						action),
 					tp);
 		}
-
 	}
 
 	list_append(rule_list, rp + 1);
@@ -5523,8 +5669,20 @@ lookup_builtin(const char *name)
 {
 	int mid = check_special(name);
 
-	if (mid == -1 || tokentab[mid].class != LEX_BUILTIN)
+	if (mid == -1)
 		return NULL;
+
+	switch (tokentab[mid].class) {
+	case LEX_BUILTIN:
+	case LEX_LENGTH:
+		break;
+	default:
+		return NULL;
+	}
+
+	/* And another special case... */
+	if (tokentab[mid].value == Op_sub_builtin)
+		return (builtin_func_t) do_sub;
 
 	return tokentab[mid].ptr;
 }
@@ -5535,11 +5693,20 @@ void
 install_builtins(void)
 {
 	int i, j;
+	int flags_that_must_be_clear = DEBUG_USE;
+
+	if (do_traditional)
+		flags_that_must_be_clear |= GAWKX;
+
+	if (do_posix)
+		flags_that_must_be_clear |= NOT_POSIX;
+
 
 	j = sizeof(tokentab) / sizeof(tokentab[0]);
 	for (i = 0; i < j; i++) {
-		if (    tokentab[i].class == LEX_BUILTIN
-		    && (tokentab[i].flags & DEBUG_USE) == 0) {
+		if (   (tokentab[i].class == LEX_BUILTIN
+		        || tokentab[i].class == LEX_LENGTH)
+		    && (tokentab[i].flags & flags_that_must_be_clear) == 0) {
 			(void) install_symbol(tokentab[i].operator, Node_builtin_func);
 		}
 	}
@@ -5552,6 +5719,16 @@ install_builtins(void)
  */
 
 /* is_alpha --- return true if c is an English letter */
+
+/*
+ * The scene of the murder was grisly to look upon.  When the inspector
+ * arrived, the sergeant turned to him and said, "Another programmer stabbed
+ * in the back. He never knew what happened."
+ * 
+ * The inspector replied, "Looks like the MO of isalpha, and his even meaner
+ * big brother, isalnum. The Locale brothers."  The sergeant merely
+ * shuddered in horror.
+ */
 
 bool
 is_alpha(int c)

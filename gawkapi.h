@@ -263,7 +263,7 @@ typedef struct awk_two_way_processor {
 /* Current version of the API. */
 enum {
 	GAWK_API_MAJOR_VERSION = 1,
-	GAWK_API_MINOR_VERSION = 1
+	GAWK_API_MINOR_VERSION = 2
 };
 
 /* A number of typedefs related to different types of values. */
@@ -504,7 +504,7 @@ typedef struct gawk_api {
 					  awk_value_t *result);
 
 	/*
-	 * Convert a paramter that was undefined into an array
+	 * Convert a parameter that was undefined into an array
 	 * (provide call-by-reference for arrays).  Returns false
 	 * if count is too big, or if the argument's type is
 	 * not undefined.
@@ -674,6 +674,39 @@ typedef struct gawk_api {
 	void *(*api_calloc)(size_t nmemb, size_t size);
 	void *(*api_realloc)(void *ptr, size_t size);
 	void (*api_free)(void *ptr);
+
+        /*
+	 * Look up a file.  If the name is NULL or name_len is 0, it returns
+	 * data for the currently open input file corresponding to FILENAME
+	 * (and it will not access the filetype argument, so that may be
+	 * undefined).  
+	 * If the file is not already open, it tries to open it.
+	 * The "filetype" argument should be one of:
+	 *    ">", ">>", "<", "|>", "|<", and "|&"
+	 * If the file is not already open, and the fd argument is non-negative,
+	 * gawk will use that file descriptor instead of opening the file
+	 * in the usual way.  If the fd is non-negative, but the file exists
+	 * already, gawk ignores the fd and returns the existing file.  It is
+	 * the caller's responsibility to notice that the fd in the returned
+	 * awk_input_buf_t does not match the requested value.  Note that
+	 * supplying a file descriptor is currently NOT supported for pipes.
+	 * It should work for input, output, append, and two-way (coprocess)
+	 * sockets.  If the filetype is two-way, we assume that it is a socket!
+	 * Note that in the two-way case, the input and output file descriptors
+	 * may differ.  To check for success, one must check that either of
+	 * them matches.
+	 */
+	awk_bool_t (*api_get_file)(awk_ext_id_t id,
+			const char *name,
+			size_t name_len,
+			const char *filetype,
+			int fd,
+			/*
+			 * Return values (on success, one or both should
+			 * be non-NULL):
+			 */
+			const awk_input_buf_t **ibufp,
+			const awk_output_buf_t **obufp);
 } gawk_api_t;
 
 #ifndef GAWK	/* these are not for the gawk code itself! */
@@ -755,6 +788,9 @@ typedef struct gawk_api {
 
 #define release_value(value) \
 	(api->api_release_value(ext_id, value))
+
+#define get_file(name, namelen, filetype, fd, ibuf, obuf) \
+	(api->api_get_file(ext_id, name, namelen, filetype, fd, ibuf, obuf))
 
 #define register_ext_version(version) \
 	(api->api_register_ext_version(ext_id, version))
@@ -846,7 +882,7 @@ make_number(double num, awk_value_t *result)
 extern int dl_load(const gawk_api_t *const api_p, awk_ext_id_t id);
 
 #if 0
-/* Boiler plate code: */
+/* Boilerplate code: */
 int plugin_is_GPL_compatible;
 
 static gawk_api_t *const api;
@@ -865,17 +901,17 @@ static awk_bool_t (*init_func)(void) = NULL;
 /* OR: */
 
 static awk_bool_t
-init_my_module(void)
+init_my_extension(void)
 {
 	...
 }
 
-static awk_bool_t (*init_func)(void) = init_my_module;
+static awk_bool_t (*init_func)(void) = init_my_extension;
 
 dl_load_func(func_table, some_name, "name_space_in_quotes")
 #endif
 
-#define dl_load_func(func_table, module, name_space) \
+#define dl_load_func(func_table, extension, name_space) \
 int dl_load(const gawk_api_t *const api_p, awk_ext_id_t id)  \
 { \
 	size_t i, j; \
@@ -886,7 +922,7 @@ int dl_load(const gawk_api_t *const api_p, awk_ext_id_t id)  \
 \
 	if (api->major_version != GAWK_API_MAJOR_VERSION \
 	    || api->minor_version < GAWK_API_MINOR_VERSION) { \
-		fprintf(stderr, #module ": version mismatch with gawk!\n"); \
+		fprintf(stderr, #extension ": version mismatch with gawk!\n"); \
 		fprintf(stderr, "\tmy version (%d, %d), gawk version (%d, %d)\n", \
 			GAWK_API_MAJOR_VERSION, GAWK_API_MINOR_VERSION, \
 			api->major_version, api->minor_version); \
@@ -898,7 +934,7 @@ int dl_load(const gawk_api_t *const api_p, awk_ext_id_t id)  \
 		if (func_table[i].name == NULL) \
 			break; \
 		if (! add_ext_func(name_space, & func_table[i])) { \
-			warning(ext_id, #module ": could not add %s\n", \
+			warning(ext_id, #extension ": could not add %s\n", \
 					func_table[i].name); \
 			errors++; \
 		} \
@@ -906,7 +942,7 @@ int dl_load(const gawk_api_t *const api_p, awk_ext_id_t id)  \
 \
 	if (init_func != NULL) { \
 		if (! init_func()) { \
-			warning(ext_id, #module ": initialization function failed\n"); \
+			warning(ext_id, #extension ": initialization function failed\n"); \
 			errors++; \
 		} \
 	} \

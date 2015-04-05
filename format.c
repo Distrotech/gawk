@@ -37,7 +37,6 @@ char zero_string[] = "0";
 static size_t
 mbc_byte_count(const char *ptr, size_t numchars)
 {
-#if MBS_SUPPORT
 	mbstate_t cur_state;
 	size_t sum = 0;
 	int mb_len;
@@ -58,9 +57,6 @@ mbc_byte_count(const char *ptr, size_t numchars)
 	}
 
 	return sum;
-#else
-	return numchars;
-#endif
 }
 
 /* mbc_char_count --- return number of m.b. chars in string, up to numbytes bytes */
@@ -68,7 +64,6 @@ mbc_byte_count(const char *ptr, size_t numchars)
 static size_t
 mbc_char_count(const char *ptr, size_t numbytes)
 {
-#if MBS_SUPPORT
 	mbstate_t cur_state;
 	size_t sum = 0;
 	int mb_len;
@@ -91,9 +86,6 @@ mbc_char_count(const char *ptr, size_t numbytes)
 	}
 
 	return sum;
-#else
-	return numbytes;
-#endif
 }
 
 
@@ -593,7 +585,6 @@ check_pos:
 				(void) force_number(arg);
 			if ((arg->flags & NUMBER) != 0) {
 				uval = get_number_uj(arg);
-#if MBS_SUPPORT
 				if (gawk_mb_cur_max > 1) {
 					char buf[100];
 					wchar_t wc;
@@ -634,7 +625,6 @@ out0:
 				;
 				/* else,
 					fall through */
-#endif
 				CPBUF[0] = uval;
 				spec.prec = 1;
 				cp = CPBUF;
@@ -648,7 +638,6 @@ out0:
 			 */
 			cp = arg->stptr;
 			spec.prec = 1;
-#if MBS_SUPPORT
 			/*
 			 * First character can be multiple bytes if
 			 * it's a multibyte character. Grr.
@@ -666,7 +655,6 @@ out0:
 						spec.fw += count - 1;
 				}
 			}
-#endif
 			goto pr_tail;
 		case 's':
 			need_format = false;
