@@ -23,7 +23,19 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
-
+#define UNFIELD(l, r) \
+{ \
+	/* if was a field, turn it into a var */ \
+	if ((r->flags & FIELD) == 0) { \
+		l = r; \
+	} else if (r->valref == 1) { \
+		r->flags &= ~FIELD; \
+		l = r; \
+	} else { \
+		l = dupnode(r); \
+		DEREF(r); \
+	} \
+}
 int
 r_interpret(INSTRUCTION *code)
 {
@@ -340,7 +352,12 @@ uninitialized_scalar:
 			lhs = r_get_field(t1, (Func_ptr *) 0, true);
 			decr_sp();
 			DEREF(t1);
-			r = dupnode(*lhs);     /* can't use UPREF here */
+			/* only for $0, up ref count */
+			if (*lhs == fields_arr[0]) {
+				r = *lhs;
+				UPREF(r);
+			} else
+				r = dupnode(*lhs);
 			PUSH(r);
 			break;
 
@@ -565,7 +582,8 @@ DEREF(t2); REPLACE(r)
 			}
 
 			unref(*lhs);
-			*lhs = POP_SCALAR();
+			r = POP_SCALAR();
+			UNFIELD(*lhs, r);
 
 			/* execute post-assignment routine if any */
 			if (t1->astore != NULL)
@@ -583,11 +601,12 @@ DEREF(t2); REPLACE(r)
 			lhs = get_lhs(pc->memory, false);
 			unref(*lhs);
 			r = pc->initval;	/* constant initializer */
-			if (r == NULL)
-				*lhs = POP_SCALAR();
-			else {
+			if (r != NULL) {
 				UPREF(r);
 				*lhs = r;
+			} else {
+				r = POP_SCALAR();
+				UNFIELD(*lhs, r);
 			}
 			break;
 
@@ -603,7 +622,8 @@ DEREF(t2); REPLACE(r)
 			decr_sp();
 			DEREF(t1);
 			unref(*lhs);
-			*lhs = POP_SCALAR();
+			r = POP_SCALAR();
+			UNFIELD(*lhs, r);
 			assert(assign != NULL);
 			assign();
 		}
@@ -629,7 +649,6 @@ DEREF(t2); REPLACE(r)
 				t1->stptr[nlen] = '\0';
 				t1->flags &= ~(NUMCUR|NUMBER|NUMINT);
 
-#if MBS_SUPPORT
 				if ((t1->flags & WSTRCUR) != 0 && (t2->flags & WSTRCUR) != 0) {
 					size_t wlen = t1->wstlen + t2->wstlen;
 
@@ -641,7 +660,6 @@ DEREF(t2); REPLACE(r)
 					t1->flags |= WSTRCUR;
 				} else
 					free_wstr(*lhs);
-#endif
 			} else {
 				size_t nlen = t1->stlen + t2->stlen;  
 				char *p;
@@ -659,8 +677,8 @@ DEREF(t2); REPLACE(r)
 			lhs = POP_ADDRESS();
 			r = TOP_SCALAR();
 			unref(*lhs);
-			*lhs = r;
 			UPREF(r);
+			UNFIELD(*lhs, r);
 			REPLACE(r);
 			break;
 
@@ -982,7 +1000,15 @@ match_re:
 				assert(the_func != NULL);
 
 				/* call it */
-				r = the_func(arg_count);
+				if (the_func == (builtin_func_t) do_sub)
+					r = call_sub(t1->stptr, arg_count);
+				else if (the_func == do_match)
+					r = call_match(arg_count);
+				else if (the_func == do_split || the_func == do_patsplit)
+					r = call_split_func(t1->stptr, arg_count);
+				else
+					r = the_func(arg_count);
+
 				PUSH(r);
 				break;
 			} else if (f->type != Node_func) {
@@ -1229,17 +1255,18 @@ match_re:
 				fatal(_("`exit' cannot be called in the current context"));
 
 			exiting = true;
-			t1 = POP_NUMBER();
-			exit_val = (int) get_number_si(t1);
-			DEREF(t1);
+			if ((t1 = POP_NUMBER()) != Nnull_string) {
+				exit_val = (int) get_number_si(t1);
 #ifdef VMS
-			if (exit_val == 0)
-				exit_val = EXIT_SUCCESS;
-			else if (exit_val == 1)
-				exit_val = EXIT_FAILURE;
-			/* else
-				just pass anything else on through */
+				if (exit_val == 0)
+					exit_val = EXIT_SUCCESS;
+				else if (exit_val == 1)
+					exit_val = EXIT_FAILURE;
+				/* else
+					just pass anything else on through */
 #endif
+			}
+			DEREF(t1);
 
 			if (currule == BEGINFILE || currule == ENDFILE) {
 
@@ -1324,6 +1351,7 @@ match_re:
 		case Op_K_if:
 		case Op_K_else:
 		case Op_cond_exp:
+		case Op_comment:
 			break;
 
 		default:

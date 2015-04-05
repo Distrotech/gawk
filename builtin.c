@@ -3,7 +3,7 @@
  */
 
 /* 
- * Copyright (C) 1986, 1988, 1989, 1991-2014 the Free Software Foundation, Inc.
+ * Copyright (C) 1986, 1988, 1989, 1991-2015 the Free Software Foundation, Inc.
  * 
  * This file is part of GAWK, the GNU implementation of the
  * AWK Programming Language.
@@ -111,10 +111,14 @@ wrerror:
 	if (fp == stdout && errno == EPIPE)
 		gawk_exit(EXIT_FATAL);
 
+
 	/* otherwise die verbosely */
-	fatal(_("%s to \"%s\" failed (%s)"), from,
-		rp ? rp->value : _("standard output"),
-		errno ? strerror(errno) : _("reason unknown"));
+	if ((rp != NULL) ? is_non_fatal_redirect(rp->value) : is_non_fatal_std(fp))
+		update_ERRNO_int(errno);
+	else
+		fatal(_("%s to \"%s\" failed (%s)"), from,
+			rp ? rp->value : _("standard output"),
+			errno ? strerror(errno) : _("reason unknown"));
 }
 
 
@@ -210,7 +214,6 @@ do_fflush(int nargs)
 	return make_number((AWKNUM) status);
 }
 
-#if MBS_SUPPORT
 /* strncasecmpmbs --- like strncasecmp (multibyte string version)  */
 
 int
@@ -290,14 +293,6 @@ index_multibyte_buffer(char* src, char* dest, int len)
 		dest[idx] = mbclen;
     }
 }
-#else
-/* a dummy function */
-static void
-index_multibyte_buffer(char* src ATTRIBUTE_UNUSED, char* dest ATTRIBUTE_UNUSED, int len ATTRIBUTE_UNUSED)
-{
-	cant_happen();
-}
-#endif
 
 /* do_index --- find index of a string */
 
@@ -308,7 +303,6 @@ do_index(int nargs)
 	const char *p1, *p2;
 	size_t l1, l2;
 	long ret;
-#if MBS_SUPPORT
 	bool do_single_byte = false;
 	mbstate_t mbs1, mbs2;
 
@@ -316,7 +310,6 @@ do_index(int nargs)
 		memset(& mbs1, 0, sizeof(mbstate_t));
 		memset(& mbs2, 0, sizeof(mbstate_t));
 	}
-#endif
 
 	POP_TWO_SCALARS(s1, s2);
 
@@ -346,7 +339,6 @@ do_index(int nargs)
 		goto out;
 	}
 
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1) {
 		s1 = force_wstring(s1);
 		s2 = force_wstring(s2);
@@ -357,14 +349,12 @@ do_index(int nargs)
 		do_single_byte = ((s1->wstlen == 0 && s1->stlen > 0) 
 					|| (s2->wstlen == 0 && s2->stlen > 0));
 	}
-#endif
 
 	/* IGNORECASE will already be false if posix */
 	if (IGNORECASE) {
 		while (l1 > 0) {
 			if (l2 > l1)
 				break;
-#if MBS_SUPPORT
 			if (! do_single_byte && gawk_mb_cur_max > 1) {
 				const wchar_t *pos;
 
@@ -375,21 +365,18 @@ do_index(int nargs)
 					ret = pos - s1->wstptr + 1;	/* 1-based */
 				goto out;
 			} else {
-#endif
-			/*
-			 * Could use tolower(*p1) == tolower(*p2) here.
-			 * See discussion in eval.c as to why not.
-			 */
-			if (casetable[(unsigned char)*p1] == casetable[(unsigned char)*p2]
-			    && (l2 == 1 || strncasecmp(p1, p2, l2) == 0)) {
-				ret = 1 + s1->stlen - l1;
-				break;
+				/*
+				 * Could use tolower(*p1) == tolower(*p2) here.
+				 * See discussion in eval.c as to why not.
+				 */
+				if (casetable[(unsigned char)*p1] == casetable[(unsigned char)*p2]
+				    && (l2 == 1 || strncasecmp(p1, p2, l2) == 0)) {
+					ret = 1 + s1->stlen - l1;
+					break;
+				}
+				l1--;
+				p1++;
 			}
-			l1--;
-			p1++;
-#if MBS_SUPPORT
-			}
-#endif
 		}
 	} else {
 		while (l1 > 0) {
@@ -400,7 +387,6 @@ do_index(int nargs)
 				ret = 1 + s1->stlen - l1;
 				break;
 			}
-#if MBS_SUPPORT
 			if (! do_single_byte && gawk_mb_cur_max > 1) {
 				const wchar_t *pos;
 
@@ -414,10 +400,6 @@ do_index(int nargs)
 				l1--;
 				p1++;
 			}
-#else
-			l1--;
-			p1++;
-#endif
 		}
 	}
 out:
@@ -466,6 +448,9 @@ do_length(int nargs)
 		 * Support for deferred loading of array elements requires that
 		 * we use the array length interface even though it isn't 
 		 * necessary for the built-in array types.
+		 *
+		 * 1/2015: The deferred arrays are gone, but this is probably
+		 * still a good idea.
 		 */
 
 		size = assoc_length(tmp);
@@ -478,7 +463,6 @@ do_length(int nargs)
 		lintwarn(_("length: received non-string argument"));
 	tmp = force_string(tmp);
 
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1) {
 		tmp = force_wstring(tmp);
 		len = tmp->wstlen;
@@ -489,7 +473,6 @@ do_length(int nargs)
 		 if (len == 0 && tmp->stlen > 0)
 			 len = tmp->stlen;
 	} else
-#endif
 		len = tmp->stlen;
 
 	DEREF(tmp);
@@ -546,7 +529,7 @@ do_printf(int nargs, int redirtype)
 	FILE *fp = NULL;
 	NODE *tmp;
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	NODE *redir_exp = NULL;
 
 	if (nargs == 0) {
@@ -557,7 +540,7 @@ do_printf(int nargs, int redirtype)
 				redir_exp = TOP();
 				if (redir_exp->type != Node_val)
 					fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-				rp = redirect(redir_exp, redirtype, & errflg);
+				rp = redirect(redir_exp, redirtype, & errflg, true);
 				DEREF(redir_exp);
 				decr_sp();
 			}
@@ -570,9 +553,13 @@ do_printf(int nargs, int redirtype)
 		redir_exp = PEEK(nargs);
 		if (redir_exp->type != Node_val)
 			fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, true);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg) {
+			update_ERRNO_int(errflg);
+			return;
+		}
 	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
 	else
@@ -671,13 +658,11 @@ do_substr(int nargs)
 	if (nargs == 2) {	/* third arg. missing */
 		/* use remainder of string */
 		length = t1->stlen - indx;	/* default to bytes */
-#if MBS_SUPPORT
 		if (gawk_mb_cur_max > 1) {
 			t1 = force_wstring(t1);
 			if (t1->wstlen > 0)	/* use length of wide char string if we have one */
 				length = t1->wstlen - indx;
 		}
-#endif
 		d_length = length;	/* set here in case used in diagnostics, below */
 	}
 
@@ -690,12 +675,10 @@ do_substr(int nargs)
 	}
 
 	/* get total len of input string, for following checks */
-#if MBS_SUPPORT
 	if (gawk_mb_cur_max > 1) {
 		t1 = force_wstring(t1);
 		src_len = t1->wstlen;
 	} else
-#endif
 		src_len = t1->stlen;
 
 	if (indx >= src_len) {
@@ -713,7 +696,6 @@ do_substr(int nargs)
 		length = src_len - indx;
 	}
 
-#if MBS_SUPPORT
 	/* force_wstring() already called */
 	if (gawk_mb_cur_max == 1 || t1->wstlen == t1->stlen)
 		/* single byte case */
@@ -743,9 +725,6 @@ do_substr(int nargs)
 		*cp = '\0';
 		r = make_str_node(substr, cp - substr, ALREADY_MALLOCED);
 	}
-#else
-	r = make_string(t1->stptr + indx, length);
-#endif
 
 finish:
 	if (t3 != NULL)
@@ -977,7 +956,7 @@ void
 do_print(int nargs, int redirtype)
 {
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	FILE *fp = NULL;
 	int i;
 	NODE *redir_exp = NULL;
@@ -989,9 +968,13 @@ do_print(int nargs, int redirtype)
 		redir_exp = PEEK(nargs);
 		if (redir_exp->type != Node_val)
 			fatal(_("attempt to use array `%s' in a scalar context"), array_vname(redir_exp));
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, true);
 		if (rp != NULL)
 			fp = rp->output.fp;
+		else if (errflg) {
+			update_ERRNO_int(errflg);
+			return;
+		}
 	} else if (do_debug)	/* only the debugger can change the default output */
 		fp = output_fp;
 	else
@@ -1047,19 +1030,24 @@ do_print_rec(int nargs, int redirtype)
 	FILE *fp = NULL;
 	NODE *f0;
 	struct redirect *rp = NULL;
-	int errflg;	/* not used, sigh */
+	int errflg = 0;
 	NODE *redir_exp = NULL;
 
 	assert(nargs == 0);
 	if (redirtype != 0) {
 		redir_exp = TOP();
-		rp = redirect(redir_exp, redirtype, & errflg);
+		rp = redirect(redir_exp, redirtype, & errflg, true);
 		if (rp != NULL)
 			fp = rp->output.fp;
 		DEREF(redir_exp);
 		decr_sp();
 	} else
 		fp = output_fp;
+
+	if (errflg) {
+		update_ERRNO_int(errflg);
+		return;
+	}
 
 	if (fp == NULL)
 		return;
@@ -1081,7 +1069,6 @@ do_print_rec(int nargs, int redirtype)
 		rp->output.gawk_fflush(rp->output.fp, rp->output.opaque);
 }
 
-#if MBS_SUPPORT
 
 /* is_wupper --- function version of iswupper for passing function pointers */
 
@@ -1146,7 +1133,6 @@ wide_tolower(wchar_t *wstr, size_t wlen)
 {
 	wide_change_case(wstr, wlen, is_wupper, to_wlower);
 }
-#endif
 
 /* do_tolower --- lower case a string */
 
@@ -1169,14 +1155,11 @@ do_tolower(int nargs)
 			cp < cp2; cp++)
 			if (isupper(*cp))
 				*cp = tolower(*cp);
-	}
-#if MBS_SUPPORT
-	else {
+	} else {
 		force_wstring(t2);
 		wide_tolower(t2->wstptr, t2->wstlen);
 		wstr2str(t2);
 	}
-#endif
 
 	DEREF(t1);
 	return t2;
@@ -1203,14 +1186,11 @@ do_toupper(int nargs)
 			cp < cp2; cp++)
 			if (islower(*cp))
 				*cp = toupper(*cp);
-	}
-#if MBS_SUPPORT
-	else {
+	} else {
 		force_wstring(t2);
 		wide_toupper(t2->wstptr, t2->wstlen);
 		wstr2str(t2);
 	}
-#endif
 
 	DEREF(t1);
 	return t2;
@@ -1252,13 +1232,12 @@ do_match(int nargs)
 		size_t *wc_indices = NULL;
 
 		rlength = REEND(rp, t1->stptr) - RESTART(rp, t1->stptr);	/* byte length */
-#if MBS_SUPPORT
 		if (rlength > 0 && gawk_mb_cur_max > 1) {
 			t1 = str2wstr(t1, & wc_indices);
 			rlength = wc_indices[rstart + rlength - 1] - wc_indices[rstart] + 1;
 			rstart = wc_indices[rstart];
 		}
-#endif
+
 		rstart++;	/* now it's 1-based indexing */
 	
 		/* Build the array only if the caller wants the optional subpatterns */
@@ -1280,12 +1259,10 @@ do_match(int nargs)
 					start = t1->stptr + s;
 					subpat_start = s;
 					subpat_len = len = SUBPATEND(rp, t1->stptr, ii) - s;
-#if MBS_SUPPORT
 					if (len > 0 && gawk_mb_cur_max > 1) {
 						subpat_start = wc_indices[s];
 						subpat_len = wc_indices[s + len - 1] - subpat_start + 1;
 					}
-#endif
 	
 					it = make_string(start, len);
 					it->flags |= MAYBE_NUM;	/* user input */
@@ -1504,6 +1481,8 @@ do_sub(int nargs, unsigned int flags)
 				if ((t1->flags & NUMCUR) != 0)
 					goto set_how_many;
 
+				warning(_("gensub: third argument `%.*s' treated as 1"),
+						(int) t1->stlen, t1->stptr);
 				how_many = 1;
 			}
 		} else {
@@ -1516,8 +1495,8 @@ set_how_many:
 				how_many = d;
 			else
 				how_many = LONG_MAX;
-			if (d == 0)
-				warning(_("gensub: third argument of 0 treated as 1"));
+			if (d <= 0)
+				warning(_("gensub: third argument %g treated as 1"), d);
 		}
 		DEREF(t1);
 
@@ -1794,6 +1773,146 @@ done:
 	return make_number((AWKNUM) matches);
 }
 
+/* call_sub --- call do_sub indirectly */
+
+NODE *
+call_sub(const char *name, int nargs)
+{
+	unsigned int flags = 0;
+	NODE *regex, *replace, *glob_flag;
+	NODE **lhs, *rhs;
+	NODE *zero = make_number(0.0);
+	NODE *result;
+
+	if (name[0] == 'g') {
+		if (name[1] == 'e')
+			flags = GENSUB;
+		else
+			flags = GSUB;
+	}
+
+	if (flags == 0 || flags == GSUB) {
+		/* sub or gsub */
+		if (nargs != 2)
+			fatal(_("%s: can be called indirectly only with two arguments"), name);
+
+		replace = POP_STRING();
+		regex = POP();	/* the regex */
+		/*
+		 * push regex
+		 * push replace
+		 * push $0
+		 */
+		regex = make_regnode(Node_regex, regex);
+		PUSH(regex);
+		PUSH(replace);
+		lhs = r_get_field(zero, (Func_ptr *) 0, true);
+		nargs++;
+		PUSH_ADDRESS(lhs);
+	} else {
+		/* gensub */
+		if (nargs == 4)
+			rhs = POP();
+		else
+			rhs = NULL;
+		glob_flag = POP_STRING();
+		replace = POP_STRING();
+		regex = POP();	/* the regex */
+		/*
+		 * push regex
+		 * push replace
+		 * push glob_flag
+		 * if (nargs = 3) {
+		 *	 push $0
+		 *	 nargs++
+		 * }
+		 */
+		regex = make_regnode(Node_regex, regex);
+		PUSH(regex);
+		PUSH(replace);
+		PUSH(glob_flag);
+		if (rhs == NULL) {
+			lhs = r_get_field(zero, (Func_ptr *) 0, true);
+			rhs = *lhs;
+			UPREF(rhs);
+			PUSH(rhs);
+			nargs++;
+		}
+		PUSH(rhs);
+	}
+
+
+	unref(zero);
+	result = do_sub(nargs, flags);
+	if (flags != GENSUB)
+		reset_record();
+	return result;
+}
+
+/* call_match --- call do_match indirectly */
+
+NODE *
+call_match(int nargs)
+{
+	NODE *regex, *text, *array;
+	NODE *result;
+
+	regex = text = array = NULL;
+	if (nargs == 3)
+		array = POP();
+	regex = POP();
+
+	/* Don't need to pop the string just to push it back ... */
+
+	regex = make_regnode(Node_regex, regex);
+	PUSH(regex);
+
+	if (array)
+		PUSH(array);
+
+	result = do_match(nargs);
+	return result;
+}
+
+/* call_split_func --- call do_split or do_pat_split indirectly */
+
+NODE *
+call_split_func(const char *name, int nargs)
+{
+	NODE *regex, *seps;
+	NODE *result;
+
+	regex = seps = NULL;
+	if (nargs < 2)
+		fatal(_("indirect call to %s requires at least two arguments"),
+				name);
+
+	if (nargs == 4)
+		seps = POP();
+
+	if (nargs >= 3) {
+		regex = POP_STRING();
+		regex = make_regnode(Node_regex, regex);
+	} else {
+		if (name[0] == 's') {
+			regex = make_regnode(Node_regex, FS_node->var_value);
+			regex->re_flags |= FS_DFLT;
+		} else
+			regex = make_regnode(Node_regex, FPAT_node->var_value);
+		nargs++;
+	}
+
+	/* Don't need to pop the string or the data array */
+
+	PUSH(regex);
+
+	if (seps)
+		PUSH(seps);
+
+	result = (name[0] == 's') ? do_split(nargs) : do_patsplit(nargs);
+
+	return result;
+}
 
 /* do_dcgettext, do_dcngettext --- handle i18n translations */
 

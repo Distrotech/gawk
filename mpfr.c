@@ -84,9 +84,9 @@ static NODE *do_mpfp_and(int);
 static NODE *do_mpfp_atan2(int);
 static NODE *do_mpfp_compl(int);
 static NODE *do_mpfp_cos(int);
-static NODE *do_mpfp_div(int);
 static NODE *do_mpfp_exp(int);
 static NODE *do_mpfp_int(int);
+static NODE *do_mpfp_intdiv(int);
 static NODE *do_mpfp_log(int);
 static NODE *do_mpfp_lshift(int);
 static NODE *do_mpfp_or(int);
@@ -199,9 +199,9 @@ mpfp_init(bltin_t **numbr_bltins)
 		{ "atan2",	do_mpfp_atan2 },
 		{ "compl",	do_mpfp_compl },
 		{ "cos",	do_mpfp_cos },
-		{ "div",	do_mpfp_div },
 		{ "exp",	do_mpfp_exp },
 		{ "int",	do_mpfp_int },
+		{ "intdiv",	do_mpfp_intdiv },
 		{ "log",	do_mpfp_log },
 		{ "lshift",	do_mpfp_lshift },
 		{ "or",		do_mpfp_or },
@@ -359,10 +359,8 @@ mpfp_make_node(unsigned int type)
 	r->flags |= (MALLOC|NUMBER|NUMCUR);
 	r->stptr = NULL;
 	r->stlen = 0;
-#if MBS_SUPPORT
 	r->wstptr = NULL;
 	r->wstlen = 0;
-#endif /* defined MBS_SUPPORT */
 	return r;
 }
 
@@ -1529,7 +1527,7 @@ do_mpfp_srand(int nargs)
 	return res;
 }
 
-/* do_mpfp_div --- do integer division, return quotient and remainder in dest array */
+/* do_mpfp_intdiv --- do integer division, return quotient and remainder in dest array */
 
 /*
  * We define the semantics as:
@@ -1540,7 +1538,7 @@ do_mpfp_srand(int nargs)
  */
 
 static NODE *
-do_mpfp_div(int nargs)
+do_mpfp_intdiv(int nargs)
 {
 	NODE *numerator, *denominator, *result;
 	NODE *num, *denom;
@@ -1549,7 +1547,7 @@ do_mpfp_div(int nargs)
 
 	result = POP_PARAM();
 	if (result->type != Node_var_array)
-		fatal(_("div: third argument is not an array"));
+		fatal(_("intdiv: third argument is not an array"));
 	assoc_clear(result);
 
 	denominator = POP_SCALAR();
@@ -1557,9 +1555,9 @@ do_mpfp_div(int nargs)
 
 	if (do_lint) {
 		if ((numerator->flags & (NUMCUR|NUMBER)) == 0)
-			lintwarn(_("div: received non-numeric first argument"));
+			lintwarn(_("intdiv: received non-numeric first argument"));
 		if ((denominator->flags & (NUMCUR|NUMBER)) == 0)
-			lintwarn(_("div: received non-numeric second argument"));
+			lintwarn(_("intdiv: received non-numeric second argument"));
 	}
 
 	(void) force_number(numerator);
@@ -1593,7 +1591,7 @@ do_mpfp_div(int nargs)
 	}
 
 	if (mpz_sgn(MPZ_T(denom->qnumbr)) == 0)
-		fatal(_("div: division by zero attempted"));
+		fatal(_("intdiv: division by zero attempted"));
 
 	quotient = mpfp_integer();
 	remainder = mpfp_integer();

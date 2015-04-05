@@ -3976,6 +3976,7 @@ print_instruction(INSTRUCTION *pc, Func_print print_func, FILE *fp, int in_dump)
 	case Op_match:
 	case Op_nomatch:
 	case Op_assign_concat:
+	case Op_comment:
 		print_memory(pc->memory, func, print_func, fp);
 		/* fall through */
 	default:

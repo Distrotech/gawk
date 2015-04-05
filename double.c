@@ -141,7 +141,7 @@ awknum_init(bltin_t **numbr_bltins)
 		{ "atan2",	do_atan2 },
 		{ "compl",	do_compl },
 		{ "cos",	do_cos },
-		{ "div",	do_div },
+		{ "div",	do_intdiv },
 		{ "exp",	do_exp },
 		{ "int",	do_int },
 		{ "log",	do_log },
@@ -374,10 +374,8 @@ make_awknum(AWKNUM x)
 	r->valref = 1;
 	r->stptr = NULL;
 	r->stlen = 0;
-#if MBS_SUPPORT
 	r->wstptr = NULL;
 	r->wstlen = 0;
-#endif /* defined MBS_SUPPORT */
 	return r;
 }
 
@@ -1341,7 +1339,7 @@ do_strtonum(int nargs)
 	return make_awknum(d);
 }
 
-/* do_div --- do integer division, return quotient and remainder in dest array */
+/* do_intdiv --- do integer division, return quotient and remainder in dest array */
 
 /*
  * We define the semantics as:
@@ -1352,7 +1350,7 @@ do_strtonum(int nargs)
  */
 
 NODE *
-do_div(int nargs)
+do_intdiv(int nargs)
 {
 	NODE *numerator, *denominator, *result;
 	double num, denom, quotient, remainder;
@@ -1360,7 +1358,7 @@ do_div(int nargs)
 
 	result = POP_PARAM();
 	if (result->type != Node_var_array)
-		fatal(_("div: third argument is not an array"));
+		fatal(_("intdiv: third argument is not an array"));
 	assoc_clear(result);
 
 	denominator = POP_SCALAR();
@@ -1368,9 +1366,9 @@ do_div(int nargs)
 
 	if (do_lint) {
 		if ((numerator->flags & (NUMCUR|NUMBER)) == 0)
-			lintwarn(_("div: received non-numeric first argument"));
+			lintwarn(_("intdiv: received non-numeric first argument"));
 		if ((denominator->flags & (NUMCUR|NUMBER)) == 0)
-			lintwarn(_("div: received non-numeric second argument"));
+			lintwarn(_("intdiv: received non-numeric second argument"));
 	}
 
 	(void) force_number(numerator);

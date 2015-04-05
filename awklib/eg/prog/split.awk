@@ -22,7 +22,7 @@ BEGIN {
     }
     # test argv in case reading from stdin instead of file
     if (i in ARGV)
-        i++    # skip data file name
+        i++    # skip datafile name
     if (i in ARGV) {
         outfile = ARGV[i]
         ARGV[i] = ""
@@ -50,9 +50,8 @@ BEGIN {
     }
     print > out
 }
-function usage(   e)
+function usage()
 {
-    e = "usage: split [-num] [file] [outname]"
-    print e > "/dev/stderr"
+    print("usage: split [-num] [file] [outname]") > "/dev/stderr"
     exit 1
 }
