@@ -1,0 +1,11 @@
+Sun Apr  5 13:15:09 IDT 2015
+============================
+
+This branch is an attempt to generalize number handling in gawk.
+John Haque had it pretty much working when he abandoned the gawk project
+in December 2012 and I have been carrying it forward since.
+
+However, keeping it in sync with master is getting increasingly hard. For
+example, not all the tests pass at this point, and I don't feel like
+trying to make them do so, since it doesn't look like I will ever merge
+this branch in.
