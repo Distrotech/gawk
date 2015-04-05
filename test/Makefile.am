@@ -214,6 +214,9 @@ EXTRA_DIST = \
 	dynlj.ok \
 	eofsplit.awk \
 	eofsplit.ok \
+	errno.awk \
+	errno.in \
+	errno.ok \
 	exit.ok \
 	exit.sh \
 	exit2.awk \
@@ -223,6 +226,8 @@ EXTRA_DIST = \
 	exitval2.awk \
 	exitval2.ok \
 	exitval2.w32 \
+	exitval3.awk \
+	exitval3.ok \
 	fcall_exit.awk \
 	fcall_exit.ok \
 	fcall_exit2.awk \
@@ -342,6 +347,8 @@ EXTRA_DIST = \
 	gensub.ok \
 	gensub2.awk \
 	gensub2.ok \
+	getfile.awk \
+	getfile.ok \
 	getline.awk \
 	getline.in \
 	getline.ok \
@@ -431,6 +438,8 @@ EXTRA_DIST = \
 	include.awk \
 	include.ok \
 	include2.ok \
+	indirectbuiltin.awk \
+	indirectbuiltin.ok \
 	indirectcall.awk \
 	indirectcall.in \
 	indirectcall.ok \
@@ -950,6 +959,8 @@ EXTRA_DIST = \
 	testext.ok \
 	time.awk \
 	time.ok \
+	timeout.awk \
+	timeout.ok \
 	tradanch.awk \
 	tradanch.in \
 	tradanch.ok \
@@ -1013,7 +1024,7 @@ BASIC_TESTS = \
 	callparam childin clobber closebad clsflnam compare compare2 concat1 concat2 \
 	concat3 concat4 convfmt \
 	datanonl defref delargv delarpm2 delarprm delfunc dfamb1 dfastress dynlj \
-	eofsplit exit2 exitval1 exitval2 \
+	eofsplit exit2 exitval1 exitval2 exitval3 \
 	fcall_exit fcall_exit2 fldchg fldchgnf fnamedat fnarray fnarray2 \
 	fnaryscl fnasgnm fnmisc fordel forref forsimp fsbs fsrs fsspcoln \
 	fstabplus funsemnl funsmnam funstack \
@@ -1049,13 +1060,13 @@ UNIX_TESTS = \
 GAWK_EXT_TESTS = \
 	aadelete1 aadelete2 aarray1 aasort aasorti argtest arraysort \
 	backw badargs beginfile1 beginfile2 binmode1 charasbytes \
-	colonwarn clos1way crlf dbugeval delsub devfd devfd1 devfd2 dumpvars exit \
+	colonwarn clos1way crlf dbugeval delsub devfd devfd1 devfd2 dumpvars errno exit \
 	fieldwdth fpat1 fpat2 fpat3 fpat4 fpatnull fsfwfs funlen \
 	functab1 functab2 functab3 fwtest fwtest2 fwtest3 \
 	genpot gensub gensub2 getlndir gnuops2 gnuops3 gnureops \
 	icasefs icasers id igncdym igncfs ignrcas2 ignrcase \
 	incdupe incdupe2 incdupe3 incdupe4 incdupe5 incdupe6 incdupe7 \
-	include include2 indirectcall indirectcall2 \
+	include include2 indirectbuiltin indirectcall indirectcall2 \
 	lint lintold lintwarn \
 	manyfiles match1 match2 match3 mbstr1 \
 	nastyparm next nondec nondec2 \
@@ -1067,7 +1078,8 @@ GAWK_EXT_TESTS = \
 	rsstart2 rsstart3 rstest6 shadow sortfor sortu split_after_fpat \
 	splitarg4 strftime \
 	strtonum switch2 symtab1 symtab2 symtab3 symtab4 symtab5 symtab6 \
-	symtab7 symtab8 symtab9
+	symtab7 symtab8 symtab9 \
+	timeout
 
 EXTRA_TESTS = inftest regtest
 
@@ -1085,7 +1097,7 @@ LOCALE_CHARSET_TESTS = \
 
 SHLIB_TESTS = \
 	assignconst \
-	fnmatch filefuncs fork fork2 fts functab4 inplace1 inplace2 inplace3 \
+	fnmatch filefuncs fork fork2 fts functab4 getfile inplace1 inplace2 inplace3 \
 	ordchr ordchr2 readdir readfile readfile2 revout revtwoway rwarray testext time
 
 # List of the tests which should be run with --lint option:
@@ -1342,6 +1354,11 @@ litoct::
 devfd::
 	@echo $@
 	@$(AWK) 1 /dev/fd/4 /dev/fd/5 4<"$(srcdir)"/devfd.in4 5<"$(srcdir)"/devfd.in5 >_$@ 2>&1 || echo EXIT CODE: $$? >> _$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
+
+errno:
+	@echo $@
+	@AWKPATH="$(srcdir)" $(AWK) -f $@.awk "$(srcdir)"/$@.in >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
 	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
 
 fflush::
@@ -1945,6 +1962,11 @@ assignconst:
 	done 2>&1 | grep -v at_exit > _$@
 	@rm -f 15
 	@-$(CMP) $(srcdir)/$@.ok _$@ && rm -f _$@
+
+getfile:
+	@echo $@
+	@$(AWK) -v TESTEXT_QUIET=1 -ltestext -f $(srcdir)/$@.awk $(srcdir)/$@.awk >_$@ 2>&1 || echo EXIT CODE: $$? >>_$@
+	@-$(CMP) "$(srcdir)"/$@.ok _$@ && rm -f _$@
 
 readdir:
 	@if [ "`uname`" = Linux ] && [ "`stat -f . 2>/dev/null | awk 'NR == 2 { print $$NF }'`" = nfs ];  then \
