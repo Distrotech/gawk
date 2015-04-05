@@ -1,5 +1,9 @@
 2015-04-05         Arnold D. Robbins     <arnold@skeeve.com>
 
+	* gawkapi.h (GAWK_API_MINOR_VERSION): Bump up to 3.
+
+2015-04-05         Arnold D. Robbins     <arnold@skeeve.com>
+
 	* awkgram.y (install_builtins): If do_traditional is true, do not
 	install gawk extensions flagged with GAWKX.  Similarly, if do_posix
 	is true, do not install functions flagged with NOT_POSIX.
