@@ -113,7 +113,6 @@ static INSTRUCTION *mk_binary(INSTRUCTION *s1, INSTRUCTION *s2, INSTRUCTION *op)
 static INSTRUCTION *mk_boolean(INSTRUCTION *left, INSTRUCTION *right, INSTRUCTION *op);
 static INSTRUCTION *mk_assignment(INSTRUCTION *lhs, INSTRUCTION *rhs, INSTRUCTION *op);
 static INSTRUCTION *mk_getline(INSTRUCTION *op, INSTRUCTION *opt_var, INSTRUCTION *redir, int redirtype);
-static NODE *make_regnode(int type, NODE *exp);
 static int count_expressions(INSTRUCTION **list, bool isarg);
 static INSTRUCTION *optimize_assignment(INSTRUCTION *exp);
 static void add_lint(INSTRUCTION *list, LINTTYPE linttype);
@@ -184,6 +183,7 @@ static INSTRUCTION *ip_atexit = NULL;
 static INSTRUCTION *ip_end;
 static INSTRUCTION *ip_endfile;
 static INSTRUCTION *ip_beginfile;
+INSTRUCTION *main_beginfile;
 
 static INSTRUCTION *comment = NULL;
 static INSTRUCTION *program_comment = NULL;
@@ -4287,7 +4287,6 @@ static const struct token tokentab[] = {
 {"dcngettext",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1)|A(2)|A(3)|A(4)|A(5),	do_dcngettext,	0},
 {"default",	Op_K_default,	 LEX_DEFAULT,	GAWKX,		0,	0},
 {"delete",	Op_K_delete,	 LEX_DELETE,	NOT_OLD,	0,	0},
-{"div",		Op_builtin,	 LEX_BUILTIN,	GAWKX|A(3),	do_div,	MPF(div)},
 {"do",		Op_K_do,	 LEX_DO,	NOT_OLD|BREAK|CONTINUE,	0,	0},
 {"else",	Op_K_else,	 LEX_ELSE,	0,		0,	0},
 {"eval",	Op_symbol,	 LEX_EVAL,	0,		0,	0},
@@ -4308,6 +4307,7 @@ static const struct token tokentab[] = {
 {"include",	Op_symbol,	 LEX_INCLUDE,	GAWKX,	0,	0},
 {"index",	Op_builtin,	 LEX_BUILTIN,	A(2),		do_index,	0},
 {"int",		Op_builtin,	 LEX_BUILTIN,	A(1),		do_int,	MPF(int)},
+{"intdiv",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(3),	do_intdiv,	MPF(intdiv)},
 {"isarray",	Op_builtin,	 LEX_BUILTIN,	GAWKX|A(1),	do_isarray,	0},
 {"length",	Op_builtin,	 LEX_LENGTH,	A(0)|A(1),	do_length,	0},
 {"load",  	Op_symbol,	 LEX_LOAD,	GAWKX,		0,	0},
@@ -4724,7 +4724,7 @@ parse_program(INSTRUCTION **pcode)
 		ip_newfile = ip_rec = ip_atexit = ip_beginfile = ip_endfile = NULL;
 	else {
 		ip_endfile = instruction(Op_no_op);
-		ip_beginfile = instruction(Op_no_op);
+		main_beginfile = ip_beginfile = instruction(Op_no_op);
 		ip_rec = instruction(Op_get_record); /* target for `next', also ip_newfile */
 		ip_newfile = bcalloc(Op_newfile, 2, 0); /* target for `nextfile' */
 		ip_newfile->target_jmp = ip_end;
@@ -6481,9 +6481,9 @@ snode(INSTRUCTION *subn, INSTRUCTION *r)
 		arg = subn->nexti;
 		if (arg->nexti == arg->lasti && arg->nexti->opcode == Op_push)
 			arg->nexti->opcode = Op_push_arg;	/* argument may be array */
-	} else if (r->builtin == do_div
+	} else if (r->builtin == do_intdiv
 #ifdef HAVE_MPFR
-		   || r->builtin == MPF(div)
+		   || r->builtin == MPF(intdiv)
 #endif
 			) {
 		arg = subn->nexti->lasti->nexti->lasti->nexti;	/* 3rd arg list */
@@ -7049,7 +7049,7 @@ variable(int location, char *name, NODETYPE type)
 
 /* make_regnode --- make a regular expression node */
 
-static NODE *
+NODE *
 make_regnode(int type, NODE *exp)
 {
 	NODE *n;
@@ -8205,12 +8205,25 @@ lookup_builtin(const char *name)
 {
 	int mid = check_special(name);
 
-	if (mid == -1 || tokentab[mid].class != LEX_BUILTIN)
+	if (mid == -1)
 		return NULL;
+
+	switch (tokentab[mid].class) {
+	case LEX_BUILTIN:
+	case LEX_LENGTH:
+		break;
+	default:
+		return NULL;
+	}
+
 #ifdef HAVE_MPFR
 	if (do_mpfr)
 		return tokentab[mid].ptr2;
 #endif
+
+	/* And another special case... */
+	if (tokentab[mid].value == Op_sub_builtin)
+		return (builtin_func_t) do_sub;
 
 	return tokentab[mid].ptr;
 }
@@ -8221,11 +8234,20 @@ void
 install_builtins(void)
 {
 	int i, j;
+	int flags_that_must_be_clear = DEBUG_USE;
+
+	if (do_traditional)
+		flags_that_must_be_clear |= GAWKX;
+
+	if (do_posix)
+		flags_that_must_be_clear |= NOT_POSIX;
+
 
 	j = sizeof(tokentab) / sizeof(tokentab[0]);
 	for (i = 0; i < j; i++) {
-		if (    tokentab[i].class == LEX_BUILTIN
-		    && (tokentab[i].flags & DEBUG_USE) == 0) {
+		if (   (tokentab[i].class == LEX_BUILTIN
+		        || tokentab[i].class == LEX_LENGTH)
+		    && (tokentab[i].flags & flags_that_must_be_clear) == 0) {
 			(void) install_symbol(tokentab[i].operator, Node_builtin_func);
 		}
 	}
